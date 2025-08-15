@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    /* KAI Theme - Light Mode - Sage Green & Cream */
+    --background: 45 15% 97%; /* Light cream background */
+    --foreground: 104 20% 25%; /* Dark sage text for contrast */
+    --card: 0 0% 100%; /* White card background */
+    --card-foreground: 104 20% 25%; /* Dark sage text on cards */
+    --popover: 0 0% 100%; /* White popover background */
+    --popover-foreground: 104 20% 25%; /* Dark sage text on popovers */
+    
+    /* Primary - KAI Sage Green */
+    --primary: 104 20% 45%; /* KAI sage green */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
+    
+    /* Secondary - Warm Gold */
+    --secondary: 35 45% 55%; /* Warm gold */
+    --secondary-foreground: 0 0% 100%; /* White text on secondary */
+    
+    /* Muted - Soft colors for less emphasis */
+    --muted: 45 15% 90%; /* Muted cream */
+    --muted-foreground: 104 15% 40%; /* Muted sage text */
+    
+    /* Accent - Gold for highlights */
+    --accent: 35 45% 55%; /* Gold accent */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
+    
+    /* Destructive - For errors and warnings */
+    --destructive: 0 84% 60%; /* Red */
+    --destructive-foreground: 0 0% 98%; /* Light text on destructive */
+    
+    /* UI Elements */
+    --border: 45 15% 85%; /* Light cream border */
+    --input: 45 15% 85%; /* Light cream input border */
+    --ring: 104 20% 45%; /* KAI sage ring */
+    
+    /* Chart Colors */
+    --chart-1: 104 20% 45%; /* KAI sage */
+    --chart-2: 35 45% 55%; /* Warm gold */
+    --chart-3: 174 72% 40%; /* Teal */
+    --chart-4: 220 13% 18%; /* Dark blue */
+    --chart-5: 45 15% 70%; /* Light cream */
+    
+    /* Border Radius */
+    --radius: 1rem; /* Rounded corners for a friendly feel */
+    
+    /* Sidebar */
+    --sidebar-background: 45 15% 97%; /* Light cream sidebar */
+    --sidebar-foreground: 104 20% 30%; /* Dark sage text in sidebar */
+    --sidebar-primary: 104 20% 45%; /* KAI sage for sidebar highlights */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text on sidebar primary */
+    --sidebar-accent: 45 15% 90%; /* Light cream sidebar accent */
+    --sidebar-accent-foreground: 104 20% 30%; /* Dark sage text on sidebar accent */
+    --sidebar-border: 45 15% 85%; /* Light cream sidebar border */
+    --sidebar-ring: 104 20% 45%; /* KAI sage sidebar ring */
+  }
+  
+  .dark {
+    /* KAI Theme - Dark Mode - Sage Green & Cream */
+    --background: 104 20% 10%; /* Dark sage background */
+    --foreground: 45 15% 90%; /* Light cream text for contrast */
+    --card: 104 20% 15%; /* Slightly lighter dark sage card background */
+    --card-foreground: 45 15% 90%; /* Light cream text on cards */
+    --popover: 104 20% 15%; /* Slightly lighter dark sage popover background */
+    --popover-foreground: 45 15% 90%; /* Light cream text on popovers */
+    
+    /* Primary - KAI Sage Green */
+    --primary: 104 20% 60%; /* Brighter KAI sage for dark mode */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
+    
+    /* Secondary - Warm Gold */
+    --secondary: 35 45% 65%; /* Brighter warm gold for dark mode */
+    --secondary-foreground: 0 0% 100%; /* White text on secondary */
+    
+    /* Muted - Soft colors for less emphasis */
+    --muted: 104 15% 25%; /* Muted dark sage */
+    --muted-foreground: 45 15% 70%; /* Muted light cream text */
+    
+    /* Accent - Gold for highlights */
+    --accent: 35 45% 65%; /* Brighter gold accent for dark mode */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
+    
+    /* Destructive - For errors and warnings */
+    --destructive: 0 84% 65%; /* Brighter red for dark mode */
+    --destructive-foreground: 0 0% 98%; /* Light text on destructive */
+    
+    /* UI Elements */
+    --border: 104 15% 30%; /* Dark sage border */
+    --input: 104 15% 30%; /* Dark sage input border */
+    --ring: 104 20% 60%; /* Brighter KAI sage ring for dark mode */
+    
+    /* Chart Colors */
+    --chart-1: 104 20% 60%; /* Brighter KAI sage */
+    --chart-2: 35 45% 65%; /* Brighter warm gold */
+    --chart-3: 174 72% 50%; /* Brighter teal */
+    --chart-4: 220 13% 28%; /* Brighter dark blue */
+    --chart-5: 45 15% 80%; /* Brighter light cream */
+    
+    /* Sidebar */
+    --sidebar-background: 104 20% 15%; /* Dark sage sidebar */
+    --sidebar-foreground: 45 15% 90%; /* Light cream text in sidebar */
+    --sidebar-primary: 104 20% 60%; /* Brighter KAI sage for sidebar highlights */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text on sidebar primary */
+    --sidebar-accent: 104 15% 25%; /* Dark sage sidebar accent */
+    --sidebar-accent-foreground: 45 15% 90%; /* Light cream text on sidebar accent */
+    --sidebar-border: 104 15% 30%; /* Dark sage sidebar border */
+    --sidebar-ring: 104 20% 60%; /* Brighter KAI sage sidebar ring */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
