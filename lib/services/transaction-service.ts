@@ -224,9 +224,7 @@ export const TransactionService = {
     // Format dates for display
     return transactions.map(transaction => ({
       ...transaction,
-      date: typeof transaction.date === 'string' 
-        ? transaction.date 
-        : formatTransactionDate(new Date(transaction.date))
+      date: formatTransactionDate(new Date(transaction.date))
     }));
   },
   
