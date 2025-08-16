@@ -114,12 +114,11 @@ export const designTokens = {
   
   // Gradients
   gradients: {
-    'kai-primary': 'linear-gradient(to right, #ec4899, #a855f7)', // Pink to purple
-    'kai-secondary': 'linear-gradient(to right, #a855f7, #2dd4bf)', // Purple to teal
-    'kai-accent': 'linear-gradient(to right, #ec4899, #ff5555)', // Pink to coral
-    'kai-success': 'linear-gradient(to right, #10b981, #2dd4bf)', // Green to teal
-    'kai-warning': 'linear-gradient(to right, #f59e0b, #ff5555)', // Amber to coral
-    'kai-error': 'linear-gradient(to right, #ef4444, #ff5555)', // Red to coral
+    'kai-primary': 'linear-gradient(to right, #7a8a68, #f5f3f0)', // Primary sage to cream
+    'kai-accent': 'linear-gradient(to right, #d4a574, #f5f3f0)', // Accent gold to cream
+    'kai-success': 'linear-gradient(to right, #7a8a68, #9ca687)', // Sage green tones
+    'kai-warning': 'linear-gradient(to right, #d4a574, #c8924a)', // Warm gold tones
+    'kai-error': 'linear-gradient(to right, #dc2626, #b91c1c)', // Red tones
   },
 };
 
@@ -127,26 +126,26 @@ export const designTokens = {
 export const componentTokens = {
   // Button variants
   button: {
-    primary: 'bg-kai-600 hover:bg-kai-700 text-white rounded-kai-button',
-    secondary: 'bg-kpurple-600 hover:bg-kpurple-700 text-white rounded-kai-button',
-    outline: 'border-2 border-kai-300 text-kai-700 hover:bg-kai-50 rounded-kai-button',
-    ghost: 'text-kai-700 hover:bg-kai-50 rounded-kai-button',
-    link: 'text-kai-600 hover:text-kai-800 underline',
+    primary: 'bg-primary-600 hover:bg-primary-700 text-white rounded-kai-button',
+    secondary: 'bg-secondary-600 hover:bg-secondary-700 text-white rounded-kai-button',
+    outline: 'border-2 border-primary-300 text-primary-700 hover:bg-primary-50 rounded-kai-button',
+    ghost: 'text-primary-700 hover:bg-primary-50 rounded-kai-button',
+    link: 'text-primary-600 hover:text-primary-800 underline',
   },
   
   // Card variants
   card: {
-    default: 'bg-white shadow-kai-sm rounded-kai-card border border-kai-100',
-    elevated: 'bg-white shadow-kai-md rounded-kai-card border border-kai-100',
-    flat: 'bg-kai-50 rounded-kai-card border border-kai-100',
-    gradient: 'bg-gradient-to-br from-white to-kai-50 rounded-kai-card shadow-kai-sm',
+    default: 'bg-white shadow-kai-sm rounded-kai-card border border-primary-100',
+    elevated: 'bg-white shadow-kai-md rounded-kai-card border border-primary-100',
+    flat: 'bg-primary-50 rounded-kai-card border border-primary-100',
+    gradient: 'bg-gradient-to-br from-white to-primary-50 rounded-kai-card shadow-kai-sm',
   },
   
   // Input variants
   input: {
-    default: 'border border-kai-200 rounded-kai-input focus:ring-2 focus:ring-kai-300 focus:border-kai-400',
-    filled: 'bg-kai-50 border border-kai-100 rounded-kai-input focus:ring-2 focus:ring-kai-300',
-    flushed: 'border-b-2 border-kai-200 rounded-none focus:border-kai-400',
+    default: 'border border-primary-200 rounded-kai-input focus:ring-2 focus:ring-primary-300 focus:border-primary-400',
+    filled: 'bg-primary-50 border border-primary-100 rounded-kai-input focus:ring-2 focus:ring-primary-300',
+    flushed: 'border-b-2 border-primary-200 rounded-none focus:border-primary-400',
   },
 };
 
