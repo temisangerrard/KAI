@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
-import { X, Sparkles, TrendingUp, Heart, Star, Trophy, HelpCircle } from "lucide-react"
+import { X, Sparkles, TrendingUp, Heart, Star, Trophy, HelpCircle, Users } from "lucide-react"
 import { TokenRewardAnimation } from "./token-reward-animation"
 import { TransactionService } from "@/lib/services/transaction-service"
 import { useAuth } from "@/app/auth/auth-context"
@@ -31,6 +31,14 @@ export function BackOpinionModal({
   const [showSuccess, setShowSuccess] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const { user, updateUser } = useAuth()
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.classList.add('modal-open')
+    return () => {
+      document.body.classList.remove('modal-open')
+    }
+  }, [])
 
   const handleBackOpinion = async () => {
     if (!user || !selectedOption || !selectedOptionId || isProcessing) return
@@ -140,9 +148,10 @@ export function BackOpinionModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end justify-center p-4 z-50">
-      <Card className="w-full max-w-md bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto relative">
-        {isAnnotated && (
+    <div className="fixed inset-0 bg-black/50 modal-backdrop flex items-end justify-center p-4 z-50 overflow-hidden">
+      <div className="w-full max-w-md max-h-[90vh] flex flex-col modal-content">
+        <Card className="bg-white rounded-t-3xl flex-1 overflow-hidden relative">
+          {isAnnotated && (
           <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-blue-100 text-blue-800 px-4 py-2 rounded-t-lg font-medium text-sm">
             Sample Market - Learn how predictions work
           </div>
@@ -170,7 +179,8 @@ export function BackOpinionModal({
           </div>
         </CardHeader>
 
-        <CardContent className="p-6">
+        <div className="flex-1 overflow-y-auto">
+          <CardContent className="p-6">
           <h3 className="font-semibold text-gray-800 mb-2">{prediction.title}</h3>
           <p className="text-sm text-gray-600 mb-6">{prediction.description}</p>
 
@@ -213,21 +223,22 @@ export function BackOpinionModal({
 
           {selectedOption && (
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-3 relative">
-                {isAnnotated && (
-                  <Annotation 
-                    text="Choose how many tokens to allocate. The more tokens you use, the higher your potential reward if you're correct!"
-                    position="right"
-                  />
-                )}
-                <h4 className="font-medium text-gray-800">How many tokens?</h4>
-                <div className="flex items-center gap-1 text-kai-500">
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-sm font-semibold">{userTokens.toLocaleString()} available</span>
+              {/* Clear Token Amount Display */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-800 text-lg">Token Amount</h4>
+                  <div className="flex items-center gap-1 text-kai-500">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm font-semibold">{userTokens.toLocaleString()} available</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                {/* Large Token Display */}
+                <div className="text-center mb-4">
+                  <div className="text-4xl font-bold text-blue-600 mb-1">{tokenAmount[0]}</div>
+                  <div className="text-sm text-gray-600">tokens to support {selectedOption}</div>
+                </div>
+
                 <Slider
                   value={tokenAmount}
                   onValueChange={setTokenAmount}
@@ -236,38 +247,90 @@ export function BackOpinionModal({
                   step={10}
                   className="mb-4"
                 />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Supporting: {tokenAmount[0]} tokens</span>
-                  <span className="font-semibold text-primary-600">Potential reward: {potentialReward} tokens</span>
+
+                {/* Quick Amount Buttons */}
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {[50, 100, 250, 500].map((amount) => (
+                    <Button
+                      key={amount}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTokenAmount([Math.min(amount, userTokens)])}
+                      className={`text-xs ${tokenAmount[0] === amount ? 'bg-blue-100 border-blue-300' : ''}`}
+                      disabled={amount > userTokens}
+                    >
+                      {amount}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-kai-50 to-kai-50 rounded-xl p-4 mb-6 relative">
-                {isAnnotated && (
-                  <Annotation 
-                    text="This summary shows your prediction. If your opinion is correct when the market resolves, you'll earn tokens!"
-                    position="bottom"
-                  />
-                )}
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-kai-500" />
-                  <span className="text-sm font-medium text-gray-800">Opinion Summary</span>
+              {/* Clear Reward Calculation */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 mb-4 border border-green-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Trophy className="w-5 h-5 text-green-600" />
+                  <h4 className="font-semibold text-gray-800 text-lg">If You're Right</h4>
                 </div>
-                <p className="text-sm text-gray-600">
-                  You're supporting <span className="font-semibold text-primary-600">{selectedOption}</span> in "
-                  {prediction.title}"
-                </p>
-                <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-                  <span>Ends in {prediction.timeLeft}</span>
-                  <span>{prediction.participants.toLocaleString()} participants</span>
+                
+                <div className="text-center mb-3">
+                  <div className="text-3xl font-bold text-green-600 mb-1">+{potentialReward}</div>
+                  <div className="text-sm text-gray-600">tokens you could win</div>
+                </div>
+
+                <div className="bg-white/60 rounded-lg p-3">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Your stake:</span>
+                    <span className="font-medium">{tokenAmount[0]} tokens</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Potential return:</span>
+                    <span className="font-medium text-green-600">+{potentialReward - tokenAmount[0]} tokens</span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-1 mt-2">
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span>Total if correct:</span>
+                      <span className="text-green-600">{potentialReward} tokens</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Market Info */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-800">Market Details</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Participants:</span>
+                    <div className="font-medium">{prediction.participants.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Ends in:</span>
+                    <div className="font-medium">{prediction.timeLeft}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Total staked:</span>
+                    <div className="font-medium">{prediction.totalBacked.toLocaleString()} tokens</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Your choice:</span>
+                    <div className="font-medium text-primary-600">{selectedOption}</div>
+                  </div>
                 </div>
               </div>
 
               <Button
                 onClick={handleBackOpinion}
-                className="w-full bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full py-3 font-semibold"
+                disabled={isProcessing}
+                className="w-full bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full py-4 font-semibold text-lg"
               >
-                Support {selectedOption} with {tokenAmount[0]} tokens ✨
+                {isProcessing ? (
+                  "Processing..."
+                ) : (
+                  `Stake ${tokenAmount[0]} tokens on ${selectedOption} ✨`
+                )}
               </Button>
             </div>
           )}
@@ -276,8 +339,10 @@ export function BackOpinionModal({
             By supporting your opinion, you agree to our community guidelines. Remember, this is about sharing what you
             believe in! 💪
           </p>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </div>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { MarketDetailView } from "./market-detail-view"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, AlertCircle } from "lucide-react"
+import { Navigation } from "../../components/navigation"
 
 export default function MarketDetailPage() {
   const params = useParams()
@@ -102,9 +103,16 @@ export default function MarketDetailPage() {
             </div>
           </Card>
         </div>
+        
+        <Navigation />
       </div>
     )
   }
 
-  return <MarketDetailView market={market} />
+  return (
+    <div>
+      <MarketDetailView market={market} />
+      <Navigation />
+    </div>
+  )
 }

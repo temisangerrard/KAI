@@ -65,14 +65,13 @@ export default function TrendingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-purple-50">
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+      <div className="max-w-4xl md:max-w-6xl mx-auto px-4 py-6 pb-24 md:pb-6 md:pt-8">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center gap-3 mb-6">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => router.back()}
-            className="md:hidden"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -83,6 +82,32 @@ export default function TrendingPage() {
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-sm">
             <Sparkles className="w-4 h-4 text-kai-500" />
             <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden md:block mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="text-2xl font-bold bg-gradient-to-r from-kai-600 to-gold-600 text-transparent bg-clip-text">
+                  KAI
+                </div>
+                <div className="w-1 h-6 bg-gray-300"></div>
+                <h1 className="text-2xl font-bold text-gray-800">Trending Markets</h1>
+              </div>
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="flex items-center gap-2 text-gray-600 hover:text-kai-600 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm">Back to Dashboard</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
+              <Sparkles className="w-5 h-5 text-kai-600" />
+              <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()} tokens</span>
+            </div>
           </div>
         </div>
 

@@ -129,3 +129,76 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Responsive Mobile Accessibility */
+@layer utilities {
+  /* Touch manipulation for better mobile interaction */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .high-contrast-support {
+      border: 2px solid currentColor;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+    
+    .high-contrast-support:focus {
+      outline: 3px solid Highlight;
+      outline-offset: 2px;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .reduced-motion {
+      animation: none;
+      transition: none;
+    }
+  }
+  
+  /* Responsive text scaling */
+  @media (max-width: 640px) {
+    .responsive-text-sm {
+      font-size: 0.75rem;
+      line-height: 1rem;
+    }
+  }
+  
+  @media (min-width: 641px) and (max-width: 768px) {
+    .responsive-text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+  }
+}
+/*
+ Modal scroll lock */
+.modal-open {
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* Improved modal scrolling */
+.modal-content {
+  overscroll-behavior: contain;
+}
+
+/* Smooth animations for modals */
+.modal-backdrop {
+  backdrop-filter: blur(2px);
+}
+
+/* Better mobile modal experience */
+@media (max-width: 768px) {
+  .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

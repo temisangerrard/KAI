@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { TrendingMarkets } from "@/app/components/trending-markets"
 import { getTrendingMarketsWithMetadata } from "../create/market-service"
 import { TrendingMarket } from "@/lib/services/trending-service"
+import { Navigation } from "../../components/navigation"
 
 export default function TrendingMarketsPage() {
   const [trendingMarkets, setTrendingMarkets] = useState<TrendingMarket[]>([])
@@ -37,6 +38,8 @@ export default function TrendingMarketsPage() {
           variant="grid"
         />
       </div>
+      
+      <Navigation />
     </div>
   )
 }

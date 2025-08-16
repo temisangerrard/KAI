@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Sparkles, TrendingUp, Users, MessageCircle, ArrowRight, ArrowLeft, Gift } from "lucide-react"
+import { Sparkles, TrendingUp, Users, MessageCircle, ArrowRight, ArrowLeft, Gift, X } from "lucide-react"
 import { useAuth } from "../auth/auth-context"
 import { useOnboarding } from "../auth/onboarding-context"
 
@@ -192,8 +192,18 @@ export function OnboardingFlow() {
             <div className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-kai-500 text-transparent bg-clip-text">
               KAI
             </div>
-            <div className="text-sm text-gray-500">
-              Step {currentStep} of {totalSteps}
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-gray-500">
+                Step {currentStep} of {totalSteps}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleComplete}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
@@ -224,13 +234,22 @@ export function OnboardingFlow() {
             )}
             
             {currentStep < totalSteps ? (
-              <Button
-                className="flex-1 bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white"
-                onClick={nextStep}
-              >
-                Next
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="flex gap-2 flex-1">
+                <Button
+                  variant="outline"
+                  className="border-gray-200 text-gray-600"
+                  onClick={handleComplete}
+                >
+                  Skip
+                </Button>
+                <Button
+                  className="flex-1 bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white"
+                  onClick={nextStep}
+                >
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             ) : (
               <Button
                 className="flex-1 bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white"

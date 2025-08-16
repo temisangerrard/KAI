@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { MarketDiscoveryHeader } from "./market-discovery-header"
 import { MarketFilters } from "./market-filters"
+import { Navigation } from "../../components/navigation"
 import { MarketGrid } from "./market-grid"
 import { MarketSearch } from "./market-search"
 import { MarketCategoryNav } from "./market-category-nav"
@@ -155,6 +156,8 @@ export default function MarketDiscoveryPage() {
           </div>
         </div>
       </div>
+      
+      <Navigation />
     </div>
   )
 }

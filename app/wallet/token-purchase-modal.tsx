@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -49,6 +49,14 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
     cvv: "",
     name: ""
   })
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.classList.add('modal-open')
+    return () => {
+      document.body.classList.remove('modal-open')
+    }
+  }, [])
 
   // Calculate tokens based on amount (£1 = 100 tokens)
   const calculateTokens = (amount: number): number => {
@@ -481,14 +489,16 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
   )
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end justify-center p-4 z-50">
-      <Card className="w-full max-w-md bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto">
-        {step === 'package' && renderPackageSelection()}
-        {step === 'payment' && renderPaymentSelection()}
-        {step === 'processing' && renderProcessing()}
-        {step === 'success' && renderSuccess()}
-        {step === 'error' && renderError()}
-      </Card>
+    <div className="fixed inset-0 bg-black/50 modal-backdrop flex items-end justify-center p-4 z-50 overflow-hidden">
+      <div className="w-full max-w-md max-h-[90vh] flex flex-col modal-content">
+        <Card className="bg-white rounded-t-3xl flex-1 overflow-y-auto">
+          {step === 'package' && renderPackageSelection()}
+          {step === 'payment' && renderPaymentSelection()}
+          {step === 'processing' && renderProcessing()}
+          {step === 'success' && renderSuccess()}
+          {step === 'error' && renderError()}
+        </Card>
+      </div>
     </div>
   )
 }
