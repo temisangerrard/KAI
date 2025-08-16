@@ -128,7 +128,7 @@ export const componentTokens = {
   // Button variants
   button: {
     primary: 'bg-kai-600 hover:bg-kai-700 text-white rounded-kai-button',
-    secondary: 'bg-kpurple-600 hover:bg-kpurple-700 text-white rounded-kai-button',
+    secondary: 'bg-primary-600 hover:bg-primary-700 text-white rounded-kai-button',
     outline: 'border-2 border-kai-300 text-kai-700 hover:bg-kai-50 rounded-kai-button',
     ghost: 'text-kai-700 hover:bg-kai-50 rounded-kai-button',
     link: 'text-kai-600 hover:text-kai-800 underline',

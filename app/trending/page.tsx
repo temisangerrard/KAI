@@ -46,7 +46,7 @@ export default function TrendingPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-kai-500 text-transparent bg-clip-text mb-4">
             KAI
@@ -64,7 +64,7 @@ export default function TrendingPage() {
     : trendingMarkets.filter(market => market.category === selectedCategory)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
       <div className="max-w-4xl md:max-w-6xl mx-auto px-4 py-6 pb-24 md:pb-6 md:pt-8">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center gap-3 mb-6">
@@ -139,9 +139,9 @@ export default function TrendingPage() {
               <p className="text-xs text-gray-600">Trending Markets</p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-indigo-50">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-primary-50 to-indigo-50">
             <CardContent className="p-4 text-center">
-              <Users className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+              <Users className="w-6 h-6 text-primary-500 mx-auto mb-2" />
               <p className="text-2xl font-bold text-gray-800">
                 {trendingMarkets.reduce((sum, market) => sum + market.participants, 0).toLocaleString()}
               </p>
@@ -213,7 +213,7 @@ export default function TrendingPage() {
                           market.popularityIndicator === 'viral' ? 'bg-gradient-to-r from-red-400 to-kai-600' :
                           market.popularityIndicator === 'hot' ? 'bg-gradient-to-r from-orange-400 to-red-400' :
                           market.popularityIndicator === 'rising' ? 'bg-gradient-to-r from-green-400 to-blue-400' :
-                          'bg-gradient-to-r from-purple-400 to-kai-600'
+                          'bg-gradient-to-r from-primary-400 to-kai-600'
                         }`}>
                           {market.popularityIndicator === 'viral' ? '🔥 Viral' :
                            market.popularityIndicator === 'hot' ? '🔥 Hot' :

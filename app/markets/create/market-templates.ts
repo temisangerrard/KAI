@@ -35,7 +35,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "General",
     options: [
       { name: "Option 1", color: "bg-kai-600" },
-      { name: "Option 2", color: "bg-purple-400" },
+      { name: "Option 2", color: "bg-primary-400" },
       { name: "Option 3", color: "bg-blue-400" }
     ],
     icon: "List"
@@ -47,7 +47,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Entertainment",
     options: [
       { name: "They'll stay together", color: "bg-kai-600" },
-      { name: "They'll break up", color: "bg-purple-400" }
+      { name: "They'll break up", color: "bg-primary-400" }
     ],
     icon: "Heart"
   },
@@ -58,7 +58,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Entertainment",
     options: [
       { name: "Contestant 1", color: "bg-kai-600" },
-      { name: "Contestant 2", color: "bg-purple-400" },
+      { name: "Contestant 2", color: "bg-primary-400" },
       { name: "Contestant 3", color: "bg-blue-400" },
       { name: "Contestant 4", color: "bg-green-400" }
     ],
@@ -71,7 +71,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Fashion",
     options: [
       { name: "It will be huge", color: "bg-kai-600" },
-      { name: "Limited popularity", color: "bg-purple-400" },
+      { name: "Limited popularity", color: "bg-primary-400" },
       { name: "It will flop", color: "bg-red-400" }
     ],
     icon: "Shirt"
@@ -83,7 +83,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Music",
     options: [
       { name: "Within 3 months", color: "bg-kai-600" },
-      { name: "3-6 months", color: "bg-purple-400" },
+      { name: "3-6 months", color: "bg-primary-400" },
       { name: "6-12 months", color: "bg-blue-400" },
       { name: "More than a year", color: "bg-green-400" }
     ],
@@ -109,7 +109,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Social Media",
     options: [
       { name: "Within a month", color: "bg-kai-600" },
-      { name: "1-3 months", color: "bg-purple-400" },
+      { name: "1-3 months", color: "bg-primary-400" },
       { name: "3-6 months", color: "bg-blue-400" },
       { name: "More than 6 months", color: "bg-green-400" }
     ],
@@ -122,7 +122,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Entertainment",
     options: [
       { name: "Nominee 1", color: "bg-kai-600" },
-      { name: "Nominee 2", color: "bg-purple-400" },
+      { name: "Nominee 2", color: "bg-primary-400" },
       { name: "Nominee 3", color: "bg-blue-400" },
       { name: "Dark horse winner", color: "bg-green-400" }
     ],
@@ -135,7 +135,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Celebrity",
     options: [
       { name: "They'll get engaged", color: "bg-kai-600" },
-      { name: "They'll stay together", color: "bg-purple-400" },
+      { name: "They'll stay together", color: "bg-primary-400" },
       { name: "They'll break up", color: "bg-red-400" }
     ],
     icon: "Heart"
@@ -173,7 +173,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Fashion",
     options: [
       { name: "Next big thing", color: "bg-kai-600" },
-      { name: "Niche popularity", color: "bg-purple-400" },
+      { name: "Niche popularity", color: "bg-primary-400" },
       { name: "Short-lived fad", color: "bg-orange-400" }
     ],
     icon: "Sparkles"
