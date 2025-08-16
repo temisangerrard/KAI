@@ -78,5 +78,39 @@
         <li>✅ Semantic HTML structure</li>
         <li>✅ Keyboard navigation support</li>
     </ul>
+    <script>
+        function luminance(r, g, b) {
+            const a = [r, g, b].map(v => {
+                v /= 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+        }
+
+        function contrast(rgb1, rgb2) {
+            const l1 = luminance(...rgb1);
+            const l2 = luminance(...rgb2);
+            const bright = Math.max(l1, l2);
+            const dark = Math.min(l1, l2);
+            return (bright + 0.05) / (dark + 0.05);
+        }
+
+        function parseRGB(str) {
+            return str.match(/\d+/g).slice(0, 3).map(Number);
+        }
+
+        document.querySelectorAll('.color-test').forEach(el => {
+            const style = getComputedStyle(el);
+            const fg = parseRGB(style.color);
+            const bg = parseRGB(style.backgroundColor);
+            const ratio = contrast(fg, bg);
+            const pass = ratio >= 4.5;
+            const info = el.querySelector('.contrast-info');
+            if (info) {
+                info.textContent = `Contrast ratio: ${ratio.toFixed(2)} - ${pass ? 'PASS' : 'FAIL'}`;
+            }
+            console.log(`${el.querySelector('strong').textContent}: ${ratio.toFixed(2)} - ${pass ? 'PASS' : 'FAIL'}`);
+        });
+    </script>
 </body>
 </html>
