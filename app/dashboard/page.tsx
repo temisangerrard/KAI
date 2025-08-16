@@ -75,13 +75,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-secondary-50 to-primary-100">
 
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="min-h-screen pb-20">
           {/* Mobile Header */}
-          <div className="bg-gradient-to-r from-kai-500 via-purple-500 to-gold-500 p-4 text-white">
+          <div className="bg-gradient-to-r from-primary-600 via-accent-500 to-primary-500 p-4 text-white">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 border-2 border-white/30">
