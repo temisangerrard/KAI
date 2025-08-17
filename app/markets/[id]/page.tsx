@@ -46,6 +46,7 @@ export default function MarketDetailPage() {
 
   if (isLoading) {
     return (
+
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="animate-pulse">
@@ -61,6 +62,7 @@ export default function MarketDetailPage() {
 
   if (error || !market) {
     return (
+
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <Button

@@ -70,6 +70,7 @@ export function truncateText(text: string, maxLength: number): string {
  */
 export function randomKaiColor(): string {
   const colors = ['kai', 'primary', 'coral', 'kteal']
+
   const shades = [300, 400, 500, 600]
   
   const randomColor = colors[Math.floor(Math.random() * colors.length)]

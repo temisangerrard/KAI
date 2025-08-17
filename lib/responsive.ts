@@ -58,11 +58,35 @@ export const responsiveSpacing = {
   xl: 1.5,  // 1.5x spacing on extra large screens
 }
 
-// Helper function to get a responsive value based on breakpoint
-export function getResponsiveValue<T>(values: Partial<Record<keyof typeof breakpoints, T>>, defaultValue: T): T {
-  // This is a placeholder - in a real implementation, this would use
-  // window.innerWidth to determine the current breakpoint and return
-  // the appropriate value. For SSR compatibility, this needs to be used
-  // within a useEffect or similar client-side hook.
-  return defaultValue;
+/**
+ * Get a value for the current viewport width.
+ *
+ * The function determines the active breakpoint using `window.innerWidth`
+ * and the `breakpoints` map above. It returns the corresponding entry from
+ * the provided `values` object or falls back to `defaultValue` when no value
+ * is defined. If `window` is not available (e.g. during SSR) the
+ * `defaultValue` is returned.
+ */
+export function getResponsiveValue<T>(
+  values: Partial<Record<keyof typeof breakpoints, T>>,
+  defaultValue: T,
+): T {
+  if (typeof window === 'undefined') {
+    return defaultValue
+  }
+
+  const width = window.innerWidth
+  const sorted = Object.entries(breakpoints).sort((a, b) => a[1] - b[1]) as [
+    keyof typeof breakpoints,
+    number,
+  ][]
+
+  let active: keyof typeof breakpoints = sorted[0][0]
+  for (const [key, bp] of sorted) {
+    if (width >= bp) {
+      active = key
+    }
+  }
+
+  return values[active] ?? defaultValue
 }

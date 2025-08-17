@@ -66,7 +66,9 @@ export function MarketDetailView({ market }: MarketDetailViewProps) {
   // Get trending indicator
   const getTrendingIndicator = (market: Market) => {
     if (market.participants >= 400) {
+
       return { icon: <Zap className="h-4 w-4" />, label: "Viral", className: "bg-primary-100 text-primary-700 border-primary-200" }
+
     } else if (market.totalTokens >= 20000) {
       return { icon: <Flame className="h-4 w-4" />, label: "Hot", className: "bg-red-100 text-red-700 border-red-200" }
     } else if (market.participants >= 200) {
@@ -104,7 +106,9 @@ export function MarketDetailView({ market }: MarketDetailViewProps) {
   }
 
   return (
+
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Back button */}
         <Button

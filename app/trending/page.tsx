@@ -65,6 +65,7 @@ export default function TrendingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+
       <div className="max-w-4xl md:max-w-6xl mx-auto px-4 py-6 pb-24 md:pb-6 md:pt-8">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center gap-3 mb-6">
@@ -213,7 +214,9 @@ export default function TrendingPage() {
                           market.popularityIndicator === 'viral' ? 'bg-gradient-to-r from-red-400 to-kai-600' :
                           market.popularityIndicator === 'hot' ? 'bg-gradient-to-r from-orange-400 to-red-400' :
                           market.popularityIndicator === 'rising' ? 'bg-gradient-to-r from-green-400 to-blue-400' :
-                          'bg-gradient-to-r from-primary-400 to-kai-600'
+
+                          'bg-gradient-to-r from-kai-400 to-kai-600'
+
                         }`}>
                           {market.popularityIndicator === 'viral' ? '🔥 Viral' :
                            market.popularityIndicator === 'hot' ? '🔥 Hot' :

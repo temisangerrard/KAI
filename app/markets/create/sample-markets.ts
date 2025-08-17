@@ -40,6 +40,7 @@ export const sampleMarkets: Market[] = [
     category: "Music",
     options: [
       { id: "option_3_1", name: "Yes, within 3 months", percentage: 30, tokens: 1800, color: "bg-kai-600" },
+
       { id: "option_3_2", name: "Yes, but later this year", percentage: 45, tokens: 2700, color: "bg-primary-400" },
       { id: "option_3_3", name: "No announcement this year", percentage: 25, tokens: 1500, color: "bg-blue-400" }
     ],
@@ -58,6 +59,7 @@ export const sampleMarkets: Market[] = [
       { id: "option_4_1", name: "Y2K Revival", percentage: 40, tokens: 3600, color: "bg-kai-600" },
       { id: "option_4_2", name: "Sustainable Fashion", percentage: 35, tokens: 3150, color: "bg-green-400" },
       { id: "option_4_3", name: "Maximalism", percentage: 25, tokens: 2250, color: "bg-primary-400" }
+
     ],
     startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
     endDate: new Date(Date.now() + 80 * 24 * 60 * 60 * 1000), // 80 days from now
@@ -120,7 +122,9 @@ export const sampleMarkets: Market[] = [
     category: "Social Media",
     options: [
       { id: "option_8_1", name: "TikTok", percentage: 45, tokens: 4500, color: "bg-kai-600" },
+
       { id: "option_8_2", name: "Instagram", percentage: 30, tokens: 3000, color: "bg-primary-400" },
+
       { id: "option_8_3", name: "Twitter/X", percentage: 15, tokens: 1500, color: "bg-blue-400" },
       { id: "option_8_4", name: "BeReal", percentage: 10, tokens: 1000, color: "bg-green-400" }
     ],

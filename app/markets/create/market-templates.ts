@@ -58,6 +58,7 @@ export const marketTemplates: MarketTemplate[] = [
     category: "Entertainment",
     options: [
       { name: "Contestant 1", color: "bg-kai-600" },
+
       { name: "Contestant 2", color: "bg-primary-400" },
       { name: "Contestant 3", color: "bg-blue-400" },
       { name: "Contestant 4", color: "bg-green-400" }

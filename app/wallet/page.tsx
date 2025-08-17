@@ -87,8 +87,8 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
-      
+
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50"> 
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="max-w-md mx-auto bg-white min-h-screen pb-20">
@@ -170,10 +170,12 @@ export default function WalletPage() {
                 <p className="text-xs font-medium text-gray-700">Withdraw</p>
               </CardContent>
             </Card>
+
             <Card className="border-0 shadow-sm bg-gradient-to-br from-primary-50 to-kai-50">
               <CardContent className="p-4 text-center">
                 <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <Sparkles className="w-5 h-5 text-primary-600" />
+
                 </div>
                 <p className="text-xs font-medium text-gray-700">Rewards</p>
               </CardContent>
@@ -437,15 +439,16 @@ export default function WalletPage() {
                 </Button>
                 
                 <Button 
-                  className="w-full justify-start bg-primary-50 text-primary-700 hover:bg-primary-100 border-primary-200 h-14"
+                  className="w-full justify-start bg-kai-50 text-kai-700 hover:bg-kai-100 border-kai-200 h-14"
                   variant="outline"
                 >
-                  <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
-                    <Gift className="w-5 h-5 text-primary-600" />
+                  <div className="w-10 h-10 bg-kai-100 rounded-lg flex items-center justify-center mr-3">
+                    <Gift className="w-5 h-5 text-kai-600" />
                   </div>
                   <div className="text-left">
                     <p className="font-semibold">View Rewards</p>
-                    <p className="text-xs text-primary-600">Check your bonuses</p>
+                    <p className="text-xs text-kai-600">Check your bonuses</p>
+
                   </div>
                 </Button>
               </div>

@@ -239,6 +239,7 @@ export function TrendingMarkets({
                 
                 {/* Category and growth rate */}
                 <div className="flex flex-wrap gap-2 mb-3">
+
                   <Badge variant="secondary" className="bg-primary-100 text-primary-700 hover:bg-primary-200 text-xs">
                     {market.category}
                   </Badge>

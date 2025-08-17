@@ -17,9 +17,9 @@ const mockPredictions = [
     title: "Who will be the fan favorite on BBNaija All Stars?",
     description: "The ultimate showdown is here! Which housemate has captured viewers' hearts?",
     options: [
-      { name: "Mercy", percentage: 45, tokens: 12500, color: "bg-kai-600" },
-      { name: "Tacha", percentage: 35, tokens: 9800, color: "bg-primary-400" },
-      { name: "Nengi", percentage: 20, tokens: 5600, color: "bg-blue-400" },
+      { name: "Dede", percentage: 45, tokens: 12500, color: "bg-kai-600" },
+      { name: "Kuture", percentage: 35, tokens: 9800, color: "bg-primary-400" },
+      { name: "Capy", percentage: 20, tokens: 5600, color: "bg-blue-400" },
     ],
     category: "BBNaija",
     vibeScore: 98,
@@ -75,12 +75,14 @@ export default function DashboardPage() {
   }
 
   return (
+
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
 
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="min-h-screen pb-20">
           {/* Mobile Header */}
+
           <div className="bg-gradient-to-r from-kai-500 via-primary-500 to-gold-500 p-4 text-white">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -408,6 +410,7 @@ export default function DashboardPage() {
                                   {prediction.category}
                                 </Badge>
                                 {prediction.trending && (
+
                                   <Badge className="bg-gradient-to-r from-kai-600 to-primary-400 text-white text-xs">
                                     Trending
                                   </Badge>

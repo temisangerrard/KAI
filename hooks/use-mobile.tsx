@@ -40,8 +40,8 @@ export function useDeviceType() {
     const updateDeviceType = () => {
       const width = window.innerWidth
       setDeviceType({
-        isMobile: width < breakpoints.sm,
-        isTablet: width >= breakpoints.sm && width < breakpoints.lg,
+        isMobile: width < breakpoints.md,
+        isTablet: width >= breakpoints.md && width < breakpoints.lg,
         isDesktop: width >= breakpoints.lg && width < breakpoints.xl,
         isLargeDesktop: width >= breakpoints.xl,
       })
