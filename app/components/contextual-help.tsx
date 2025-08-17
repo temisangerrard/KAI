@@ -105,7 +105,7 @@ export function ContextualHelp({ context }: ContextualHelpProps) {
   return (
     <div className="fixed bottom-4 left-4 z-40">
       <Card className="w-80 bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-400 to-purple-400 p-4 text-white">
+        <div className="bg-gradient-to-r from-kai-400 to-kai-400 p-4 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HelpCircle className="w-5 h-5" />

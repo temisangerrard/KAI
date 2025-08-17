@@ -107,7 +107,7 @@ export function MarketStatistics({ market }: MarketStatisticsProps) {
         {/* Option breakdown */}
         <div>
           <h4 className="font-medium text-gray-800 mb-3 flex items-center">
-            <PieChart className="h-4 w-4 mr-2 text-purple-500" />
+            <PieChart className="h-4 w-4 mr-2 text-kai-500" />
             Option Breakdown
           </h4>
           
