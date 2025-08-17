@@ -18,7 +18,7 @@ const mockPredictions = [
     description: "The ultimate showdown is here! Which housemate has captured viewers' hearts?",
     options: [
       { name: "Mercy", percentage: 45, tokens: 12500, color: "bg-kai-600" },
-      { name: "Tacha", percentage: 35, tokens: 9800, color: "bg-purple-400" },
+      { name: "Tacha", percentage: 35, tokens: 9800, color: "bg-kai-400" },
       { name: "Nengi", percentage: 20, tokens: 5600, color: "bg-blue-400" },
     ],
     category: "BBNaija",
@@ -165,7 +165,7 @@ export default function DashboardPage() {
                             {prediction.category}
                           </Badge>
                           {prediction.trending && (
-                            <Badge className="bg-gradient-to-r from-kai-600 to-purple-400 text-white text-xs">
+                            <Badge className="bg-gradient-to-r from-kai-600 to-kai-400 text-white text-xs">
                               Trending
                             </Badge>
                           )}
@@ -287,7 +287,7 @@ export default function DashboardPage() {
           {/* Desktop Hero Section */}
           <div className="grid grid-cols-12 gap-8 mb-8">
             <div className="col-span-8">
-              <Card className="border-0 shadow-xl bg-gradient-to-br from-kai-500 via-purple-500 to-gold-500 text-white overflow-hidden relative">
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-kai-500 via-kai-500 to-gold-500 text-white overflow-hidden relative">
                 <CardContent className="p-8 relative">
                   <div className="flex items-center gap-3 mb-4">
                     <Avatar className="h-16 w-16 border-3 border-white/30">
@@ -360,8 +360,8 @@ export default function DashboardPage() {
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
-                      <Heart className="w-6 h-6 text-purple-600" />
+                    <div className="w-12 h-12 bg-gradient-to-r from-kai-100 to-kai-100 rounded-xl flex items-center justify-center">
+                      <Heart className="w-6 h-6 text-kai-600" />
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900">Community Love</h3>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
                                   {prediction.category}
                                 </Badge>
                                 {prediction.trending && (
-                                  <Badge className="bg-gradient-to-r from-kai-600 to-purple-400 text-white text-xs">
+                                  <Badge className="bg-gradient-to-r from-kai-600 to-kai-400 text-white text-xs">
                                     Trending
                                   </Badge>
                                 )}

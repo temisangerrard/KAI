@@ -74,7 +74,7 @@ export function MarketGrid({ markets, isLoading }: MarketGridProps) {
   // Get trending indicator
   const getTrendingIndicator = (market: Market) => {
     if (market.participants >= 400) {
-      return { icon: <Zap className="h-3 w-3" />, label: "Viral", className: "bg-purple-100 text-purple-700" }
+      return { icon: <Zap className="h-3 w-3" />, label: "Viral", className: "bg-kai-100 text-kai-700" }
     } else if (market.totalTokens >= 20000) {
       return { icon: <Flame className="h-3 w-3" />, label: "Hot", className: "bg-red-100 text-red-700" }
     } else if (market.participants >= 200) {
@@ -166,7 +166,7 @@ export function MarketGrid({ markets, isLoading }: MarketGridProps) {
             
             {/* Category, trending indicator, and time remaining */}
             <div className="flex flex-wrap gap-2 mb-3">
-              <Badge variant="secondary" className="bg-purple-100 text-purple-700 hover:bg-purple-200">
+              <Badge variant="secondary" className="bg-kai-100 text-kai-700 hover:bg-kai-200">
                 {market.category}
               </Badge>
               {(() => {

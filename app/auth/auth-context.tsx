@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           category: "Entertainment",
           options: [
             { id: "option_4_1", name: "Contestant #1", percentage: 30, tokens: 3000, color: "bg-kai-600" },
-            { id: "option_4_2", name: "Contestant #2", percentage: 40, tokens: 4000, color: "bg-purple-400" },
+            { id: "option_4_2", name: "Contestant #2", percentage: 40, tokens: 4000, color: "bg-kai-400" },
             { id: "option_4_3", name: "Contestant #3", percentage: 30, tokens: 3000, color: "bg-blue-400" }
           ],
           startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
