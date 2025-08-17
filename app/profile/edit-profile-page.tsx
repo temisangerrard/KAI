@@ -51,7 +51,9 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50">
+
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+
       
       {/* Mobile Layout */}
       <div className="md:hidden">

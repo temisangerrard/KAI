@@ -126,11 +126,11 @@ export const designTokens = {
 export const componentTokens = {
   // Button variants
   button: {
-    primary: 'bg-primary-600 hover:bg-primary-700 text-white rounded-kai-button',
-    secondary: 'bg-secondary-600 hover:bg-secondary-700 text-white rounded-kai-button',
-    outline: 'border-2 border-primary-300 text-primary-700 hover:bg-primary-50 rounded-kai-button',
-    ghost: 'text-primary-700 hover:bg-primary-50 rounded-kai-button',
-    link: 'text-primary-600 hover:text-primary-800 underline',
+    primary: 'bg-kai-600 hover:bg-kai-700 text-white rounded-kai-button',
+    secondary: 'bg-primary-600 hover:bg-primary-700 text-white rounded-kai-button',
+    outline: 'border-2 border-kai-300 text-kai-700 hover:bg-kai-50 rounded-kai-button',
+    ghost: 'text-kai-700 hover:bg-kai-50 rounded-kai-button',
+    link: 'text-kai-600 hover:text-kai-800 underline',
   },
   
   // Card variants

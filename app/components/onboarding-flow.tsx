@@ -76,7 +76,7 @@ export function OnboardingFlow() {
                   <span className="text-sm font-semibold">55%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-kai-400 h-2 rounded-full" style={{ width: "55%" }} />
+                  <div className="bg-primary-400 h-2 rounded-full" style={{ width: "55%" }} />
                 </div>
               </div>
             </div>
@@ -93,7 +93,7 @@ export function OnboardingFlow() {
     {
       title: "Connect with Others",
       description: "Engage with a community that shares your interests.",
-      icon: <Users className="h-12 w-12 text-kai-500" />,
+      icon: <Users className="h-12 w-12 text-primary-500" />,
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
@@ -114,8 +114,8 @@ export function OnboardingFlow() {
           </div>
           <div className="bg-gray-50 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full bg-kai-100 flex items-center justify-center">
-                <span className="text-xs text-kai-600">A</span>
+              <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center">
+                <span className="text-xs text-primary-600">A</span>
               </div>
               <span className="text-sm font-medium">Amara J.</span>
             </div>
@@ -185,7 +185,7 @@ export function OnboardingFlow() {
   const currentStepData = steps[currentStep - 1]
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">

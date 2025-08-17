@@ -36,7 +36,7 @@ const marketCategories = [
 // Define option colors
 const optionColors = [
   { name: "Sage", value: "bg-kai-400" },
-  { name: "Sage Green", value: "bg-kai-400" },
+  { name: "Purple", value: "bg-primary-400" },
   { name: "Blue", value: "bg-blue-400" },
   { name: "Green", value: "bg-green-400" },
   { name: "Orange", value: "bg-orange-400" },
@@ -62,7 +62,7 @@ export function MarketCreationForm() {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [options, setOptions] = useState([
     { id: "1", name: "", color: "bg-kai-400" },
-    { id: "2", name: "", color: "bg-kai-400" }
+    { id: "2", name: "", color: "bg-primary-400" }
   ])
   const [creatorRewardPercentage] = useState(5) // Fixed at 5% for now
   const [tags, setTags] = useState<string[]>([])

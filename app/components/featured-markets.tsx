@@ -145,7 +145,7 @@ export function FeaturedMarkets({
               <div className="flex items-center justify-between mb-4">
                 <Badge 
                   variant="secondary" 
-                  className="bg-kai-100 text-kai-700 hover:bg-kai-200 font-medium"
+                  className="bg-primary-100 text-primary-700 hover:bg-primary-200 font-medium"
                 >
                   {market.category}
                 </Badge>

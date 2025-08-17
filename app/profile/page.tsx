@@ -85,7 +85,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50">
+
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+
 
       {/* Mobile Layout */}
       <div className="md:hidden">
@@ -228,7 +230,9 @@ export default function ProfilePage() {
                                     <Badge className="bg-kai-100 text-kai-700 text-xs">Prediction</Badge>
                                   )}
                                   {activity.type === 'market' && (
-                                    <Badge className="bg-kai-100 text-kai-700 text-xs">Market</Badge>
+
+                                    <Badge className="bg-primary-100 text-primary-700 text-xs">Market</Badge>
+
                                   )}
                                 </div>
                                 <p className="text-sm">{activity.title}</p>
@@ -498,8 +502,10 @@ export default function ProfilePage() {
 
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
               <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 bg-kai-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="w-8 h-8 text-kai-600" />
+
+                <div className="w-16 h-16 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-primary-600" />
+
                 </div>
                 <p className="text-3xl font-bold text-gray-900 mb-1">{user?.stats?.marketsCreated || 0}</p>
                 <p className="text-gray-600">Markets Created</p>
@@ -570,12 +576,13 @@ export default function ProfilePage() {
                           <div key={activity.id} className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${activity.type === 'win' ? 'bg-green-100' :
                               activity.type === 'prediction' ? 'bg-kai-100' :
-                                'bg-kai-100'
+
+                                'bg-primary-100'
                               }`}>
                               {activity.type === 'win' && <Award className="w-6 h-6 text-green-600" />}
                               {activity.type === 'prediction' && <TrendingUp className="w-6 h-6 text-kai-600" />}
-                              {activity.type === 'market' && <BarChart3 className="w-6 h-6 text-kai-600" />}
-                            </div>
+                              {activity.type === 'market' && <BarChart3 className="w-6 h-6 text-primary-600" />}
+           </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 {activity.type === 'win' && (
@@ -585,7 +592,9 @@ export default function ProfilePage() {
                                   <Badge className="bg-kai-100 text-kai-700">Prediction</Badge>
                                 )}
                                 {activity.type === 'market' && (
-                                  <Badge className="bg-kai-100 text-kai-700">Market</Badge>
+
+                                  <Badge className="bg-primary-100 text-primary-700">Market</Badge>
+
                                 )}
                               </div>
                               <p className="font-medium text-gray-900">{activity.title}</p>
@@ -820,7 +829,9 @@ export default function ProfilePage() {
                         name: "Market Creator",
                         icon: <Building className="w-5 h-5" />,
                         earned: (user?.stats?.marketsCreated || 0) > 0,
-                        color: "text-kai-600"
+
+                        color: "text-primary-600"
+
                       },
                       {
                         name: "High Roller",

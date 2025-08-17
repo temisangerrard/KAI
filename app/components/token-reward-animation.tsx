@@ -23,7 +23,8 @@ export function TokenRewardAnimation({
   const colors = {
     win: "text-amber-500",
     prediction: "text-kai-500",
-    bonus: "text-kai-500"
+
+    bonus: "text-primary-500"
   }
 
   // Define sizes

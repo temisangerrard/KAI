@@ -69,7 +69,8 @@ export function truncateText(text: string, maxLength: number): string {
  * Generate a random color from the KAI palette
  */
 export function randomKaiColor(): string {
-  const colors = ['primary', 'secondary', 'accent', 'success', 'warning', 'error']
+  const colors = ['kai', 'primary', 'coral', 'kteal']
+
   const shades = [300, 400, 500, 600]
   
   const randomColor = colors[Math.floor(Math.random() * colors.length)]

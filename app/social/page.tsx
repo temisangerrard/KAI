@@ -173,7 +173,7 @@ export default function SocialPage() {
       case "win":
         return <Sparkles className="w-4 h-4 text-green-500" />
       case "market_created":
-        return <Users className="w-4 h-4 text-kai-500" />
+        return <Users className="w-4 h-4 text-primary-500" />
       case "comment":
         return <MessageCircle className="w-4 h-4 text-blue-500" />
       default:
@@ -198,7 +198,9 @@ export default function SocialPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50 flex items-center justify-center">
+
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50 flex items-center justify-center">
+
         <div className="text-center">
           <div className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-kai-500 text-transparent bg-clip-text mb-4">
             KAI
@@ -210,7 +212,9 @@ export default function SocialPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50">
+
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+
       
       {/* Mobile Layout */}
       <div className="md:hidden">
@@ -511,7 +515,9 @@ export default function SocialPage() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <UserPlus className="w-5 h-5 text-kai-500" />
+
+                    <UserPlus className="w-5 h-5 text-primary-500" />
+
                     Who to Follow
                   </h3>
                 </CardHeader>
@@ -601,7 +607,9 @@ export default function SocialPage() {
                                 <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                                   post.type === 'prediction' ? 'bg-kai-100 text-kai-700' :
                                   post.type === 'win' ? 'bg-green-100 text-green-700' :
-                                  post.type === 'market_created' ? 'bg-kai-100 text-kai-700' :
+
+                                  post.type === 'market_created' ? 'bg-primary-100 text-primary-700' :
+
                                   'bg-blue-100 text-blue-700'
                                 }`}>
                                   {getPostIcon(post.type)}
@@ -760,8 +768,10 @@ export default function SocialPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-kai-100 rounded-lg flex items-center justify-center">
-                          <Users className="w-4 h-4 text-kai-600" />
+
+                        <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                          <Users className="w-4 h-4 text-primary-600" />
+
                         </div>
                         <span className="text-sm text-gray-600">Online Users</span>
                       </div>

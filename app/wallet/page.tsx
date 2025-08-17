@@ -87,8 +87,8 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-kai-50">
-      
+
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50"> 
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="max-w-md mx-auto bg-white min-h-screen pb-20">
@@ -170,10 +170,12 @@ export default function WalletPage() {
                 <p className="text-xs font-medium text-gray-700">Withdraw</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-kai-50 to-kai-50">
+
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-primary-50 to-kai-50">
               <CardContent className="p-4 text-center">
-                <div className="w-10 h-10 bg-kai-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Sparkles className="w-5 h-5 text-kai-600" />
+                <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Sparkles className="w-5 h-5 text-primary-600" />
+
                 </div>
                 <p className="text-xs font-medium text-gray-700">Rewards</p>
               </CardContent>
@@ -389,8 +391,8 @@ export default function WalletPage() {
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-kai-100 rounded-xl flex items-center justify-center">
-                      <Gift className="w-6 h-6 text-kai-600" />
+                    <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                      <Gift className="w-6 h-6 text-primary-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">1,250</p>
@@ -446,6 +448,7 @@ export default function WalletPage() {
                   <div className="text-left">
                     <p className="font-semibold">View Rewards</p>
                     <p className="text-xs text-kai-600">Check your bonuses</p>
+
                   </div>
                 </Button>
               </div>

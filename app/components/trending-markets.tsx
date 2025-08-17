@@ -51,7 +51,7 @@ export function TrendingMarkets({
       case 'viral':
         return {
           icon: <Zap className="h-3 w-3" />,
-          className: "bg-kai-100 text-kai-700 border-kai-200",
+          className: "bg-primary-100 text-primary-700 border-primary-200",
           label: "Viral"
         }
       case 'hot':
@@ -239,7 +239,8 @@ export function TrendingMarkets({
                 
                 {/* Category and growth rate */}
                 <div className="flex flex-wrap gap-2 mb-3">
-                  <Badge variant="secondary" className="bg-kai-100 text-kai-700 hover:bg-kai-200 text-xs">
+
+                  <Badge variant="secondary" className="bg-primary-100 text-primary-700 hover:bg-primary-200 text-xs">
                     {market.category}
                   </Badge>
                   {market.growthRate > 50 && (
