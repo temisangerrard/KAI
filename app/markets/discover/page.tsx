@@ -8,7 +8,7 @@ import { Navigation } from "../../components/navigation"
 import { MarketGrid } from "./market-grid"
 import { MarketSearch } from "./market-search"
 import { MarketCategoryNav } from "./market-category-nav"
-import { getAllMarkets, getMarketsByCategory, getTrendingMarketsWithMetadata } from "../create/market-service"
+import { getAllMarkets, getTrendingMarketsWithMetadata } from "../create/market-service"
 import { Market } from "@/app/auth/auth-context"
 import { useAuth } from "@/app/auth/auth-context"
 
@@ -42,8 +42,7 @@ export default function MarketDiscoveryPage() {
     const loadMarkets = async () => {
       setIsLoading(true)
       try {
-        // In a real app, this would fetch markets from an API
-        const allMarkets = getAllMarkets()
+        const allMarkets = await getAllMarkets()
         setMarkets(allMarkets)
         setFilteredMarkets(allMarkets)
       } catch (error) {
@@ -58,51 +57,54 @@ export default function MarketDiscoveryPage() {
 
   // Filter markets when category, search query, or sort option changes
   useEffect(() => {
-    let result = [...markets]
+    const applyFilters = async () => {
+      let result = [...markets]
 
-    // Filter by category
-    if (selectedCategory !== "All") {
-      result = result.filter(market => market.category === selectedCategory)
+      // Filter by category
+      if (selectedCategory !== "All") {
+        result = result.filter(market => market.category === selectedCategory)
+      }
+
+      // Filter by search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        result = result.filter(market =>
+          market.title.toLowerCase().includes(query) ||
+          market.description.toLowerCase().includes(query)
+        )
+      }
+
+      // Sort markets
+      switch (sortOption) {
+        case "trending":
+          const trendingMarkets = await getTrendingMarketsWithMetadata(result.length)
+          const trendingIds = trendingMarkets.map(m => m.id)
+          result = result.sort((a, b) => {
+            const aIndex = trendingIds.indexOf(a.id)
+            const bIndex = trendingIds.indexOf(b.id)
+            if (aIndex === -1 && bIndex === -1) return 0
+            if (aIndex === -1) return 1
+            if (bIndex === -1) return -1
+            return aIndex - bIndex
+          })
+          break
+        case "newest":
+          result = result.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+          break
+        case "ending-soon":
+          result = result.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+          break
+        case "most-participants":
+          result = result.sort((a, b) => b.participants - a.participants)
+          break
+        default:
+          break
+      }
+
+      setFilteredMarkets(result)
     }
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      result = result.filter(market => 
-        market.title.toLowerCase().includes(query) || 
-        market.description.toLowerCase().includes(query)
-      )
-    }
-
-    // Sort markets
-    switch (sortOption) {
-      case "trending":
-        // Use the trending service to get properly sorted trending markets
-        const trendingMarkets = getTrendingMarketsWithMetadata(result.length)
-        const trendingIds = trendingMarkets.map(m => m.id)
-        result = result.sort((a, b) => {
-          const aIndex = trendingIds.indexOf(a.id)
-          const bIndex = trendingIds.indexOf(b.id)
-          if (aIndex === -1 && bIndex === -1) return 0
-          if (aIndex === -1) return 1
-          if (bIndex === -1) return -1
-          return aIndex - bIndex
-        })
-        break
-      case "newest":
-        result = result.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-        break
-      case "ending-soon":
-        result = result.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
-        break
-      case "most-participants":
-        result = result.sort((a, b) => b.participants - a.participants)
-        break
-      default:
-        break
-    }
-
-    setFilteredMarkets(result)
+    applyFilters()
   }, [markets, selectedCategory, searchQuery, sortOption])
 
   // Handle category selection

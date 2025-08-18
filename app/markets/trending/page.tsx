@@ -14,8 +14,7 @@ export default function TrendingMarketsPage() {
     const loadTrendingMarkets = async () => {
       setIsLoading(true)
       try {
-        // Get trending markets from the service
-        const markets = getTrendingMarketsWithMetadata(20)
+        const markets = await getTrendingMarketsWithMetadata(20)
         setTrendingMarkets(markets)
       } catch (error) {
         console.error("Failed to load trending markets:", error)

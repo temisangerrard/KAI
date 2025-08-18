@@ -22,8 +22,11 @@ export function MarketSearch({ searchQuery, onSearchChange }: MarketSearchProps)
 
   // Load all markets for suggestions
   useEffect(() => {
-    const markets = getAllMarkets()
-    setAllMarkets(markets)
+    const loadMarkets = async () => {
+      const markets = await getAllMarkets()
+      setAllMarkets(markets)
+    }
+    loadMarkets()
   }, [])
 
   // Update suggestions when query changes
