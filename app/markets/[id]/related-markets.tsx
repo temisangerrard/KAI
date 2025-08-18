@@ -27,17 +27,17 @@ export function RelatedMarkets({ currentMarket }: RelatedMarketsProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const loadRelatedMarkets = () => {
+    const loadRelatedMarkets = async () => {
       setIsLoading(true)
       try {
-        const allMarkets = getAllMarkets()
-        
+        const allMarkets = await getAllMarkets()
+
         // Filter out the current market
         const otherMarkets = allMarkets.filter(market => market.id !== currentMarket.id)
-        
+
         // Find related markets based on category and other criteria
         const related = findRelatedMarkets(otherMarkets, currentMarket)
-        
+
         setRelatedMarkets(related.slice(0, 4)) // Show up to 4 related markets
       } catch (error) {
         console.error("Failed to load related markets:", error)

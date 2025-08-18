@@ -13,8 +13,7 @@ export function FeaturedMarketsSection() {
     const loadFeaturedMarkets = async () => {
       setIsLoading(true)
       try {
-        // Get featured markets from the service
-        const markets = getFeaturedMarkets(6)
+        const markets = await getFeaturedMarkets(6)
         setFeaturedMarkets(markets)
       } catch (error) {
         console.error("Failed to load featured markets:", error)
