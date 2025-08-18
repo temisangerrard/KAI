@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getMarketById, getAllMarkets } from "../create/market-service"
 import { Market } from "@/app/auth/auth-context"
 import { MarketDetailView } from "./market-detail-view"
 import { Card } from "@/components/ui/card"
@@ -24,13 +23,15 @@ export default function MarketDetailPage() {
       
       try {
         const marketId = params.id as string
-        const foundMarket = getMarketById(marketId)
-        
-        if (!foundMarket) {
+        const res = await fetch(`/api/markets/${marketId}`)
+
+        if (!res.ok) {
           setError("Market not found")
-        } else {
-          setMarket(foundMarket)
+          return
         }
+
+        const data: Market = await res.json()
+        setMarket(data)
       } catch (err) {
         console.error("Failed to load market:", err)
         setError("Failed to load market")

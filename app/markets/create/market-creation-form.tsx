@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { CalendarIcon, PlusCircle, X, AlertCircle, Sparkles, Eye, Save, FileText, Wand2, Check, Heart, Trophy, Shirt, Music, Film, Users, List } from "lucide-react"
-import { useAuth } from "../../auth/auth-context"
-import { createMarket, saveMarketDraft, getMarketDrafts, generateAISuggestedTags, type MarketDraft } from "./market-service"
+import { useAuth, type Market } from "../../auth/auth-context"
+import { saveMarketDraft, getMarketDrafts, generateAISuggestedTags, type MarketDraft } from "./market-service"
 import { marketTemplates, type MarketTemplate } from "./market-templates"
 import { PredictionWinCelebration } from "../../components/prediction-win-celebration"
 
@@ -72,6 +72,7 @@ export function MarketCreationForm() {
   const [drafts, setDrafts] = useState<MarketDraft[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Validation state
   const [errors, setErrors] = useState<{
@@ -269,26 +270,38 @@ export function MarketCreationForm() {
   const handleSubmit = async () => {
     // Validate all steps before submitting
     if (!validateStep(1) || !validateStep(2)) return
-    
+
+    if (!user) return
+
+    setIsSubmitting(true)
+    setErrors(prev => ({ ...prev, submit: undefined }))
+
     try {
-      if (!user) return
-      
-      // Create the market
-      const market = await createMarket({
-        title,
-        description,
-        category,
-        options: options.map(option => ({
-          name: option.name,
-          color: option.color
-        })),
-        endDate: endDate as Date,
-        creatorId: user.id,
-        creatorRewardPercentage,
-        tags,
-        draftId: currentDraftId || undefined
+      const response = await fetch("/api/markets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          options: options.map(option => ({
+            name: option.name,
+            color: option.color
+          })),
+          endDate,
+          creatorId: user.id,
+          creatorRewardPercentage,
+          tags,
+          draftId: currentDraftId || undefined
+        })
       })
-      
+
+      if (!response.ok) {
+        throw new Error("Failed to create market")
+      }
+
+      const market: Market = await response.json()
+
       // Update user with the new market
       const updatedMarkets = [...(user.marketsCreated || []), market]
       updateUser({
@@ -298,18 +311,20 @@ export function MarketCreationForm() {
           marketsCreated: updatedMarkets.length
         }
       })
-      
+
       // Show success state
       setCreatedMarket(market)
       setIsSuccess(true)
-      
-      // Redirect after a delay
+
+      // Redirect after a short delay
       setTimeout(() => {
-        router.push("/dashboard")
-      }, 3000)
+        router.push(`/markets/${market.id}`)
+      }, 2000)
     } catch (error) {
       console.error("Failed to create market:", error)
-      setErrors({ ...errors, submit: "Failed to create market. Please try again." })
+      setErrors(prev => ({ ...prev, submit: "Failed to create market. Please try again." }))
+    } finally {
+      setIsSubmitting(false)
     }
   }
   
@@ -320,7 +335,7 @@ export function MarketCreationForm() {
         title="Market Created!"
         message={`Your prediction market "${createdMarket.title}" has been created successfully.`}
         tokenAmount={0}
-        onClose={() => router.push("/dashboard")}
+        onClose={() => router.push(`/markets/${createdMarket.id}`)}
       />
     )
   }
@@ -793,13 +808,19 @@ export function MarketCreationForm() {
               <Save className="w-4 h-4 mr-2" />
               Save Draft
             </Button>
-            <Button 
+            <Button
               className="flex-1 bg-gradient-to-r from-kai-600 to-gold-600 hover:from-kai-600 hover:to-gold-700 text-white"
               onClick={handleSubmit}
+              disabled={isSubmitting}
             >
-              Create Market
+              {isSubmitting ? "Creating..." : "Create Market"}
             </Button>
           </div>
+          {errors.submit && (
+            <p className="text-red-600 text-sm flex items-center mt-2">
+              <AlertCircle className="h-4 w-4 mr-1" /> {errors.submit}
+            </p>
+          )}
         </div>
       )}
     </div>

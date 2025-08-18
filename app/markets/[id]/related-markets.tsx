@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Market } from "@/app/auth/auth-context"
-import { getAllMarkets } from "../create/market-service"
 import { 
   Sparkles, 
   ArrowRight, 
@@ -27,18 +26,17 @@ export function RelatedMarkets({ currentMarket }: RelatedMarketsProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const loadRelatedMarkets = () => {
+    const loadRelatedMarkets = async () => {
       setIsLoading(true)
       try {
-        const allMarkets = getAllMarkets()
-        
-        // Filter out the current market
-        const otherMarkets = allMarkets.filter(market => market.id !== currentMarket.id)
-        
-        // Find related markets based on category and other criteria
+        const res = await fetch("/api/markets")
+        const allMarkets: Market[] = await res.json()
+
+        const otherMarkets = allMarkets.filter(
+          market => market.id !== currentMarket.id
+        )
         const related = findRelatedMarkets(otherMarkets, currentMarket)
-        
-        setRelatedMarkets(related.slice(0, 4)) // Show up to 4 related markets
+        setRelatedMarkets(related.slice(0, 4))
       } catch (error) {
         console.error("Failed to load related markets:", error)
       } finally {
