@@ -5,51 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Heart, MessageCircle, Share2, TrendingUp, Sparkles, Users, Plus, LogOut, Bell, Star, Crown, Zap, Gift } from "lucide-react"
+import { Heart, Share2, TrendingUp, Sparkles, Users, Plus, LogOut, Bell, Star, Crown } from "lucide-react"
 import { BackOpinionModal } from "../components/back-opinion-modal"
 import { Navigation } from "../components/navigation"
 import { useAuth } from "../auth/auth-context"
 import { useRouter } from "next/navigation"
-
-const mockPredictions = [
-  {
-    id: 1,
-    title: "Who will be the fan favorite on BBNaija All Stars?",
-    description: "The ultimate showdown is here! Which housemate has captured viewers' hearts?",
-    options: [
-      { name: "Dede", percentage: 45, tokens: 12500, color: "bg-kai-600" },
-      { name: "Kuture", percentage: 35, tokens: 9800, color: "bg-primary-400" },
-      { name: "Capy", percentage: 20, tokens: 5600, color: "bg-blue-400" },
-    ],
-    category: "BBNaija",
-    vibeScore: 98,
-    totalBacked: 27900,
-    participants: 1247,
-    timeLeft: "2 days",
-    trending: true,
-  },
-  {
-    id: 2,
-    title: "Davido vs Wizkid: Who creates the better album?",
-    description: "The eternal debate continues! Both artists are releasing new music",
-    options: [
-      { name: "Davido", percentage: 52, tokens: 15600, color: "bg-orange-400" },
-      { name: "Wizkid", percentage: 48, tokens: 14400, color: "bg-green-400" },
-    ],
-    category: "Music",
-    vibeScore: 95,
-    totalBacked: 30000,
-    participants: 892,
-    timeLeft: "5 days",
-    trending: true,
-  }
-]
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth()
   const router = useRouter()
   const [selectedPrediction, setSelectedPrediction] = useState<any>(null)
   const [greeting, setGreeting] = useState("")
+  const [predictions, setPredictions] = useState<any[]>([])
 
   // Set greeting based on time of day
   useEffect(() => {
@@ -62,6 +29,22 @@ export default function DashboardPage() {
       setGreeting("Good evening")
     }
   }, [])
+
+  useEffect(() => {
+    const fetchPredictions = async () => {
+      if (!user?.id) return
+      try {
+        const res = await fetch(`/api/predictions?userId=${user.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPredictions(data.predictions)
+        }
+      } catch (error) {
+        console.error('Failed to fetch predictions', error)
+      }
+    }
+    fetchPredictions()
+  }, [user?.id])
 
   // Redirect to home if not authenticated
   if (!isLoading && !isAuthenticated) {
@@ -154,7 +137,7 @@ export default function DashboardPage() {
                 <Badge className="bg-kai-100 text-kai-700 text-xs">Hot</Badge>
               </div>
 
-              {mockPredictions.map((prediction) => (
+              {predictions.map((prediction) => (
                 <Card
                   key={prediction.id}
                   className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 overflow-hidden"
@@ -397,7 +380,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {mockPredictions.map((prediction) => (
+                    {predictions.map((prediction) => (
                       <Card
                         key={prediction.id}
                         className="border shadow-sm bg-gradient-to-br from-white to-gray-50/50 overflow-hidden"
