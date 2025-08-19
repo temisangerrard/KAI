@@ -5,6 +5,7 @@
 
 import { Market, PredictionOption } from "@/app/auth/auth-context"
 import { TransactionService } from "@/lib/services/transaction-service"
+import { z } from "zod"
 
 // Interface for market creation parameters
 interface MarketCreationParams {
@@ -101,9 +102,6 @@ export const createMarket = async (params: MarketCreationParams): Promise<Market
     tags: marketTags
   }
   
-  // In a real implementation, this would call an API to create the market
-  // For now, we'll just simulate it
-  
   // Record market creation transaction
   // In a real implementation, this would be handled by the backend
   // For now, we'll just simulate it with a small token reward
@@ -114,9 +112,23 @@ export const createMarket = async (params: MarketCreationParams): Promise<Market
     marketId,
     title
   )
-  
-  // Save market to local storage (in a real app, this would be handled by the backend)
-  saveMarketToStorage(market)
+
+  // Persist market via API
+  try {
+    const response = await fetch('/api/markets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(market)
+    })
+    if (!response.ok) {
+      throw new Error(`API responded with ${response.status}`)
+    }
+  } catch (error) {
+    console.error('Failed to persist market:', error)
+    throw new Error('Failed to create market')
+  }
   
   // Delete draft if this was created from a draft
   if (draftId) {
@@ -126,122 +138,101 @@ export const createMarket = async (params: MarketCreationParams): Promise<Market
   return market
 }
 
-/**
- * Save market to local storage
- * @param market Market to save
- */
-const saveMarketToStorage = (market: Market): void => {
-  try {
-    // Get existing markets
-    const existingMarkets = getMarketsFromStorage()
-    
-    // Add new market
-    existingMarkets.push(market)
-    
-    // Save to local storage
-    localStorage.setItem('kai_markets', JSON.stringify(existingMarkets))
-  } catch (error) {
-    console.error('Failed to save market to storage:', error)
-  }
-}
+// ----- API helpers -----
 
-// Import sample markets
-import { sampleMarkets } from './sample-markets'
+const OptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  percentage: z.number(),
+  tokens: z.number(),
+  color: z.string(),
+})
 
-/**
- * Get markets from local storage
- * @returns Array of markets
- */
-const getMarketsFromStorage = (): Market[] => {
-  try {
-    // Try to get markets from local storage
-    const storedMarkets = localStorage.getItem('kai_markets')
-    
-    // If we have markets in storage, return them
-    if (storedMarkets) {
-      return JSON.parse(storedMarkets)
-    }
-    
-    // Otherwise, use sample markets and save them to storage
-    localStorage.setItem('kai_markets', JSON.stringify(sampleMarkets))
-    return sampleMarkets
-  } catch (error) {
-    console.error('Failed to get markets from storage:', error)
-    // Return sample markets if there's an error
-    return sampleMarkets
+const MarketSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  options: z.array(OptionSchema),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  status: z.enum(['active', 'resolved', 'cancelled']),
+  totalTokens: z.number(),
+  participants: z.number(),
+  tags: z.array(z.string()).optional(),
+})
+
+const MarketArraySchema = z.array(MarketSchema)
+
+const fetchJSON = async (url: string, options?: RequestInit) => {
+  const res = await fetch(url, options)
+  if (!res.ok) {
+    throw new Error(`Request failed with status ${res.status}`)
   }
+  return res.json()
 }
 
 /**
  * Get market by ID
- * @param marketId Market ID
- * @returns Market object or null if not found
  */
-export const getMarketById = (marketId: string): Market | null => {
-  const markets = getMarketsFromStorage()
-  return markets.find(market => market.id === marketId) || null
+export const getMarketById = async (marketId: string): Promise<Market | null> => {
+  try {
+    const data = await fetchJSON(`/api/markets/${marketId}`)
+    const parsed = MarketSchema.safeParse(data)
+    return parsed.success ? parsed.data : null
+  } catch (error) {
+    console.error('Failed to fetch market:', error)
+    return null
+  }
 }
 
 /**
  * Get all markets
- * @returns Array of markets
  */
-export const getAllMarkets = (): Market[] => {
-  return getMarketsFromStorage()
+export const getAllMarkets = async (): Promise<Market[]> => {
+  try {
+    const data = await fetchJSON('/api/markets')
+    const parsed = MarketArraySchema.safeParse(data)
+    return parsed.success ? parsed.data : []
+  } catch (error) {
+    console.error('Failed to fetch markets:', error)
+    return []
+  }
 }
 
 /**
  * Get trending markets using the trending service
- * @param limit Maximum number of markets to return
- * @returns Array of trending markets
  */
-export const getTrendingMarkets = (limit: number = 5): Market[] => {
-  const markets = getMarketsFromStorage()
-  
-  // Import trending service dynamically to avoid circular dependencies
-  const { getTrendingMarkets: getTrendingMarketsFromService } = require('@/lib/services/trending-service')
-  
+export const getTrendingMarkets = async (limit: number = 5): Promise<Market[]> => {
+  const markets = await getAllMarkets()
+  const { getTrendingMarkets: getTrendingMarketsFromService } = await import('@/lib/services/trending-service')
   const trendingMarkets = getTrendingMarketsFromService(markets, limit)
-  
-  // Return just the market data without trending metadata for backward compatibility
   return trendingMarkets.map(({ trendingScore, trendingReason, popularityIndicator, growthRate, engagementScore, ...market }) => market)
 }
 
 /**
- * Get trending markets with full metadata
- * @param limit Maximum number of markets to return
- * @returns Array of trending markets with metadata
+ * Get trending markets with metadata
  */
-export const getTrendingMarketsWithMetadata = (limit: number = 10) => {
-  const markets = getMarketsFromStorage()
-  
-  // Import trending service dynamically to avoid circular dependencies
-  const { getTrendingMarkets: getTrendingMarketsFromService } = require('@/lib/services/trending-service')
-  
+export const getTrendingMarketsWithMetadata = async (limit: number = 10) => {
+  const markets = await getAllMarkets()
+  const { getTrendingMarkets: getTrendingMarketsFromService } = await import('@/lib/services/trending-service')
   return getTrendingMarketsFromService(markets, limit)
 }
 
 /**
  * Get featured markets for homepage
- * @param limit Maximum number of markets to return
- * @returns Array of featured markets with metadata
  */
-export const getFeaturedMarkets = (limit: number = 6) => {
-  const markets = getMarketsFromStorage()
-  
-  // Import trending service dynamically to avoid circular dependencies
-  const { getFeaturedMarkets: getFeaturedMarketsFromService } = require('@/lib/services/trending-service')
-  
+export const getFeaturedMarkets = async (limit: number = 6) => {
+  const markets = await getAllMarkets()
+  const { getFeaturedMarkets: getFeaturedMarketsFromService } = await import('@/lib/services/trending-service')
   return getFeaturedMarketsFromService(markets, limit)
 }
 
 /**
  * Get markets by category
- * @param category Category to filter by
- * @returns Array of markets in the specified category
  */
-export const getMarketsByCategory = (category: string): Market[] => {
-  const markets = getMarketsFromStorage()
+export const getMarketsByCategory = async (category: string): Promise<Market[]> => {
+  const markets = await getAllMarkets()
   return markets.filter(market => market.category === category)
 }
 

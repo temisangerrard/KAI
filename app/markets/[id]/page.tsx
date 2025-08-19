@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getMarketById, getAllMarkets } from "../create/market-service"
+import { getMarketById } from "../create/market-service"
 import { Market } from "@/app/auth/auth-context"
 import { MarketDetailView } from "./market-detail-view"
 import { Card } from "@/components/ui/card"
@@ -24,7 +24,7 @@ export default function MarketDetailPage() {
       
       try {
         const marketId = params.id as string
-        const foundMarket = getMarketById(marketId)
+        const foundMarket = await getMarketById(marketId)
         
         if (!foundMarket) {
           setError("Market not found")
