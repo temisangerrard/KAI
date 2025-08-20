@@ -10,7 +10,7 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>
   register: (credentials: RegisterCredentials) => Promise<void>
   logout: () => Promise<void>
-  updateProfile: (updates: Partial<AuthUser>) => Promise<void>
+  updateUser: (updates: Partial<AuthUser>) => Promise<void>
   refreshUser: () => Promise<void>
 }
 
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
-  updateProfile: async () => {},
+  updateUser: async () => {},
   refreshUser: async () => {},
 })
 
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const updateProfile = async (updates: Partial<AuthUser>) => {
+  const updateUser = async (updates: Partial<AuthUser>) => {
     try {
       const updatedUser = await authService.updateProfile(updates)
       setUser(updatedUser)
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
-    updateProfile,
+    updateUser,
     refreshUser,
   }
 
