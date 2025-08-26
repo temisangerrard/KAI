@@ -58,7 +58,7 @@ export function AdminHeader() {
           </div>
 
           {/* Back to App */}
-          <Link href="/dashboard">
+          <Link href="/markets">
             <Button variant="outline" size="sm">
               Back to App
             </Button>

@@ -19,12 +19,15 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Navigation } from "../components/navigation"
-
+import { TopNavigation } from "../components/top-navigation"
+import { HamburgerMenu } from "../components/hamburger-menu"
+import { useHamburgerMenu } from "../../hooks/use-hamburger-menu"
 import { useAuth } from "../auth/auth-context"
 
 export default function WalletPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const hamburgerMenu = useHamburgerMenu()
   const [currentTokens] = useState(2500)
   const [purchaseAmount, setPurchaseAmount] = useState("")
   const [showPurchase, setShowPurchase] = useState(false)
@@ -82,26 +85,19 @@ export default function WalletPage() {
   }
 
   return (
-
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50"> 
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
+      
+      {/* Desktop Top Navigation */}
+      <TopNavigation />
+      
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="max-w-md mx-auto bg-white min-h-screen pb-20">
           {/* Mobile Header */}
           <div className="bg-gradient-to-r from-primary-400 to-kai-600 p-4 text-white">
-            <div className="flex items-center gap-3 mb-6">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-white hover:bg-white/20"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="flex-1">
-                <h1 className="text-xl font-bold">My Wallet</h1>
-                <p className="text-sm opacity-90">Manage your tokens</p>
-              </div>
+            <div className="mb-6">
+              <h1 className="text-xl font-bold">My Wallet</h1>
+              <p className="text-sm opacity-90">Manage your tokens</p>
             </div>
 
             {/* Mobile Balance Card */}
@@ -310,11 +306,11 @@ export default function WalletPage() {
                 <h1 className="text-2xl font-bold text-gray-800">Wallet</h1>
               </div>
               <button 
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/markets')}
                 className="flex items-center gap-2 text-gray-600 hover:text-kai-600 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Back to Dashboard</span>
+                <span className="text-sm">Back to Markets</span>
               </button>
             </div>
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">

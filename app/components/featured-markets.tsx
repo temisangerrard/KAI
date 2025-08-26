@@ -225,7 +225,7 @@ export function FeaturedMarkets({
           variant="outline"
           size="lg"
           className="text-primary-600 border-kai-200 hover:bg-kai-50 px-8 py-3"
-          onClick={() => router.push('/markets/discover')}
+          onClick={() => router.push('/markets')}
         >
           Explore All Markets
           <ArrowRight className="h-5 w-5 ml-2" />

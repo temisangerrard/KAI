@@ -299,7 +299,7 @@ export function TrendingMarkets({
           <Button 
             variant="outline"
             className="text-primary-600 border-kai-200 hover:bg-kai-50"
-            onClick={() => router.push('/markets/discover?sort=trending')}
+            onClick={() => router.push('/markets?sort=trending')}
           >
             View All Trending Markets
             <ArrowRight className="h-4 w-4 ml-2" />

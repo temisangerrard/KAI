@@ -1,4 +1,4 @@
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 
 // Sample markets for testing the market discovery components
 export const sampleMarkets: Market[] = [
@@ -11,11 +11,12 @@ export const sampleMarkets: Market[] = [
       { id: "option_1_1", name: "Yes", percentage: 65, tokens: 6500, color: "bg-kai-600" },
       { id: "option_1_2", name: "No", percentage: 35, tokens: 3500, color: "bg-blue-400" }
     ],
-    startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-    endDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
+    endDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago (ended)
+    status: 'ended',
     totalTokens: 25000,
-    participants: 450
+    participants: 450,
+    tags: ['sample']
   },
   {
     id: "market_2",
@@ -27,11 +28,12 @@ export const sampleMarkets: Market[] = [
       { id: "option_2_2", name: "Contestant #2", percentage: 40, tokens: 3200, color: "bg-primary-400" },
       { id: "option_2_3", name: "Contestant #3", percentage: 35, tokens: 2800, color: "bg-blue-400" }
     ],
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 67 * 24 * 60 * 60 * 1000), // 67 days ago
+    endDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago (ended)
+    status: 'ended',
     totalTokens: 18000,
-    participants: 280
+    participants: 280,
+    tags: ['sample']
   },
   {
     id: "market_3",
@@ -40,15 +42,15 @@ export const sampleMarkets: Market[] = [
     category: "Music",
     options: [
       { id: "option_3_1", name: "Yes, within 3 months", percentage: 30, tokens: 1800, color: "bg-kai-600" },
-
       { id: "option_3_2", name: "Yes, but later this year", percentage: 45, tokens: 2700, color: "bg-primary-400" },
       { id: "option_3_3", name: "No announcement this year", percentage: 25, tokens: 1500, color: "bg-blue-400" }
     ],
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+    endDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago (ended)
+    status: 'ended',
     totalTokens: 22000,
-    participants: 320
+    participants: 320,
+    tags: ['sample']
   },
   {
     id: "market_4",
@@ -59,13 +61,13 @@ export const sampleMarkets: Market[] = [
       { id: "option_4_1", name: "Y2K Revival", percentage: 40, tokens: 3600, color: "bg-kai-600" },
       { id: "option_4_2", name: "Sustainable Fashion", percentage: 35, tokens: 3150, color: "bg-green-400" },
       { id: "option_4_3", name: "Maximalism", percentage: 25, tokens: 2250, color: "bg-primary-400" }
-
     ],
-    startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
-    endDate: new Date(Date.now() + 80 * 24 * 60 * 60 * 1000), // 80 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
+    endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago (ended)
+    status: 'ended',
     totalTokens: 9000,
-    participants: 178
+    participants: 178,
+    tags: ['sample']
   },
   {
     id: "market_5",
@@ -76,11 +78,12 @@ export const sampleMarkets: Market[] = [
       { id: "option_5_1", name: "Yes", percentage: 20, tokens: 1000, color: "bg-kai-600" },
       { id: "option_5_2", name: "No", percentage: 80, tokens: 4000, color: "bg-blue-400" }
     ],
-    startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    endDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000), // 25 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    endDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago (ended)
+    status: 'ended',
     totalTokens: 15500,
-    participants: 220
+    participants: 220,
+    tags: ['sample']
   },
   {
     id: "market_6",
@@ -92,11 +95,12 @@ export const sampleMarkets: Market[] = [
       { id: "option_6_2", name: "Couple #2", percentage: 45, tokens: 3600, color: "bg-primary-400" },
       { id: "option_6_3", name: "Couple #3", percentage: 25, tokens: 2000, color: "bg-blue-400" }
     ],
-    startDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 93 * 24 * 60 * 60 * 1000), // 93 days ago
+    endDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago (ended)
+    status: 'ended',
     totalTokens: 8000,
-    participants: 267
+    participants: 267,
+    tags: ['sample']
   },
   {
     id: "market_7",
@@ -109,11 +113,12 @@ export const sampleMarkets: Market[] = [
       { id: "option_7_3", name: "Movie #3", percentage: 30, tokens: 2400, color: "bg-blue-400" },
       { id: "option_7_4", name: "Movie #4", percentage: 15, tokens: 1200, color: "bg-green-400" }
     ],
-    startDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
-    endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 120 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 140 * 24 * 60 * 60 * 1000), // 140 days ago
+    endDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago (ended)
+    status: 'ended',
     totalTokens: 8000,
-    participants: 189
+    participants: 189,
+    tags: ['sample']
   },
   {
     id: "market_8",
@@ -122,16 +127,15 @@ export const sampleMarkets: Market[] = [
     category: "Social Media",
     options: [
       { id: "option_8_1", name: "TikTok", percentage: 45, tokens: 4500, color: "bg-kai-600" },
-
       { id: "option_8_2", name: "Instagram", percentage: 30, tokens: 3000, color: "bg-primary-400" },
-
       { id: "option_8_3", name: "Twitter/X", percentage: 15, tokens: 1500, color: "bg-blue-400" },
       { id: "option_8_4", name: "BeReal", percentage: 10, tokens: 1000, color: "bg-green-400" }
     ],
-    startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-    endDate: new Date(Date.now() + 75 * 24 * 60 * 60 * 1000), // 75 days from now
-    status: 'active',
+    startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
+    endDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago (ended)
+    status: 'ended',
     totalTokens: 28000,
-    participants: 520
+    participants: 520,
+    tags: ['sample']
   }
 ]

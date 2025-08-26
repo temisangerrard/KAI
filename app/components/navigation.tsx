@@ -13,18 +13,16 @@ export function Navigation() {
 
   // Update active tab based on current pathname
   useEffect(() => {
-    if (pathname === "/dashboard") setActiveTab("home")
-    else if (pathname === "/trending") setActiveTab("trending")
-    else if (pathname === "/wallet") setActiveTab("wallet")
+    if (pathname === "/markets") setActiveTab("markets")
     else if (pathname === "/social") setActiveTab("social")
+    else if (pathname === "/wallet") setActiveTab("wallet")
     else if (pathname === "/profile") setActiveTab("profile")
   }, [pathname])
 
   const navItems = [
-    { id: "home", icon: Home, label: "Home", href: "/dashboard" },
-    { id: "trending", icon: TrendingUp, label: "Trending", href: "/trending" },
-    { id: "wallet", icon: Wallet, label: "Wallet", href: "/wallet" },
+    { id: "markets", icon: Home, label: "Markets", href: "/markets" },
     { id: "social", icon: MessageSquare, label: "Social", href: "/social" },
+    { id: "wallet", icon: Wallet, label: "Wallet", href: "/wallet" },
     { id: "profile", icon: User, label: "Profile", href: "/profile" },
   ]
 

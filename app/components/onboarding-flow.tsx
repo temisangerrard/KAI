@@ -22,7 +22,7 @@ export function OnboardingFlow() {
 
   const handleComplete = () => {
     completeOnboarding()
-    router.push("/dashboard")
+    router.push("/markets")
   }
 
   // Onboarding step content

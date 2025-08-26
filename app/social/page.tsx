@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Heart, MessageCircle, Share2, TrendingUp, Sparkles, Users, ArrowLeft, UserPlus, Search } from "lucide-react"
 import { Navigation } from "../components/navigation"
+import { TopNavigation } from "../components/top-navigation"
+
 import { useAuth } from "../auth/auth-context"
 
 // Mock social feed data
@@ -212,32 +214,19 @@ export default function SocialPage() {
   }
 
   return (
-
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
-
+      
+      {/* Desktop Top Navigation */}
+      <TopNavigation />
       
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="max-w-md mx-auto bg-white min-h-screen pb-20">
           {/* Mobile Header */}
           <div className="bg-gradient-to-r from-primary-400 to-kai-600 p-4 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-white hover:bg-white/20"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="flex-1">
-                <h1 className="text-xl font-bold">Social Feed</h1>
-                <p className="text-sm opacity-90">Community predictions</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <Sparkles className="w-4 h-4" />
-                <span className="font-semibold text-sm">{user?.tokenBalance.toLocaleString()}</span>
-              </div>
+            <div className="mb-4">
+              <h1 className="text-xl font-bold">Social Feed</h1>
+              <p className="text-sm opacity-90">Community predictions</p>
             </div>
 
             {/* Mobile Tab Navigation */}
@@ -425,11 +414,11 @@ export default function SocialPage() {
                 <h1 className="text-2xl font-bold text-gray-800">Social Feed</h1>
               </div>
               <button 
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/markets')}
                 className="flex items-center gap-2 text-gray-600 hover:text-kai-600 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Back to Dashboard</span>
+                <span className="text-sm">Back to Markets</span>
               </button>
             </div>
             <div className="flex items-center gap-4">

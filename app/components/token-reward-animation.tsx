@@ -5,7 +5,7 @@ import { Sparkles } from "lucide-react"
 
 interface TokenRewardAnimationProps {
   amount: number;
-  type: "win" | "prediction" | "bonus";
+  type: "win" | "prediction" | "bonus" | "creation";
   message?: string;
   size?: "sm" | "md" | "lg" | "xl";
 }
@@ -23,8 +23,8 @@ export function TokenRewardAnimation({
   const colors = {
     win: "text-amber-500",
     prediction: "text-kai-500",
-
-    bonus: "text-primary-500"
+    bonus: "text-primary-500",
+    creation: "text-kai-500"
   }
 
   // Define sizes

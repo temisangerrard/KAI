@@ -18,11 +18,15 @@ export default function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
 
-  // Don't auto-redirect authenticated users - let them visit landing page
+  // Redirect authenticated users to markets page
+  if (!isLoading && isAuthenticated) {
+    router.push("/markets")
+    return null
+  }
 
   const handleAuthSuccess = () => {
     setShowAuthModal(false)
-    router.push("/dashboard")
+    router.push("/markets")
   }
 
   // Show loading while checking authentication
@@ -100,9 +104,9 @@ export default function LandingPage() {
                 </Button>
                 <Button
                   className="bg-gradient-to-r from-kai-600 to-gold-600 hover:from-kai-700 hover:to-gold-700 text-white"
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() => router.push("/markets")}
                 >
-                  Go to Dashboard
+                  Go to Markets
                 </Button>
               </>
             ) : (
@@ -167,9 +171,9 @@ export default function LandingPage() {
                 <>
                   <Button
                     className="bg-gradient-to-r from-kai-600 to-gold-600 hover:from-kai-700 hover:to-gold-700 text-white text-lg py-6 px-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                    onClick={() => router.push("/dashboard")}
+                    onClick={() => router.push("/markets")}
                   >
-                    Go to Dashboard
+                    Go to Markets
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                   <Button
@@ -398,9 +402,9 @@ export default function LandingPage() {
               {isAuthenticated ? (
                 <Button
                   className="bg-white text-kai-700 hover:bg-kai-50 hover:text-kai-800 text-lg py-6 px-8 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() => router.push("/markets")}
                 >
-                  Go to Dashboard
+                  Go to Markets
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               ) : (

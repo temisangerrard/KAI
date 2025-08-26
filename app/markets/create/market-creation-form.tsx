@@ -16,7 +16,7 @@ import { CalendarIcon, PlusCircle, X, AlertCircle, Sparkles, Eye, Save, FileText
 import { useAuth } from "../../auth/auth-context"
 import { createMarket, saveMarketDraft, getMarketDrafts, generateAISuggestedTags } from "./market-service"
 import { marketTemplates } from "./market-templates"
-import { PredictionWinCelebration } from "../../components/prediction-win-celebration"
+import { MarketCreationSuccess } from "../../components/market-creation-success"
 
 // Define market categories
 const marketCategories = [
@@ -305,7 +305,7 @@ export function MarketCreationForm() {
 
       // Redirect after a delay
       setTimeout(() => {
-        router.push("/dashboard")
+        router.push("/markets")
       }, 3000)
     } catch (error) {
       console.error("Failed to create market:", error)
@@ -316,11 +316,12 @@ export function MarketCreationForm() {
   // If success, show celebration
   if (isSuccess && createdMarket) {
     return (
-      <PredictionWinCelebration
+      <MarketCreationSuccess
         title="Market Created!"
         message={`Your prediction market "${createdMarket.title}" has been created successfully.`}
-        tokenAmount={0}
-        onClose={() => router.push("/dashboard")}
+        marketId={createdMarket.id}
+        onClose={() => router.push("/markets")}
+        onViewMarket={() => router.push(`/markets/${createdMarket.id}`)}
       />
     )
   }

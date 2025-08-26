@@ -29,10 +29,27 @@ const MarketSchema = z.object({
 export async function GET() {
   try {
     const markets = await getAllMarkets()
-    return NextResponse.json(markets)
+    
+    // Always return a successful response with the markets array (even if empty)
+    return NextResponse.json(markets, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
   } catch (error) {
-    console.error('Failed to fetch markets', error)
-    return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
+    console.error('Failed to fetch markets:', error)
+    
+    // Return empty array instead of error to allow fallback handling
+    return NextResponse.json([], {
+      status: 200, // Return 200 with empty array instead of 500 error
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
   }
 }
 

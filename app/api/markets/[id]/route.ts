@@ -30,11 +30,19 @@ export async function GET(
   try {
     const market = await getMarketById(params.id)
     if (!market) {
+      console.log(`Market ${params.id} not found in database`)
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
-    return NextResponse.json(market)
+    
+    return NextResponse.json(market, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
   } catch (error) {
-    console.error('Failed to fetch market', error)
+    console.error(`Failed to fetch market ${params.id}:`, error)
     return NextResponse.json({ error: 'Failed to fetch market' }, { status: 500 })
   }
 }

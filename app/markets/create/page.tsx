@@ -53,11 +53,11 @@ export default function CreateMarketPage() {
                   <h1 className="text-2xl font-bold text-gray-800">Create Market</h1>
                 </div>
                 <button 
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => router.push('/markets')}
                   className="flex items-center gap-2 text-gray-600 hover:text-kai-600 transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-sm">Back to Dashboard</span>
+                  <span className="text-sm">Back to Markets</span>
                 </button>
               </div>
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">

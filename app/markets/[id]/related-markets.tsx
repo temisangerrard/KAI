@@ -157,7 +157,7 @@ export function RelatedMarkets({ currentMarket }: RelatedMarketsProps) {
             </div>
             <p className="text-gray-600 mb-4">No related markets found at the moment.</p>
             <Button
-              onClick={() => router.push('/markets/discover')}
+              onClick={() => router.push('/markets')}
               className="bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full"
             >
               Explore All Markets
@@ -179,7 +179,7 @@ export function RelatedMarkets({ currentMarket }: RelatedMarketsProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/markets/discover')}
+            onClick={() => router.push('/markets')}
             className="text-primary-600 hover:text-kai-700"
           >
             View All
@@ -270,7 +270,7 @@ export function RelatedMarkets({ currentMarket }: RelatedMarketsProps) {
           <div className="mt-4 text-center">
             <Button
               variant="outline"
-              onClick={() => router.push('/markets/discover')}
+              onClick={() => router.push('/markets')}
               className="text-primary-600 border-kai-200 hover:bg-kai-50 hover:text-kai-700 hover:border-primary-300"
             >
               Discover More Markets

@@ -96,7 +96,7 @@ export default function MarketDetailPage() {
                   Go Back
                 </Button>
                 <Button 
-                  onClick={() => router.push('/markets/discover')}
+                  onClick={() => router.push('/markets')}
                   className="bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white"
                 >
                   Browse Markets

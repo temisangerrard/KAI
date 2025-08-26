@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Sparkles, LogOut, Settings, User, Edit, Calendar, MapPin, TrendingUp, Award, BarChart3, ArrowLeft, Target, Zap, Building, Crown } from "lucide-react"
+import { Sparkles, LogOut, Settings, User, Edit, Calendar, MapPin, TrendingUp, Award, BarChart3, ArrowLeft, Target, Zap, Building, Crown, Plus } from "lucide-react"
 import { Navigation } from "../components/navigation"
+import { TopNavigation } from "../components/top-navigation"
+
 import { useAuth } from "../auth/auth-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -85,29 +87,15 @@ export default function ProfilePage() {
   };
 
   return (
-
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
-
+      
+      {/* Desktop Top Navigation */}
+      <TopNavigation />
 
       {/* Mobile Layout */}
       <div className="md:hidden">
         <div className="max-w-md mx-auto bg-white min-h-screen pb-20">
-          {/* Mobile Header */}
-          <div className="bg-gradient-to-r from-primary-400 to-kai-600 p-4 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold">Profile</h1>
-                <p className="text-sm opacity-90">Manage your account</p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-1">
-                  <Sparkles className="w-4 h-4" />
-                  <span className="font-semibold">{user?.tokenBalance.toLocaleString()}</span>
-                </div>
-                <p className="text-xs opacity-80">tokens</p>
-              </div>
-            </div>
-          </div>
+
 
           {/* Mobile Content */}
           <div className="p-4">
@@ -197,6 +185,44 @@ export default function ProfilePage() {
                   >
                     <LogOut className="h-4 w-4" />
                     Sign Out
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Dashboard Overview */}
+            <Card className="border-0 shadow-lg mb-6">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl">Dashboard Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-kai-50 p-3 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-kai-600">{user?.totalPredictions || 0}</p>
+                    <p className="text-xs text-gray-600">Total Predictions</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-green-600">
+                      {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                    </p>
+                    <p className="text-xs text-gray-600">Win Rate</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-gradient-to-r from-kai-500 to-primary-600 hover:from-kai-600 hover:to-primary-700 text-white"
+                    onClick={() => router.push('/markets')}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Explore Markets
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-kai-200 text-kai-600 hover:bg-kai-50"
+                    onClick={() => router.push('/markets/create')}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Market
                   </Button>
                 </div>
               </CardContent>
@@ -385,11 +411,11 @@ export default function ProfilePage() {
                 <h1 className="text-2xl font-bold text-gray-800">Profile</h1>
               </div>
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/markets')}
                 className="flex items-center gap-2 text-gray-600 hover:text-kai-600 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Back to Dashboard</span>
+                <span className="text-sm">Back to Markets</span>
               </button>
             </div>
             <div className="flex items-center gap-4">
@@ -416,7 +442,7 @@ export default function ProfilePage() {
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-16 -translate-x-16"></div>
                 <CardContent className="p-8 relative">
-                  <div className="flex items-start gap-6">
+                  <div className="flex items-start gap-6 mb-6">
                     <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl">
                       <AvatarImage src={user?.profileImage || "/placeholder-user.jpg"} />
                       <AvatarFallback className="bg-white/20 text-white text-3xl">
@@ -451,6 +477,43 @@ export default function ProfilePage() {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Dashboard Stats */}
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="bg-white/20 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold mb-1">{user?.totalPredictions || 0}</div>
+                      <div className="text-white/80 text-sm">Predictions Made</div>
+                    </div>
+                    <div className="bg-white/20 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold mb-1">
+                        {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                      </div>
+                      <div className="text-white/80 text-sm">Success Rate</div>
+                    </div>
+                    <div className="bg-white/20 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold mb-1">{user?.tokenBalance?.toLocaleString() || 0}</div>
+                      <div className="text-white/80 text-sm">Token Balance</div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex gap-3">
+                    <Button
+                      className="bg-white text-kai-600 hover:bg-white/90"
+                      onClick={() => router.push('/markets')}
+                    >
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Explore Markets
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-white/30 text-white hover:bg-white/10"
+                      onClick={() => router.push('/markets/create')}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Market
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

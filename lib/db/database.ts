@@ -67,36 +67,73 @@ export interface Market {
   }>
   startDate: Date
   endDate: Date
-  status: 'active' | 'resolved' | 'cancelled'
+  status: 'active' | 'ended' | 'cancelled'
   totalTokens: number
   participants: number
   tags?: string[]
 }
 
-// Get all markets
+// Get all markets with improved error handling
 export async function getAllMarkets(): Promise<Market[]> {
   try {
     const marketsRef = collection(db, 'markets')
-    const snapshot = await getDocs(marketsRef)
     
-    const markets = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      startDate: doc.data().startDate?.toDate() || new Date(),
-      endDate: doc.data().endDate?.toDate() || new Date(),
-    })) as Market[]
+    // Add timeout to prevent hanging requests
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore request timeout')), 8000)
+    })
     
-    // If no markets in Firestore, return mock data for development
-    if (markets.length === 0) {
-      console.log('No markets in Firestore, returning mock data')
-      return getMockMarkets()
-    }
+    const snapshotPromise = getDocs(marketsRef)
+    const snapshot = await Promise.race([snapshotPromise, timeoutPromise])
     
+    const markets = snapshot.docs.map(doc => {
+      const data = doc.data()
+      console.log(`Transforming market ${doc.id}:`, { 
+        title: data.title, 
+        hasOptions: !!data.options,
+        optionsLength: data.options?.length,
+        firstOption: data.options?.[0]
+      })
+      
+      // Transform Firestore data to match our Market interface
+      const transformedMarket = {
+        id: doc.id,
+        title: data.title || '',
+        description: data.description || '',
+        category: data.category || 'Other',
+        options: (data.options || []).map((option: any, index: number) => ({
+          id: option.id || `option_${index}`,
+          name: option.name || option.text || `Option ${index + 1}`,
+          percentage: option.percentage || 0,
+          tokens: option.tokens || option.totalTokens || 0,
+          color: option.color || (index === 0 ? '#10B981' : index === 1 ? '#EF4444' : '#3B82F6')
+        })),
+        startDate: data.startDate?.toDate() || data.createdAt?.toDate() || new Date(),
+        endDate: data.endDate?.toDate() || data.endsAt?.toDate() || new Date(),
+        status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
+        totalTokens: data.totalTokens || data.totalTokensStaked || 0,
+        participants: data.participants || data.totalParticipants || 0,
+        tags: data.tags || []
+      }
+      
+      console.log(`Transformed market ${doc.id}:`, {
+        title: transformedMarket.title,
+        optionsLength: transformedMarket.options.length,
+        firstOptionName: transformedMarket.options[0]?.name
+      })
+      
+      return transformedMarket
+    }) as Market[]
+    
+    console.log(`Successfully loaded ${markets.length} markets from Firestore`)
     return markets
+    
   } catch (error) {
-    console.warn('Firestore unavailable (offline or API disabled), using mock data:', error.message)
-    // Return mock data if Firestore fails (offline, API disabled, etc.)
-    return getMockMarkets()
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.warn(`Firestore unavailable: ${errorMessage}`)
+    
+    // Return empty array instead of mock data - let the service layer handle fallbacks
+    return []
   }
 }
 
@@ -136,29 +173,54 @@ export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Ma
   }
 }
 
-// Get market by ID
+// Get market by ID with improved error handling
 export async function getMarketById(id: string): Promise<Market | null> {
   try {
     const marketRef = doc(db, 'markets', id)
-    const snapshot = await getDoc(marketRef)
+    
+    // Add timeout to prevent hanging requests
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore request timeout')), 5000)
+    })
+    
+    const snapshotPromise = getDoc(marketRef)
+    const snapshot = await Promise.race([snapshotPromise, timeoutPromise])
     
     if (!snapshot.exists()) {
-      // Try to find in mock data
-      const mockMarkets = getMockMarkets()
-      return mockMarkets.find(market => market.id === id) || null
+      console.log(`Market ${id} not found in Firestore`)
+      return null
     }
     
-    return {
+    const data = snapshot.data()
+    
+    // Transform Firestore data to match our Market interface
+    const market = {
       id: snapshot.id,
-      ...snapshot.data(),
-      startDate: snapshot.data().startDate?.toDate() || new Date(),
-      endDate: snapshot.data().endDate?.toDate() || new Date(),
+      title: data.title || '',
+      description: data.description || '',
+      category: data.category || 'Other',
+      options: (data.options || []).map((option: any, index: number) => ({
+        id: option.id || `option_${index}`,
+        name: option.name || option.text || `Option ${index + 1}`,
+        percentage: option.percentage || 0,
+        tokens: option.tokens || option.totalTokens || 0,
+        color: option.color || (index === 0 ? '#10B981' : index === 1 ? '#EF4444' : '#3B82F6')
+      })),
+      startDate: data.startDate?.toDate() || data.createdAt?.toDate() || new Date(),
+      endDate: data.endDate?.toDate() || data.endsAt?.toDate() || new Date(),
+      status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
+      totalTokens: data.totalTokens || data.totalTokensStaked || 0,
+      participants: data.participants || data.totalParticipants || 0,
+      tags: data.tags || []
     } as Market
+    
+    console.log(`Successfully loaded market ${id} from Firestore`)
+    return market
+    
   } catch (error) {
-    console.warn('Firestore unavailable for market fetch, using mock data:', error.message)
-    // Try to find in mock data as fallback
-    const mockMarkets = getMockMarkets()
-    return mockMarkets.find(market => market.id === id) || null
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.warn(`Failed to fetch market ${id} from Firestore: ${errorMessage}`)
+    return null
   }
 }
 
