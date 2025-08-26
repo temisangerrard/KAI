@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getAllMarkets, createMarketRecord } from '@/lib/db/database'
-import { Market } from '@/app/auth/auth-context'
+import { getAllMarkets, createMarketRecord, Market } from '@/lib/db/database'
 
 const OptionSchema = z.object({
   id: z.string(),
@@ -9,6 +8,7 @@ const OptionSchema = z.object({
   percentage: z.number(),
   tokens: z.number(),
   color: z.string(),
+  imageUrl: z.string().optional(),
 })
 
 const MarketSchema = z.object({
@@ -23,6 +23,7 @@ const MarketSchema = z.object({
   totalTokens: z.number(),
   participants: z.number(),
   tags: z.array(z.string()).optional(),
+  imageUrl: z.string().optional(),
 })
 
 export async function GET() {
@@ -38,11 +39,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log('Received market data:', body)
+    
     const result = MarketSchema.safeParse(body)
     if (!result.success) {
-      return NextResponse.json({ error: 'Invalid market data' }, { status: 400 })
+      console.error('Schema validation failed:', result.error)
+      return NextResponse.json({ error: 'Invalid market data', details: result.error }, { status: 400 })
     }
-    const market = await createMarketRecord(result.data as Market)
+    
+    // Filter out undefined values from the validated data
+    const cleanData = Object.fromEntries(
+      Object.entries(result.data).filter(([_, value]) => value !== undefined)
+    )
+    
+    console.log('Clean market data:', cleanData)
+    const market = await createMarketRecord(cleanData as Market)
     return NextResponse.json(market, { status: 201 })
   } catch (error) {
     console.error('Failed to create market', error)

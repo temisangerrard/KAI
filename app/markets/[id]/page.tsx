@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getMarketById } from "../create/market-service"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 import { MarketDetailView } from "./market-detail-view"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

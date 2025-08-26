@@ -1,0 +1,292 @@
+{
+  "total": 58,
+  "used": [
+    "autoprefixer",
+    "next",
+    "react",
+    "react-dom",
+    "tailwindcss-animate",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "eslint",
+    "eslint-config-next",
+    "postcss",
+    "tailwindcss",
+    "typescript"
+  ],
+  "potentiallyUnused": [
+    "@hookform/resolvers",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-alert-dialog",
+    "@radix-ui/react-aspect-ratio",
+    "@radix-ui/react-avatar",
+    "@radix-ui/react-checkbox",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-context-menu",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-hover-card",
+    "@radix-ui/react-label",
+    "@radix-ui/react-menubar",
+    "@radix-ui/react-navigation-menu",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-progress",
+    "@radix-ui/react-radio-group",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-select",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slider",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-switch",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-toast",
+    "@radix-ui/react-toggle",
+    "@radix-ui/react-toggle-group",
+    "@radix-ui/react-tooltip",
+    "class-variance-authority",
+    "clsx",
+    "cmdk",
+    "date-fns",
+    "embla-carousel-react",
+    "firebase",
+    "input-otp",
+    "lucide-react",
+    "next-themes",
+    "react-day-picker",
+    "react-hook-form",
+    "react-resizable-panels",
+    "recharts",
+    "sonner",
+    "tailwind-merge",
+    "vaul",
+    "zod"
+  ],
+  "analysis": [
+    {
+      "name": "@hookform/resolvers",
+      "version": "^3.9.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-accordion",
+      "version": "1.2.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-alert-dialog",
+      "version": "1.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-aspect-ratio",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-avatar",
+      "version": "1.1.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-checkbox",
+      "version": "1.1.3",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-collapsible",
+      "version": "1.1.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-context-menu",
+      "version": "2.2.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-dialog",
+      "version": "1.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "2.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-hover-card",
+      "version": "1.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-label",
+      "version": "2.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-menubar",
+      "version": "1.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-navigation-menu",
+      "version": "1.2.3",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-popover",
+      "version": "1.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-progress",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-radio-group",
+      "version": "1.2.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-scroll-area",
+      "version": "1.2.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-select",
+      "version": "2.1.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-separator",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-slider",
+      "version": "1.2.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-switch",
+      "version": "1.1.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-tabs",
+      "version": "1.1.2",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-toast",
+      "version": "1.2.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-toggle",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-toggle-group",
+      "version": "1.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "@radix-ui/react-tooltip",
+      "version": "1.1.6",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "class-variance-authority",
+      "version": "^0.7.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "clsx",
+      "version": "^2.1.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "cmdk",
+      "version": "1.0.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "date-fns",
+      "version": "4.1.0",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "embla-carousel-react",
+      "version": "8.5.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "firebase",
+      "version": "^12.1.0",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "input-otp",
+      "version": "1.4.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.454.0",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "next-themes",
+      "version": "^0.4.4",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "react-day-picker",
+      "version": "^9.9.0",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "react-hook-form",
+      "version": "^7.54.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "react-resizable-panels",
+      "version": "^2.1.7",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "recharts",
+      "version": "2.15.0",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "sonner",
+      "version": "^1.7.1",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "tailwind-merge",
+      "version": "^2.5.5",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "vaul",
+      "version": "^0.9.6",
+      "reason": "No direct imports found in codebase"
+    },
+    {
+      "name": "zod",
+      "version": "^3.24.1",
+      "reason": "No direct imports found in codebase"
+    }
+  ]
+}

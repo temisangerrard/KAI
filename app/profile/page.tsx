@@ -375,7 +375,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div 
+                <div
                   className="text-2xl font-bold bg-gradient-to-r from-kai-600 to-gold-600 text-transparent bg-clip-text cursor-pointer"
                   onClick={() => router.push('/')}
                 >
@@ -582,7 +582,7 @@ export default function ProfilePage() {
                               {activity.type === 'win' && <Award className="w-6 h-6 text-green-600" />}
                               {activity.type === 'prediction' && <TrendingUp className="w-6 h-6 text-kai-600" />}
                               {activity.type === 'market' && <BarChart3 className="w-6 h-6 text-primary-600" />}
-           </div>
+                            </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 {activity.type === 'win' && (

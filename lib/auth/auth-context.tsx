@@ -29,23 +29,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize auth state on mount
+  // Initialize auth state on mount with Firebase listener
   useEffect(() => {
-    initializeAuth()
-  }, [])
-
-  const initializeAuth = async () => {
+    setIsLoading(true)
+    
     try {
-      setIsLoading(true)
-      const currentUser = await authService.getCurrentUser()
-      setUser(currentUser)
+      // Set up Firebase auth state listener
+      const unsubscribe = authService.onAuthStateChanged((user) => {
+        console.log('Auth state changed:', user ? 'User logged in' : 'User logged out')
+        setUser(user)
+        setIsLoading(false)
+      })
+
+      // Cleanup listener on unmount
+      return () => unsubscribe()
     } catch (error) {
-      console.error('Auth initialization error:', error)
-      setUser(null)
-    } finally {
+      console.error('Error setting up auth listener:', error)
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const login = async (credentials: LoginCredentials) => {
     try {

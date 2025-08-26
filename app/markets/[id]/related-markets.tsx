@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 import { getAllMarkets } from "../create/market-service"
 import { 
   Sparkles, 

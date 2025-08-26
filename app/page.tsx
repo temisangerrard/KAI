@@ -1,21 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "./auth/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Sparkles, TrendingUp, Users, MessageCircle, ArrowRight, Star, Shield, Zap, Target, Award, BarChart3 } from "lucide-react"
+import { Sparkles, TrendingUp, Users, ArrowRight, Star, Shield, Zap, Target, Award } from "lucide-react"
 import { LoginForm } from "./auth/login-form"
 import { RegisterForm } from "./auth/register-form"
+import { PasswordResetForm } from "./auth/password-reset-form"
 import { FeaturedMarketsSection } from "./components/featured-markets-section"
 
 export default function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authMode, setAuthMode] = useState<"login" | "register">("login")
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
 
   // Don't auto-redirect authenticated users - let them visit landing page
 
@@ -481,11 +482,16 @@ export default function LandingPage() {
                 <LoginForm
                   onSuccess={handleAuthSuccess}
                   onRegisterClick={() => setAuthMode("register")}
+                  onForgotPasswordClick={() => setAuthMode("reset")}
                 />
-              ) : (
+              ) : authMode === "register" ? (
                 <RegisterForm
                   onSuccess={handleAuthSuccess}
                   onLoginClick={() => setAuthMode("login")}
+                />
+              ) : (
+                <PasswordResetForm
+                  onBackToLogin={() => setAuthMode("login")}
                 />
               )}
             </div>

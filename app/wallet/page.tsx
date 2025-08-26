@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,12 +19,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Navigation } from "../components/navigation"
-import Link from "next/link"
-// import { TokenVisualization } from "./token-visualization"
-// import { TokenPurchaseModal } from "./token-purchase-modal"
-// import { Transaction, TokenBalance, TransactionType } from "@/lib/types/transaction"
-// import { designTokens } from "@/lib/design-tokens"
-// import { TransactionService } from "@/lib/services/transaction-service"
+
 import { useAuth } from "../auth/auth-context"
 
 export default function WalletPage() {

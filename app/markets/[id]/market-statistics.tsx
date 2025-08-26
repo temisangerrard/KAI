@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 import { 
   BarChart3, 
   TrendingUp, 

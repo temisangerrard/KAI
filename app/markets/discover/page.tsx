@@ -9,7 +9,7 @@ import { MarketGrid } from "./market-grid"
 import { MarketSearch } from "./market-search"
 import { MarketCategoryNav } from "./market-category-nav"
 import { getAllMarkets, getTrendingMarketsWithMetadata } from "../create/market-service"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 import { useAuth } from "@/app/auth/auth-context"
 
 export default function MarketDiscoveryPage() {

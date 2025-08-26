@@ -3,7 +3,7 @@
 import React from 'react'
 import { Sparkles } from 'lucide-react'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell } from "recharts"
 import { TokenBalance } from '@/lib/types/transaction'
 
 interface TokenVisualizationProps {

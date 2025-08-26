@@ -8,13 +8,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useIsMobile } from './use-mobile';
 import { 
-  mobileScreenReader, 
-  addSwipeGestureSupport, 
-  SwipeGestureConfig,
-  validateTouchTarget,
-  mobileVoiceControl,
-  mobileAria
-} from '@/lib/accessibility/mobile-utils';
+  mobile,
+  SwipeGestureConfig
+} from '@/lib/mobile-consolidated';
 
 export interface MobileAccessibilityOptions {
   enableSwipeGestures?: boolean;
@@ -31,7 +27,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
   // Detect mobile screen reader on mount
   useEffect(() => {
     if (isMobile) {
-      setIsScreenReaderActive(mobileScreenReader.isActive());
+      setIsScreenReaderActive(mobile.screenReader.isActive());
     }
   }, [isMobile]);
 
@@ -40,7 +36,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
    */
   const announce = useCallback((text: string, priority: 'polite' | 'assertive' = 'polite') => {
     if (isMobile && isScreenReaderActive) {
-      mobileScreenReader.announce(text, priority);
+      mobile.screenReader.announce(text, priority);
     }
   }, [isMobile, isScreenReaderActive]);
 
@@ -49,7 +45,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
    */
   const announceNavigation = useCallback((pageName: string) => {
     if (options.announceNavigation !== false && isMobile) {
-      mobileAria.announceMobileNavigation(pageName);
+      mobile.aria.announceMobileNavigation(pageName);
     }
   }, [isMobile, options.announceNavigation]);
 
@@ -65,7 +61,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
 
     const warnings: string[] = [];
     interactiveElements.forEach((element) => {
-      if (!validateTouchTarget(element as HTMLElement)) {
+      if (!mobile.validateTouchTarget(element as HTMLElement)) {
         const label = element.getAttribute('aria-label') || 
                      element.textContent?.trim() || 
                      element.tagName.toLowerCase();
@@ -85,7 +81,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
   ) => {
     if (!element || !options.enableSwipeGestures || !isMobile) return;
 
-    return addSwipeGestureSupport(element, config);
+    return mobile.addSwipeGestureSupport(element, config);
   }, [isMobile, options.enableSwipeGestures]);
 
   /**
@@ -96,7 +92,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
     voiceName: string
   ) => {
     if (options.enableVoiceControl && isMobile) {
-      mobileVoiceControl.optimizeForVoiceControl(element, voiceName);
+      mobile.voiceControl.optimizeForVoiceControl(element, voiceName);
     }
   }, [isMobile, options.enableVoiceControl]);
 
@@ -109,7 +105,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
     label: string
   ) => {
     if (isMobile) {
-      mobileAria.enhanceNavigation(element, isActive, label);
+      mobile.aria.enhanceNavigation(element, isActive, label);
     }
   }, [isMobile]);
 
@@ -121,7 +117,7 @@ export function useMobileAccessibility(options: MobileAccessibilityOptions = {})
     description: string
   ) => {
     if (isMobile && isScreenReaderActive) {
-      mobileAria.createMobileDescription(element, description);
+      mobile.aria.createMobileDescription(element, description);
     }
   }, [isMobile, isScreenReaderActive]);
 

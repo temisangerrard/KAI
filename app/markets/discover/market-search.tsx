@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, X } from "lucide-react"
 import { getAllMarkets } from "../create/market-service"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 
 interface MarketSearchProps {
   searchQuery: string

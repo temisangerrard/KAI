@@ -5,51 +5,22 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Heart, MessageCircle, Share2, TrendingUp, Sparkles, Users, Plus, LogOut, Bell, Star, Crown, Zap, Gift } from "lucide-react"
+import { Heart, TrendingUp, Sparkles, Users, Plus, LogOut, Bell, Star, Crown } from "lucide-react"
 import { BackOpinionModal } from "../components/back-opinion-modal"
 import { Navigation } from "../components/navigation"
+import { MarketCard } from "../components/market-card"
 import { useAuth } from "../auth/auth-context"
 import { useRouter } from "next/navigation"
-
-const mockPredictions = [
-  {
-    id: 1,
-    title: "Who will be the fan favorite on BBNaija All Stars?",
-    description: "The ultimate showdown is here! Which housemate has captured viewers' hearts?",
-    options: [
-      { name: "Dede", percentage: 45, tokens: 12500, color: "bg-kai-600" },
-      { name: "Kuture", percentage: 35, tokens: 9800, color: "bg-primary-400" },
-      { name: "Capy", percentage: 20, tokens: 5600, color: "bg-blue-400" },
-    ],
-    category: "BBNaija",
-    vibeScore: 98,
-    totalBacked: 27900,
-    participants: 1247,
-    timeLeft: "2 days",
-    trending: true,
-  },
-  {
-    id: 2,
-    title: "Davido vs Wizkid: Who creates the better album?",
-    description: "The eternal debate continues! Both artists are releasing new music",
-    options: [
-      { name: "Davido", percentage: 52, tokens: 15600, color: "bg-orange-400" },
-      { name: "Wizkid", percentage: 48, tokens: 14400, color: "bg-green-400" },
-    ],
-    category: "Music",
-    vibeScore: 95,
-    totalBacked: 30000,
-    participants: 892,
-    timeLeft: "5 days",
-    trending: true,
-  }
-]
+import { MarketsService } from "@/lib/services/firestore"
+import { Market } from "@/lib/types/database"
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth()
   const router = useRouter()
   const [selectedPrediction, setSelectedPrediction] = useState<any>(null)
   const [greeting, setGreeting] = useState("")
+  const [markets, setMarkets] = useState<Market[]>([])
+  const [loadingMarkets, setLoadingMarkets] = useState(true)
 
   // Set greeting based on time of day
   useEffect(() => {
@@ -62,6 +33,31 @@ export default function DashboardPage() {
       setGreeting("Good evening")
     }
   }, [])
+
+  // Load markets from Firestore
+  useEffect(() => {
+    const loadMarkets = async () => {
+      try {
+        setLoadingMarkets(true)
+        const { markets: fetchedMarkets } = await MarketsService.getMarkets({
+          status: 'active',
+          trending: true,
+          limit: 10
+        })
+        setMarkets(fetchedMarkets)
+      } catch (error) {
+        console.error('Error loading markets:', error)
+        // Fallback to empty array if error
+        setMarkets([])
+      } finally {
+        setLoadingMarkets(false)
+      }
+    }
+
+    if (isAuthenticated) {
+      loadMarkets()
+    }
+  }, [isAuthenticated])
 
   // Redirect to home if not authenticated
   if (!isLoading && !isAuthenticated) {
@@ -131,16 +127,18 @@ export default function DashboardPage() {
             {/* Mobile Quick Stats */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white/20 rounded-lg p-3 text-center">
-                <div className="text-lg font-bold">{user?.stats?.predictionsCount || 0}</div>
+                <div className="text-lg font-bold">{user?.totalPredictions || 0}</div>
                 <div className="text-xs text-white/80">Predictions</div>
               </div>
               <div className="bg-white/20 rounded-lg p-3 text-center">
-                <div className="text-lg font-bold">{user?.stats?.winRate || 0}%</div>
+                <div className="text-lg font-bold">
+                  {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                </div>
                 <div className="text-xs text-white/80">Win Rate</div>
               </div>
               <div className="bg-white/20 rounded-lg p-3 text-center">
-                <div className="text-lg font-bold">{user?.stats?.following || 0}</div>
-                <div className="text-xs text-white/80">Following</div>
+                <div className="text-lg font-bold">{user?.level || 1}</div>
+                <div className="text-xs text-white/80">Level</div>
               </div>
             </div>
           </div>
@@ -154,70 +152,30 @@ export default function DashboardPage() {
                 <Badge className="bg-kai-100 text-kai-700 text-xs">Hot</Badge>
               </div>
 
-              {mockPredictions.map((prediction) => (
-                <Card
-                  key={prediction.id}
-                  className="border-0 shadow-lg bg-gradient-to-br from-white to-gray-50 overflow-hidden"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary" className="bg-kai-100 text-kai-700 text-xs">
-                            {prediction.category}
-                          </Badge>
-                          {prediction.trending && (
-                            <Badge className="bg-gradient-to-r from-kai-600 to-primary-400 text-white text-xs">
-                              Trending
-                            </Badge>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-gray-800 mb-1">{prediction.title}</h3>
-                        <p className="text-sm text-gray-600">{prediction.description}</p>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="flex items-center gap-1 text-kai-500">
-                          <Heart className="w-4 h-4 fill-current" />
-                          <span className="text-sm font-semibold">{prediction.vibeScore}</span>
-                        </div>
-                        <p className="text-xs text-gray-500">vibe score</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-0">
-                    <div className="space-y-3 mb-4">
-                      {prediction.options.map((option, index) => (
-                        <div key={index} className="relative">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-gray-700">{option.name}</span>
-                            <span className="text-sm font-semibold text-gray-800">{option.percentage}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-full ${option.color} rounded-full transition-all duration-500`}
-                              style={{ width: `${option.percentage}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{option.tokens.toLocaleString()} tokens supporting</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1 bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full"
-                        onClick={() => setSelectedPrediction(prediction)}
-                      >
-                        Support Your Opinion
-                      </Button>
-                      <Button variant="outline" size="icon" className="rounded-full border-kai-200">
-                        <Share2 className="w-4 h-4 text-kai-500" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {loadingMarkets ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kai-600 mx-auto"></div>
+                  <p className="text-gray-500 mt-2">Loading markets...</p>
+                </div>
+              ) : markets.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No active markets available.</p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => router.push('/admin/markets/create')}
+                  >
+                    Create First Market
+                  </Button>
+                </div>
+              ) : (
+                markets.map((market) => (
+                  <MarketCard
+                    key={market.id}
+                    market={market}
+                    onBackOpinion={setSelectedPrediction}
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -306,16 +264,18 @@ export default function DashboardPage() {
 
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="bg-white/20 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold mb-1">{user?.stats?.predictionsCount || 0}</div>
+                      <div className="text-2xl font-bold mb-1">{user?.totalPredictions || 0}</div>
                       <div className="text-white/80 text-sm">Predictions Made</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold mb-1">{user?.stats?.winRate || 0}%</div>
+                      <div className="text-2xl font-bold mb-1">
+                        {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                      </div>
                       <div className="text-white/80 text-sm">Success Rate</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold mb-1">{(user?.stats?.tokensEarned || 0).toLocaleString()}</div>
-                      <div className="text-white/80 text-sm">Tokens Earned</div>
+                      <div className="text-2xl font-bold mb-1">{user?.tokenBalance?.toLocaleString() || 0}</div>
+                      <div className="text-white/80 text-sm">Token Balance</div>
                     </div>
                   </div>
 
@@ -397,71 +357,30 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {mockPredictions.map((prediction) => (
-                      <Card
-                        key={prediction.id}
-                        className="border shadow-sm bg-gradient-to-br from-white to-gray-50/50 overflow-hidden"
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="secondary" className="bg-kai-100 text-kai-700 text-xs">
-                                  {prediction.category}
-                                </Badge>
-                                {prediction.trending && (
-
-                                  <Badge className="bg-gradient-to-r from-kai-600 to-primary-400 text-white text-xs">
-                                    Trending
-                                  </Badge>
-                                )}
-                              </div>
-                              <h3 className="font-semibold text-gray-800 mb-1">{prediction.title}</h3>
-                              <p className="text-sm text-gray-600">{prediction.description}</p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="flex items-center gap-1 text-kai-500">
-                                <Heart className="w-4 h-4 fill-current" />
-                                <span className="text-sm font-semibold">{prediction.vibeScore}</span>
-                              </div>
-                              <p className="text-xs text-gray-500">vibe score</p>
-                            </div>
-                          </div>
-                        </CardHeader>
-
-                        <CardContent className="pt-0">
-                          <div className="space-y-3 mb-4">
-                            {prediction.options.map((option, index) => (
-                              <div key={index} className="relative">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-sm font-medium text-gray-700">{option.name}</span>
-                                  <span className="text-sm font-semibold text-gray-800">{option.percentage}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                  <div
-                                    className={`h-full ${option.color} rounded-full transition-all duration-500`}
-                                    style={{ width: `${option.percentage}%` }}
-                                  />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">{option.tokens.toLocaleString()} tokens supporting</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              className="flex-1 bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full"
-                              onClick={() => setSelectedPrediction(prediction)}
-                            >
-                              Support Your Opinion
-                            </Button>
-                            <Button variant="outline" size="icon" className="rounded-full border-kai-200">
-                              <Share2 className="w-4 h-4 text-kai-500" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {loadingMarkets ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kai-600 mx-auto"></div>
+                        <p className="text-gray-500 mt-2">Loading markets...</p>
+                      </div>
+                    ) : markets.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No active markets available.</p>
+                        <Button 
+                          className="mt-4" 
+                          onClick={() => router.push('/admin/markets/create')}
+                        >
+                          Create First Market
+                        </Button>
+                      </div>
+                    ) : (
+                      markets.map((market) => (
+                        <MarketCard
+                          key={market.id}
+                          market={market}
+                          onBackOpinion={setSelectedPrediction}
+                        />
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

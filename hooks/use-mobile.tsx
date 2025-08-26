@@ -1,7 +1,7 @@
 import * as React from "react"
-import { breakpoints } from "@/lib/responsive"
+import { mobile, breakpoints } from "@/lib/mobile-consolidated"
 
-// Breakpoint definitions from our responsive system
+// Breakpoint definitions from our consolidated mobile system
 const MOBILE_BREAKPOINT = breakpoints.md // 768px
 
 /**
@@ -14,10 +14,10 @@ export function useIsMobile() {
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+      setIsMobile(mobile.isMobileViewport())
     }
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    setIsMobile(mobile.isMobileViewport())
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
@@ -38,13 +38,7 @@ export function useDeviceType() {
 
   React.useEffect(() => {
     const updateDeviceType = () => {
-      const width = window.innerWidth
-      setDeviceType({
-        isMobile: width < breakpoints.md,
-        isTablet: width >= breakpoints.md && width < breakpoints.lg,
-        isDesktop: width >= breakpoints.lg && width < breakpoints.xl,
-        isLargeDesktop: width >= breakpoints.xl,
-      })
+      setDeviceType(mobile.getDeviceType())
     }
 
     // Initial check
@@ -69,20 +63,7 @@ export function useBreakpoint() {
 
   React.useEffect(() => {
     const updateBreakpoint = () => {
-      const width = window.innerWidth
-      if (width >= breakpoints["2xl"]) {
-        setBreakpoint("2xl")
-      } else if (width >= breakpoints.xl) {
-        setBreakpoint("xl")
-      } else if (width >= breakpoints.lg) {
-        setBreakpoint("lg")
-      } else if (width >= breakpoints.md) {
-        setBreakpoint("md")
-      } else if (width >= breakpoints.sm) {
-        setBreakpoint("sm")
-      } else {
-        setBreakpoint("xs")
-      }
+      setBreakpoint(mobile.getCurrentBreakpoint())
     }
 
     // Initial check

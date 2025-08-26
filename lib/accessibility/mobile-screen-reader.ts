@@ -355,6 +355,7 @@ export class MobileScreenReaderOptimizer {
       element.textContent = desktopContent;
     }
   }
+
 }
 
 /**

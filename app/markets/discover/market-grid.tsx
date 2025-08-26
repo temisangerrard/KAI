@@ -1,12 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 import { 
   Calendar, 
   Users, 

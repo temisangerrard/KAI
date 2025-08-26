@@ -14,7 +14,7 @@ import {
   Apple,
   CircleDollarSign
 } from "lucide-react"
-import { designTokens } from "@/lib/design-tokens"
+
 import { TokenRewardAnimation } from "../components/token-reward-animation"
 
 // Define package options
@@ -396,7 +396,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
           <div className="mb-4">
             <TokenRewardAnimation 
               amount={getSelectedTokens()} 
-              type="purchase" 
+              type="bonus" 
               message="Purchase Complete!" 
               size="lg"
             />

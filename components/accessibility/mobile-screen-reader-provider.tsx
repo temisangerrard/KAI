@@ -7,7 +7,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { getMobileScreenReaderOptimizer } from '@/lib/accessibility/mobile-screen-reader';
+import { mobile } from '@/lib/mobile-consolidated';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MobileScreenReaderContextType {
@@ -45,7 +45,7 @@ interface MobileScreenReaderProviderProps {
 
 export function MobileScreenReaderProvider({ children }: MobileScreenReaderProviderProps) {
   const isMobile = useIsMobile();
-  const [optimizer] = useState(() => getMobileScreenReaderOptimizer());
+  const [optimizer] = useState(() => mobile.getScreenReaderOptimizer());
   const [isActive, setIsActive] = useState(false);
   const [screenReaderType, setScreenReaderType] = useState<'voiceover' | 'talkback' | 'unknown'>('unknown');
 

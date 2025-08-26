@@ -3,7 +3,7 @@
  * Handles trending market identification and analysis
  */
 
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 
 // Interface for trending market with additional metadata
 export interface TrendingMarket extends Market {
@@ -310,8 +310,8 @@ export const getTrendingCategories = (
   // Calculate trending data for each category
   const trendingCategories: TrendingCategory[] = Object.entries(categoryGroups)
     .map(([category, categoryMarkets]) => {
-      const totalParticipants = categoryMarkets.reduce((sum, market) => sum + market.participants, 0)
-      const totalTokens = categoryMarkets.reduce((sum, market) => sum + market.totalTokens, 0)
+      const totalParticipants = categoryMarkets.reduce((sum, market) => sum + market.totalParticipants, 0)
+      const totalTokens = categoryMarkets.reduce((sum, market) => sum + market.totalTokensStaked, 0)
       const trendingScores = categoryMarkets.map(market => calculateTrendingScore(market))
       const averageTrendingScore = trendingScores.reduce((sum, score) => sum + score, 0) / trendingScores.length
       

@@ -10,12 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+
 import { format } from "date-fns"
 import { CalendarIcon, PlusCircle, X, AlertCircle, Sparkles, Eye, Save, FileText, Wand2, Check, Heart, Trophy, Shirt, Music, Film, Users, List } from "lucide-react"
 import { useAuth } from "../../auth/auth-context"
-import { createMarket, saveMarketDraft, getMarketDrafts, generateAISuggestedTags, type MarketDraft } from "./market-service"
-import { marketTemplates, type MarketTemplate } from "./market-templates"
+import { createMarket, saveMarketDraft, getMarketDrafts, generateAISuggestedTags } from "./market-service"
+import { marketTemplates } from "./market-templates"
 import { PredictionWinCelebration } from "../../components/prediction-win-celebration"
 
 // Define market categories
@@ -53,7 +53,7 @@ const iconMap: Record<string, any> = {
 export function MarketCreationForm() {
   const { user, updateUser } = useAuth()
   const router = useRouter()
-  
+
   // Form state
   const [currentStep, setCurrentStep] = useState(0) // Start at 0 for template selection
   const [title, setTitle] = useState("")
@@ -72,7 +72,7 @@ export function MarketCreationForm() {
   const [drafts, setDrafts] = useState<MarketDraft[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
-  
+
   // Validation state
   const [errors, setErrors] = useState<{
     title?: string;
@@ -81,11 +81,11 @@ export function MarketCreationForm() {
     endDate?: string;
     options?: string;
   }>({})
-  
+
   // Success state
   const [isSuccess, setIsSuccess] = useState(false)
   const [createdMarket, setCreatedMarket] = useState<any>(null)
-  
+
   // Load drafts on component mount
   useEffect(() => {
     if (user) {
@@ -93,18 +93,18 @@ export function MarketCreationForm() {
       setDrafts(userDrafts)
     }
   }, [user])
-  
+
   // Auto-save draft functionality
   useEffect(() => {
     if (!user || !autoSaveEnabled || currentStep === 0) return
-    
+
     const timeoutId = setTimeout(() => {
       saveDraft()
     }, 2000) // Auto-save after 2 seconds of inactivity
-    
+
     return () => clearTimeout(timeoutId)
   }, [title, description, category, endDate, options, tags, user, autoSaveEnabled, currentStep])
-  
+
   // Generate AI-suggested tags when title or description changes
   useEffect(() => {
     if (title.trim() || description.trim()) {
@@ -112,7 +112,7 @@ export function MarketCreationForm() {
       setSuggestedTags(suggested.filter(tag => !tags.includes(tag)))
     }
   }, [title, description, category, tags])
-  
+
   // Apply template when selected
   const applyTemplate = (template: MarketTemplate) => {
     setSelectedTemplate(template)
@@ -126,11 +126,11 @@ export function MarketCreationForm() {
     })))
     setCurrentStep(1)
   }
-  
+
   // Save draft functionality
   const saveDraft = async (showFeedback: boolean = false) => {
     if (!user || !title.trim()) return
-    
+
     try {
       const draft = await saveMarketDraft({
         title,
@@ -141,15 +141,15 @@ export function MarketCreationForm() {
         creatorId: user.id,
         tags
       })
-      
+
       if (!currentDraftId) {
         setCurrentDraftId(draft.id)
       }
-      
+
       // Update drafts list
       const updatedDrafts = getMarketDrafts(user.id)
       setDrafts(updatedDrafts)
-      
+
       // Show feedback if requested
       if (showFeedback) {
         // Create a temporary success indicator
@@ -168,7 +168,7 @@ export function MarketCreationForm() {
       console.error('Failed to save draft:', error)
     }
   }
-  
+
   // Load draft
   const loadDraft = (draft: MarketDraft) => {
     setTitle(draft.title)
@@ -184,7 +184,7 @@ export function MarketCreationForm() {
     setCurrentDraftId(draft.id)
     setCurrentStep(1)
   }
-  
+
   // Add tag
   const addTag = (tag: string) => {
     if (!tags.includes(tag) && tags.length < 5) {
@@ -192,12 +192,12 @@ export function MarketCreationForm() {
       setSuggestedTags(suggestedTags.filter(t => t !== tag))
     }
   }
-  
+
   // Remove tag
   const removeTag = (tag: string) => {
     setTags(tags.filter(t => t !== tag))
   }
-  
+
   // Add a new option
   const addOption = () => {
     if (options.length < 5) {
@@ -205,32 +205,32 @@ export function MarketCreationForm() {
       setOptions([...options, { id: String(options.length + 1), name: "", color: nextColor }])
     }
   }
-  
+
   // Remove an option
   const removeOption = (id: string) => {
     if (options.length > 2) {
       setOptions(options.filter(option => option.id !== id))
     }
   }
-  
+
   // Update an option
   const updateOption = (id: string, name: string) => {
-    setOptions(options.map(option => 
+    setOptions(options.map(option =>
       option.id === id ? { ...option, name } : option
     ))
   }
-  
+
   // Update an option color
   const updateOptionColor = (id: string, color: string) => {
-    setOptions(options.map(option => 
+    setOptions(options.map(option =>
       option.id === id ? { ...option, color } : option
     ))
   }
-  
+
   // Validate the current step
   const validateStep = (step: number): boolean => {
     const newErrors: any = {}
-    
+
     if (step === 1) {
       if (!title.trim()) newErrors.title = "Title is required"
       if (!description.trim()) newErrors.description = "Description is required"
@@ -238,41 +238,41 @@ export function MarketCreationForm() {
       if (!endDate) newErrors.endDate = "End date is required"
       else if (endDate < new Date()) newErrors.endDate = "End date must be in the future"
     }
-    
+
     if (step === 2) {
       const emptyOptions = options.some(option => !option.name.trim())
       if (emptyOptions) newErrors.options = "All options must have a name"
-      
+
       const uniqueNames = new Set(options.map(o => o.name.trim()))
       if (uniqueNames.size !== options.length) {
         newErrors.options = "All options must have unique names"
       }
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
-  
+
   // Handle next step
   const handleNextStep = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(currentStep + 1)
     }
   }
-  
+
   // Handle previous step
   const handlePrevStep = () => {
     setCurrentStep(currentStep - 1)
   }
-  
+
   // Handle form submission
   const handleSubmit = async () => {
     // Validate all steps before submitting
     if (!validateStep(1) || !validateStep(2)) return
-    
+
     try {
       if (!user) return
-      
+
       // Create the market
       const market = await createMarket({
         title,
@@ -288,7 +288,7 @@ export function MarketCreationForm() {
         tags,
         draftId: currentDraftId || undefined
       })
-      
+
       // Update user with the new market
       const updatedMarkets = [...(user.marketsCreated || []), market]
       updateUser({
@@ -298,11 +298,11 @@ export function MarketCreationForm() {
           marketsCreated: updatedMarkets.length
         }
       })
-      
+
       // Show success state
       setCreatedMarket(market)
       setIsSuccess(true)
-      
+
       // Redirect after a delay
       setTimeout(() => {
         router.push("/dashboard")
@@ -312,11 +312,11 @@ export function MarketCreationForm() {
       setErrors({ ...errors, submit: "Failed to create market. Please try again." })
     }
   }
-  
+
   // If success, show celebration
   if (isSuccess && createdMarket) {
     return (
-      <PredictionWinCelebration 
+      <PredictionWinCelebration
         title="Market Created!"
         message={`Your prediction market "${createdMarket.title}" has been created successfully.`}
         tokenAmount={0}
@@ -324,39 +324,32 @@ export function MarketCreationForm() {
       />
     )
   }
-  
+
   return (
     <div className="space-y-6">
       {/* Step indicator */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            currentStep === 0 ? "bg-kai-600 text-white" : currentStep > 0 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
-          }`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 0 ? "bg-kai-600 text-white" : currentStep > 0 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
+            }`}>
             <FileText className="w-4 h-4" />
           </div>
-          <div className={`h-1 w-6 ${
-            currentStep >= 1 ? "bg-kai-600" : "bg-kai-100"
-          }`}></div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            currentStep === 1 ? "bg-kai-600 text-white" : currentStep > 1 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
-          }`}>
+          <div className={`h-1 w-6 ${currentStep >= 1 ? "bg-kai-600" : "bg-kai-100"
+            }`}></div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 1 ? "bg-kai-600 text-white" : currentStep > 1 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
+            }`}>
             1
           </div>
-          <div className={`h-1 w-6 ${
-            currentStep >= 2 ? "bg-kai-600" : "bg-kai-100"
-          }`}></div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            currentStep === 2 ? "bg-kai-600 text-white" : currentStep > 2 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
-          }`}>
+          <div className={`h-1 w-6 ${currentStep >= 2 ? "bg-kai-600" : "bg-kai-100"
+            }`}></div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 2 ? "bg-kai-600 text-white" : currentStep > 2 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
+            }`}>
             2
           </div>
-          <div className={`h-1 w-6 ${
-            currentStep >= 3 ? "bg-kai-600" : "bg-kai-100"
-          }`}></div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            currentStep === 3 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
-          }`}>
+          <div className={`h-1 w-6 ${currentStep >= 3 ? "bg-kai-600" : "bg-kai-100"
+            }`}></div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 3 ? "bg-kai-600 text-white" : "bg-kai-100 text-kai-600"
+            }`}>
             <Eye className="w-4 h-4" />
           </div>
         </div>
@@ -364,7 +357,7 @@ export function MarketCreationForm() {
           Step {currentStep + 1} of 4
         </div>
       </div>
-      
+
       {/* Step 0: Template Selection */}
       {currentStep === 0 && (
         <div className="space-y-4">
@@ -372,7 +365,7 @@ export function MarketCreationForm() {
             <h2 className="text-lg font-semibold text-gray-800 mb-2">Choose a Template</h2>
             <p className="text-sm text-gray-600">Start with a template or create from scratch</p>
           </div>
-          
+
           {/* Drafts Section */}
           {drafts.length > 0 && (
             <div className="mb-6">
@@ -405,7 +398,7 @@ export function MarketCreationForm() {
               </div>
             </div>
           )}
-          
+
           {/* Templates Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Start from scratch option */}
@@ -425,7 +418,7 @@ export function MarketCreationForm() {
                 </Button>
               </CardContent>
             </Card>
-            
+
             {/* Template options */}
             {marketTemplates.map((template) => {
               const IconComponent = iconMap[template.icon]
@@ -455,12 +448,12 @@ export function MarketCreationForm() {
           </div>
         </div>
       )}
-      
+
       {/* Step 1: Basic Information */}
       {currentStep === 1 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">Basic Information</h2>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Title</label>
             <Input
@@ -476,7 +469,7 @@ export function MarketCreationForm() {
               </p>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Description</label>
             <Textarea
@@ -492,7 +485,7 @@ export function MarketCreationForm() {
               </p>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Category</label>
             <Select value={category} onValueChange={setCategory}>
@@ -512,16 +505,15 @@ export function MarketCreationForm() {
               </p>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">End Date</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={`w-full justify-start text-left font-normal ${
-                    !endDate ? "text-gray-400" : ""
-                  } ${errors.endDate ? "border-red-300" : ""}`}
+                  className={`w-full justify-start text-left font-normal ${!endDate ? "text-gray-400" : ""
+                    } ${errors.endDate ? "border-red-300" : ""}`}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {endDate ? format(endDate, "PPP") : "Select end date"}
@@ -544,8 +536,8 @@ export function MarketCreationForm() {
               </p>
             )}
           </div>
-          
-          <Button 
+
+          <Button
             className="w-full bg-gradient-to-r from-kai-600 to-gold-600 hover:from-kai-600 hover:to-gold-700 text-white"
             onClick={handleNextStep}
           >
@@ -553,7 +545,7 @@ export function MarketCreationForm() {
           </Button>
         </div>
       )}
-      
+
       {/* Step 2: Prediction Options */}
       {currentStep === 2 && (
         <div className="space-y-4">
@@ -561,7 +553,7 @@ export function MarketCreationForm() {
           <p className="text-sm text-gray-600">
             Add at least 2 options for people to choose from.
           </p>
-          
+
           {errors.options && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-xs text-red-500 flex items-center gap-1">
@@ -570,7 +562,7 @@ export function MarketCreationForm() {
               </p>
             </div>
           )}
-          
+
           <div className="space-y-3">
             {options.map((option, index) => (
               <Card key={option.id} className="overflow-hidden">
@@ -579,9 +571,9 @@ export function MarketCreationForm() {
                     <div className="flex-shrink-0">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="w-8 h-8 p-0 rounded-full"
                             style={{ backgroundColor: option.color.replace('bg-', '') }}
                           >
@@ -612,9 +604,9 @@ export function MarketCreationForm() {
                       className="flex-1"
                     />
                     {options.length > 2 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => removeOption(option.id)}
                         className="text-gray-400 hover:text-red-500"
                       >
@@ -626,10 +618,10 @@ export function MarketCreationForm() {
               </Card>
             ))}
           </div>
-          
+
           {options.length < 5 && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full border-dashed border-gray-300 text-gray-500"
               onClick={addOption}
             >
@@ -637,7 +629,7 @@ export function MarketCreationForm() {
               Add Another Option
             </Button>
           )}
-          
+
           <div className="bg-kai-50 rounded-lg p-4 mt-6">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-4 h-4 text-kai-600" />
@@ -647,17 +639,17 @@ export function MarketCreationForm() {
               You'll receive {creatorRewardPercentage}% of the tokens allocated to this market as a reward for creating it.
             </p>
           </div>
-          
+
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={handlePrevStep}
             >
               Back
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={handleNextStep}
             >
@@ -667,7 +659,7 @@ export function MarketCreationForm() {
           </div>
         </div>
       )}
-      
+
       {/* Step 3: Preview Mode */}
       {currentStep === 3 && (
         <div className="space-y-4">
@@ -677,7 +669,7 @@ export function MarketCreationForm() {
               This is how your market will appear to other users. Make sure everything looks perfect!
             </p>
           </div>
-          
+
           {/* Market Preview Card */}
           <Card className="overflow-hidden">
             <CardHeader className="pb-3">
@@ -709,7 +701,7 @@ export function MarketCreationForm() {
                 </div>
               </div>
             </CardHeader>
-            
+
             <CardContent className="pt-0">
               <div className="space-y-3">
                 <h4 className="font-medium text-gray-800">Prediction Options</h4>
@@ -730,7 +722,7 @@ export function MarketCreationForm() {
                   </div>
                 ))}
               </div>
-              
+
               {/* Creator Info */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -742,7 +734,7 @@ export function MarketCreationForm() {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* AI Suggested Tags */}
           {suggestedTags.length > 0 && (
             <Card className="border-kai-200 bg-gradient-to-r from-kai-50 to-kai-50">
@@ -774,18 +766,18 @@ export function MarketCreationForm() {
               </CardContent>
             </Card>
           )}
-          
+
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               onClick={handlePrevStep}
             >
               Back to Edit
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1"
               data-save-draft
               onClick={() => saveDraft(true)}
@@ -793,7 +785,7 @@ export function MarketCreationForm() {
               <Save className="w-4 h-4 mr-2" />
               Save Draft
             </Button>
-            <Button 
+            <Button
               className="flex-1 bg-gradient-to-r from-kai-600 to-gold-600 hover:from-kai-600 hover:to-gold-700 text-white"
               onClick={handleSubmit}
             >

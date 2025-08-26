@@ -3,7 +3,7 @@
  * Handles token minting, transactions, and history
  */
 
-import { Transaction, TransactionType, TransactionStatus, TokenBalance } from "@/lib/types/transaction";
+import { Transaction, TokenBalance } from "@/lib/types/transaction";
 
 // In-memory storage for transactions (would be replaced with API calls in production)
 let transactions: Transaction[] = [];

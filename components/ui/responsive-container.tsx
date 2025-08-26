@@ -2,7 +2,15 @@
 
 import React from "react"
 import { cn } from "@/lib/utils"
-import { containerWidths } from "@/lib/responsive"
+import { designSystem } from "@/lib/design-system-consolidated"
+
+const containerWidths = {
+  sm: '640px',
+  md: '768px',
+  lg: '1024px',
+  xl: '1280px',
+  '2xl': '1400px',
+}
 
 interface ResponsiveContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   as?: React.ElementType

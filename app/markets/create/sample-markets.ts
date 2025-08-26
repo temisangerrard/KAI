@@ -1,4 +1,4 @@
-import { Market } from "@/app/auth/auth-context"
+import { Market } from "@/lib/types/database"
 
 // Sample markets for testing the market discovery components
 export const sampleMarkets: Market[] = [
