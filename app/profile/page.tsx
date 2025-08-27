@@ -14,13 +14,14 @@ import { useAuth } from "../auth/auth-context"
 import { useTokenBalance } from "@/hooks/use-token-balance"
 import { useUserStatistics } from "@/hooks/use-user-statistics"
 import { useUserProfileData } from "@/hooks/use-user-profile-data"
+import { useUserCommitments } from "@/hooks/use-user-commitments"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from 'date-fns'
 
 export default function ProfilePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth()
-  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
+  const { totalTokens, availableTokens, isLoading: balanceLoading } = useTokenBalance()
   const {
     predictionsCount: oldPredictionsCount,
     marketsCreated: oldMarketsCreated,
@@ -40,6 +41,35 @@ export default function ProfilePage() {
     isLoading: profileDataLoading
   } = useUserProfileData()
 
+  // Debug logging for profile data
+  useEffect(() => {
+    console.log('[PROFILE_PAGE] Profile data state:', {
+      predictions: predictions,
+      predictionsLength: predictions?.length,
+      predictionsCount: predictionsCount,
+      marketsCreated: marketsCreated?.length,
+      marketsCreatedCount: marketsCreatedCount,
+      profileDataLoading: profileDataLoading
+    })
+  }, [predictions, predictionsCount, marketsCreated, marketsCreatedCount, profileDataLoading])
+
+  // Use real user commitments
+  const {
+    commitments,
+    isLoading: commitmentsLoading,
+    error: commitmentsError
+  } = useUserCommitments()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[PROFILE_PAGE] Commitments state:', {
+      commitments: commitments,
+      length: commitments?.length,
+      loading: commitmentsLoading,
+      error: commitmentsError
+    })
+  }, [commitments, commitmentsLoading, commitmentsError])
+
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -55,19 +85,23 @@ export default function ProfilePage() {
     return null
   }
 
-  // Generate activity data from real predictions and markets
+  // Generate activity data from real commitments and markets
   useEffect(() => {
     if (!profileDataLoading && (predictions.length > 0 || marketsCreated.length > 0)) {
       const activities = [];
 
-      // Add prediction activities
+      // Add commitment activities (using predictions data which contains real commitments)
       predictions.forEach(prediction => {
         activities.push({
-          id: `pred_${prediction.id}`,
-          type: prediction.status === 'won' ? 'win' : 'prediction',
+          id: `prediction_${prediction.id}`,
+          type: prediction.status === 'won' ? 'win' : 'commitment',
           title: prediction.status === 'won'
-            ? `Won prediction on "${prediction.marketTitle}"`
-            : `Backed opinion on "${prediction.marketTitle}"`,
+            ? `Won commitment on "${prediction.marketTitle}"`
+            : prediction.status === 'lost'
+              ? `Lost commitment on "${prediction.marketTitle}"`
+              : prediction.status === 'refunded'
+                ? `Refunded commitment on "${prediction.marketTitle}"`
+                : `Backed ${prediction.optionName} on "${prediction.marketTitle}"`,
           date: prediction.predictionDate,
           tokens: prediction.status === 'won' ? prediction.potentialWin : prediction.tokensAllocated,
           isWin: prediction.status === 'won'
@@ -111,6 +145,30 @@ export default function ProfilePage() {
     } catch (e) {
       return 'recently';
     }
+  };
+
+  // Calculate win rate from real commitments
+  const calculateWinRate = (commitments: any[]) => {
+    if (!commitments || commitments.length === 0) return 0;
+    const resolvedCommitments = commitments.filter(c => c.status === 'won' || c.status === 'lost');
+    if (resolvedCommitments.length === 0) return 0;
+    const wonCommitments = commitments.filter(c => c.status === 'won');
+    return Math.round((wonCommitments.length / resolvedCommitments.length) * 100);
+  };
+
+  // Check if user has any resolved commitments to show win rate
+  const hasResolvedCommitments = (commitments: any[]) => {
+    if (!commitments || commitments.length === 0) return false;
+    return commitments.some(c => c.status === 'won' || c.status === 'lost');
+  };
+
+  // Calculate tokens earned from real commitments
+  const calculateTokensEarned = (commitments: any[]) => {
+    if (!commitments || commitments.length === 0) return 0;
+    const wonCommitments = commitments.filter(c => c.status === 'won');
+    return wonCommitments.reduce((total, commitment) => {
+      return total + (commitment.potentialWinning - commitment.tokensCommitted);
+    }, 0);
   };
 
   return (
@@ -176,9 +234,9 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-kai-500">
-                      {!mounted || profileDataLoading ? '0' : predictionsCount}
+                      {!mounted || commitmentsLoading ? '0' : commitments.length}
                     </p>
-                    <p className="text-xs text-gray-500">Predictions</p>
+                    <p className="text-xs text-gray-500">Commitments</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-kai-500">
@@ -188,13 +246,13 @@ export default function ProfilePage() {
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-kai-500">
-                      {!mounted || profileDataLoading ? '0' : winRate}%
+                      {!mounted || commitmentsLoading ? '0' : calculateWinRate(commitments)}%
                     </p>
                     <p className="text-xs text-gray-500">Win Rate</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-kai-500">
-                      {!mounted || profileDataLoading ? '0' : tokensEarned.toLocaleString()}
+                      {!mounted || commitmentsLoading ? '0' : Math.max(0, calculateTokensEarned(commitments)).toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">Earned</p>
                   </div>
@@ -234,13 +292,14 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-kai-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-kai-600">
-                      {!mounted || profileDataLoading ? '0' : predictionsCount}
+                      {!mounted || profileDataLoading ? '0' : predictions.length}
                     </p>
-                    <p className="text-xs text-gray-600">Total Predictions</p>
+                    <p className="text-xs text-gray-600">Total Commitments</p>
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {!mounted || profileDataLoading ? '0' : winRate}%
+                      {!mounted || profileDataLoading ? '0' : 
+                       hasResolvedCommitments(predictions) ? `${calculateWinRate(predictions)}%` : '-'}
                     </p>
                     <p className="text-xs text-gray-600">Win Rate</p>
                   </div>
@@ -324,10 +383,14 @@ export default function ProfilePage() {
               <TabsContent value="predictions">
                 <Card className="border-0 shadow-lg">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-xl">My Predictions</CardTitle>
+                    <CardTitle className="text-xl">My Commitments</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {predictions && predictions.length > 0 ? (
+                    {profileDataLoading ? (
+                      <div className="py-8 text-center text-gray-500">
+                        <p>Loading commitments...</p>
+                      </div>
+                    ) : predictions && predictions.length > 0 ? (
                       <div className="space-y-4">
                         {predictions.map((prediction) => (
                           <div key={prediction.id} className="border-b pb-3 last:border-0 last:pb-0">
@@ -339,15 +402,19 @@ export default function ProfilePage() {
                                       ? 'bg-green-100 text-green-700'
                                       : prediction.status === 'lost'
                                         ? 'bg-red-100 text-red-700'
-                                        : 'bg-blue-100 text-blue-700'
+                                        : prediction.status === 'refunded'
+                                          ? 'bg-yellow-100 text-yellow-700'
+                                          : 'bg-blue-100 text-blue-700'
                                       }`}
                                   >
-                                    {prediction.status === 'won' ? 'Won' : prediction.status === 'lost' ? 'Lost' : 'Active'}
+                                    {prediction.status === 'won' ? 'Won' : 
+                                     prediction.status === 'lost' ? 'Lost' : 
+                                     prediction.status === 'refunded' ? 'Refunded' : 'Active'}
                                   </Badge>
                                 </div>
                                 <p className="text-sm font-medium">{prediction.marketTitle}</p>
                                 <p className="text-xs text-gray-600 mt-1">
-                                  Backed: <span className="font-medium">{prediction.optionName}</span> with {prediction.tokensAllocated} tokens
+                                  Position: <span className="font-medium capitalize">{prediction.optionName}</span> with {prediction.tokensAllocated} tokens
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">{formatDate(prediction.predictionDate)}</p>
                               </div>
@@ -364,7 +431,7 @@ export default function ProfilePage() {
                       </div>
                     ) : (
                       <div className="py-8 text-center text-gray-500">
-                        <p>No predictions yet</p>
+                        <p>No commitments yet</p>
                         <p className="text-sm mt-2">Back your opinions to see them here</p>
                       </div>
                     )}
@@ -516,21 +583,21 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="bg-white/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold mb-1">
-                        {!mounted || profileDataLoading ? '0' : predictionsCount}
+                        {!mounted || profileDataLoading ? '0' : predictions.length}
                       </div>
-                      <div className="text-white/80 text-sm">Predictions Made</div>
+                      <div className="text-white/80 text-sm">Commitments Made</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold mb-1">
-                        {!mounted || profileDataLoading ? '0' : winRate}%
+                        {!mounted || profileDataLoading ? '0' : marketsCreatedCount}
                       </div>
-                      <div className="text-white/80 text-sm">Success Rate</div>
+                      <div className="text-white/80 text-sm">Markets Created</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold mb-1">
-                        {balanceLoading ? '...' : totalTokens.toLocaleString()}
+                        {balanceLoading ? '...' : availableTokens.toLocaleString()}
                       </div>
-                      <div className="text-white/80 text-sm">Token Balance</div>
+                      <div className="text-white/80 text-sm">Available Tokens</div>
                     </div>
                   </div>
 
@@ -566,9 +633,9 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
-                        {!mounted || profileDataLoading ? '0' : predictionsCount}
+                        {!mounted || commitmentsLoading ? '0' : commitments.length}
                       </p>
-                      <p className="text-sm text-gray-600">Total Predictions</p>
+                      <p className="text-sm text-gray-600">Total Commitments</p>
                     </div>
                   </div>
                 </CardContent>
@@ -582,7 +649,7 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
-                        {!mounted || profileDataLoading ? '0' : winRate}%
+                        {!mounted || commitmentsLoading ? '0' : calculateWinRate(commitments)}%
                       </p>
                       <p className="text-sm text-gray-600">Win Rate</p>
                     </div>
@@ -600,9 +667,9 @@ export default function ProfilePage() {
                   <TrendingUp className="w-8 h-8 text-kai-600" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {!mounted || profileDataLoading ? '0' : predictionsCount}
+                  {!mounted || profileDataLoading ? '0' : predictions.length}
                 </p>
-                <p className="text-gray-600">Predictions Made</p>
+                <p className="text-gray-600">Commitments Made</p>
               </CardContent>
             </Card>
 
@@ -626,7 +693,8 @@ export default function ProfilePage() {
                   <Award className="w-8 h-8 text-green-600" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {!mounted || profileDataLoading ? '0' : winRate}%
+                  {!mounted || profileDataLoading ? '0' : 
+                   hasResolvedCommitments(predictions) ? `${calculateWinRate(predictions)}%` : '-'}
                 </p>
                 <p className="text-gray-600">Win Rate</p>
               </CardContent>
@@ -638,7 +706,7 @@ export default function ProfilePage() {
                   <Sparkles className="w-8 h-8 text-amber-600" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {!mounted || profileDataLoading ? '0' : tokensEarned.toLocaleString()}
+                  {!mounted || profileDataLoading ? '0' : Math.max(0, calculateTokensEarned(predictions)).toLocaleString()}
                 </p>
                 <p className="text-gray-600">Tokens Earned</p>
               </CardContent>

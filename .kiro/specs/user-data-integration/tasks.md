@@ -10,7 +10,7 @@
   - Connect real user balance to the existing useTokenBalance hook
   - _Requirements: 1.1, 1.2, 1.5_
 
-- [ ] 3. Show real user commitments
+- [x] 3. Show real user commitments
   - Replace any mock commitment data with actual user prediction commitments
   - Display real commitment status and amounts from database
   - _Requirements: 2.1, 2.2, 2.5_

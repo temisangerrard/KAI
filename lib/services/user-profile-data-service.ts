@@ -16,6 +16,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/db/database'
 import { Market, Prediction, MarketOption } from '@/lib/types/database'
+import { PredictionCommitment } from '@/lib/types/token'
+import { PredictionCommitmentService } from '@/lib/services/token-database'
 
 export interface UserPredictionData {
   id: string
@@ -26,7 +28,7 @@ export interface UserPredictionData {
   tokensAllocated: number
   potentialWin: number
   predictionDate: Date
-  status: 'active' | 'won' | 'lost'
+  status: 'active' | 'won' | 'lost' | 'refunded'
 }
 
 export interface UserMarketData {
@@ -107,60 +109,38 @@ export class UserProfileDataService {
   }
 
   /**
-   * Get user's predictions with market details
+   * Get user's predictions with market details (now using real commitments)
    */
   static async getUserPredictions(userId: string): Promise<UserPredictionData[]> {
     try {
-      console.log('[USER_PROFILE_DATA] Fetching predictions for userId:', userId)
+      console.log('[USER_PROFILE_DATA] Fetching commitments for userId:', userId)
       
-      // Fetch user predictions (without orderBy to avoid index requirement)
-      const predictionsQuery = query(
-        collection(db, 'predictions'),
-        where('userId', '==', userId),
-        limit(10) // Reduced limit for testing
-      )
-
-      const predictionsSnap = await getDocs(predictionsQuery)
-      console.log('[USER_PROFILE_DATA] Raw predictions count:', predictionsSnap.docs.length)
+      // Use the PredictionCommitmentService to get real user commitments
+      const commitments = await PredictionCommitmentService.getUserCommitments(userId)
+      console.log('[USER_PROFILE_DATA] Raw commitments count:', commitments.length)
       
-      if (predictionsSnap.docs.length === 0) {
-        console.log('[USER_PROFILE_DATA] No predictions found for user')
+      if (commitments.length === 0) {
+        console.log('[USER_PROFILE_DATA] No commitments found for user')
         return []
       }
 
-      const predictions = predictionsSnap.docs.map(doc => {
-        const data = doc.data()
-        console.log('[USER_PROFILE_DATA] Raw prediction data:', { id: doc.id, ...data })
-        return {
-          id: doc.id,
-          ...data
-        }
-      }) as Prediction[]
-
-      // Sort on client side to avoid index requirement
-      predictions.sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() || new Date(0)
-        const bTime = b.createdAt?.toDate?.() || new Date(0)
-        return bTime.getTime() - aTime.getTime()
-      })
-
-      // For now, return simplified data without fetching market details to avoid complexity
-      const predictionData: UserPredictionData[] = predictions.map(prediction => ({
-        id: prediction.id,
-        marketId: prediction.marketId || 'unknown',
-        marketTitle: `Market ${prediction.marketId || 'Unknown'}`,
-        optionId: prediction.optionId || 'unknown',
-        optionName: `Option ${prediction.optionId || 'Unknown'}`,
-        tokensAllocated: prediction.tokensStaked || 0,
-        potentialWin: (prediction.tokensStaked || 0) * 2, // Simple 2x calculation
-        predictionDate: prediction.createdAt?.toDate?.() || new Date(),
-        status: 'active' as const
+      // Transform commitments to prediction data format
+      const predictionData: UserPredictionData[] = commitments.map(commitment => ({
+        id: commitment.id,
+        marketId: commitment.predictionId,
+        marketTitle: commitment.metadata?.marketTitle || `Market ${commitment.predictionId}`,
+        optionId: commitment.position, // Using position as optionId
+        optionName: commitment.position === 'yes' ? 'Yes' : 'No',
+        tokensAllocated: commitment.tokensCommitted,
+        potentialWin: commitment.potentialWinning,
+        predictionDate: commitment.committedAt?.toDate?.() || new Date(),
+        status: commitment.status
       }))
 
-      console.log('[USER_PROFILE_DATA] Processed predictions:', predictionData.length)
+      console.log('[USER_PROFILE_DATA] Processed commitments as predictions:', predictionData.length)
       return predictionData
     } catch (error) {
-      console.error('[USER_PROFILE_DATA] Error fetching user predictions:', error)
+      console.error('[USER_PROFILE_DATA] Error fetching user commitments:', error)
       return []
     }
   }

@@ -506,24 +506,39 @@ export class PredictionCommitmentService {
    */
   static async getUserCommitments(userId: string, predictionId?: string): Promise<PredictionCommitment[]> {
     try {
+      console.log('[PREDICTION_COMMITMENT_SERVICE] Fetching commitments for userId:', userId)
+      
       const constraints: QueryConstraint[] = [
-        where('userId', '==', userId),
-        orderBy('committedAt', 'desc')
+        where('userId', '==', userId)
       ]
       
       if (predictionId) {
         constraints.push(where('predictionId', '==', predictionId))
       }
       
+      console.log('[PREDICTION_COMMITMENT_SERVICE] Query constraints:', constraints.length)
+      
       const q = query(collection(db, COLLECTIONS.predictionCommitments), ...constraints)
       const querySnapshot = await getDocs(q)
       
-      return querySnapshot.docs.map(doc => ({
+      console.log('[PREDICTION_COMMITMENT_SERVICE] Query executed, docs found:', querySnapshot.docs.length)
+      
+      const commitments = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as PredictionCommitment[]
+
+      // Sort on client side to avoid index requirement
+      commitments.sort((a, b) => {
+        const aTime = a.committedAt?.toMillis?.() || 0
+        const bTime = b.committedAt?.toMillis?.() || 0
+        return bTime - aTime // desc order
+      })
+
+      console.log('[PREDICTION_COMMITMENT_SERVICE] Returning commitments:', commitments.length)
+      return commitments
     } catch (error) {
-      console.error('Error getting user commitments:', error)
+      console.error('[PREDICTION_COMMITMENT_SERVICE] Error getting user commitments:', error)
       throw new Error('Failed to retrieve user commitments')
     }
   }
