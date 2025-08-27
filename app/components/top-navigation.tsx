@@ -13,6 +13,7 @@ import {
   User
 } from "lucide-react"
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 import { cn } from "@/lib/utils"
 import { HamburgerMenu } from "./hamburger-menu"
 import { useHamburgerMenu } from "@/hooks/use-hamburger-menu"
@@ -21,6 +22,12 @@ export function TopNavigation() {
   const router = useRouter()
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { totalTokens, isLoading: balanceLoading, availableTokens, committedTokens } = useTokenBalance()
+  
+  // Debug logging for balance changes
+  useEffect(() => {
+    console.log('[TOP_NAV] Balance updated:', { totalTokens, availableTokens, committedTokens, isLoading: balanceLoading })
+  }, [totalTokens, availableTokens, committedTokens, balanceLoading])
   const [showUserDropdown, setShowUserDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const hamburgerMenu = useHamburgerMenu()
@@ -121,9 +128,9 @@ export function TopNavigation() {
             <div className="hidden md:flex items-center gap-2 bg-kai-50 px-3 py-2 rounded-full">
               <Sparkles className="w-4 h-4 text-kai-600" />
               <span className="font-semibold text-kai-700 text-sm">
-                {user?.tokenBalance?.toLocaleString() || 0}
+                {balanceLoading ? '...' : availableTokens.toLocaleString()}
               </span>
-              <span className="text-kai-600 text-xs">tokens</span>
+              <span className="text-kai-600 text-xs">available</span>
             </div>
 
             {/* User Dropdown - Hidden on mobile */}

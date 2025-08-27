@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Navigation } from "../components/navigation"
 import { EditProfileForm } from "./edit-profile-form"
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 import { useToast } from "@/hooks/use-toast"
 
 export default function EditProfilePage() {
   const { user, isLoading, isAuthenticated, updateUser } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
   const router = useRouter()
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const { toast } = useToast()
@@ -75,7 +77,9 @@ export default function EditProfilePage() {
               </div>
               <div className="flex items-center gap-1">
                 <Sparkles className="w-4 h-4" />
-                <span className="font-semibold text-sm">{user?.tokenBalance.toLocaleString()}</span>
+                <span className="font-semibold text-sm">
+                  {balanceLoading ? '...' : totalTokens.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
@@ -117,7 +121,9 @@ export default function EditProfilePage() {
             </div>
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
               <Sparkles className="w-5 h-5 text-kai-600" />
-              <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()} tokens</span>
+              <span className="font-semibold text-gray-800">
+                {balanceLoading ? '...' : totalTokens.toLocaleString()} tokens
+              </span>
             </div>
           </div>
 

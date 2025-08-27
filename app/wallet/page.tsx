@@ -23,66 +23,60 @@ import { TopNavigation } from "../components/top-navigation"
 import { HamburgerMenu } from "../components/hamburger-menu"
 import { useHamburgerMenu } from "../../hooks/use-hamburger-menu"
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
+import { TokenPurchaseModal } from "./token-purchase-modal"
+import { WalletBalance } from "./wallet-balance"
+import { PurchaseConfirmation } from "./purchase-confirmation"
+import { WalletDashboard } from "./wallet-dashboard"
+import { UserBalance } from "@/lib/types/token"
 
 export default function WalletPage() {
   const { user } = useAuth();
+  const { balance, availableTokens, refreshBalance } = useTokenBalance();
   const router = useRouter();
   const hamburgerMenu = useHamburgerMenu()
-  const [currentTokens] = useState(2500)
-  const [purchaseAmount, setPurchaseAmount] = useState("")
-  const [showPurchase, setShowPurchase] = useState(false)
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [purchaseDetails, setPurchaseDetails] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const transactions = [
-    {
-      id: 1,
-      type: "purchase",
-      amount: 1000,
-      description: "Token purchase",
-      date: "2 hours ago",
-      status: "completed",
-    },
-    {
-      id: 2,
-      type: "backed",
-      amount: -250,
-      description: "Backed Mercy in BBNaija",
-      date: "1 day ago",
-      status: "active",
-    },
-    {
-      id: 3,
-      type: "won",
-      amount: 180,
-      description: "Won: Best Nollywood Actress",
-      date: "3 days ago",
-      status: "completed",
-    },
-  ]
+  // Handle successful token purchase
+  const handlePurchaseSuccess = (tokens: number) => {
+    // Refresh balance from database
+    refreshBalance()
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "purchase":
-        return <Plus className="w-4 h-4 text-green-500" />
-      case "backed":
-        return <ArrowUpRight className="w-4 h-4 text-kai-500" />
-      case "won":
-        return <ArrowDownLeft className="w-4 h-4 text-green-500" />
-      default:
-        return <Sparkles className="w-4 h-4 text-gray-500" />
-    }
+    // Create purchase details for confirmation
+    setPurchaseDetails({
+      transactionId: `TXN-${Date.now()}`,
+      amount: Math.ceil(tokens / 100), // Assuming £1 = 100 tokens
+      tokens: tokens,
+      bonusTokens: tokens > 2500 ? Math.floor(tokens * 0.1) : 0,
+      paymentMethod: "Credit Card",
+      timestamp: new Date(),
+      pricePerToken: 0.01
+    })
+
+    setShowConfirmation(true)
   }
 
-  const getTransactionColor = (type: string) => {
-    switch (type) {
-      case "purchase":
-      case "won":
-        return "text-green-600"
-      case "backed":
-        return "text-primary-600"
-      default:
-        return "text-gray-600"
-    }
+  // Handle purchase modal close
+  const handlePurchaseModalClose = () => {
+    setShowPurchaseModal(false)
   }
+
+  // Handle confirmation close
+  const handleConfirmationClose = () => {
+    setShowConfirmation(false)
+    setPurchaseDetails(null)
+  }
+
+  // Handle withdraw click
+  const handleWithdrawClick = () => {
+    // TODO: Implement withdraw functionality
+    console.log("Withdraw clicked")
+  }
+
+  // Wallet page now focuses on balance display only
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
@@ -105,18 +99,19 @@ export default function WalletPage() {
               <CardContent className="p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Sparkles className="w-6 h-6" />
-                  <span className="text-3xl font-bold">{currentTokens.toLocaleString()}</span>
+                  <span className="text-3xl font-bold">{availableTokens.toLocaleString()}</span>
                 </div>
                 <p className="text-sm opacity-90 mb-4">Available Tokens</p>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => setShowPurchase(true)}
+                    onClick={() => setShowPurchaseModal(true)}
                     className="flex-1 bg-white text-primary-600 hover:bg-gray-100 rounded-full"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Buy Tokens
                   </Button>
                   <Button
+                    onClick={handleWithdrawClick}
                     variant="outline"
                     className="flex-1 border-white/30 text-white hover:bg-white/10 rounded-full bg-transparent"
                   >
@@ -134,7 +129,7 @@ export default function WalletPage() {
               <CardContent className="p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Sparkles className="w-8 h-8 text-kai-500" />
-                  <span className="text-2xl font-bold text-gray-800">{currentTokens.toLocaleString()}</span>
+                  <span className="text-2xl font-bold text-gray-800">{availableTokens.toLocaleString()}</span>
                 </div>
                 <p className="text-sm text-gray-600">Total Tokens</p>
               </CardContent>
@@ -173,116 +168,14 @@ export default function WalletPage() {
             </Card>
           </div>
 
-          {/* Transaction History */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-800">Recent Activity</h2>
-            <Button variant="ghost" size="sm" className="text-primary-600">
-              View All
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {transactions.map((transaction) => (
-              <Card key={transaction.id} className="border-0 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                        {getTransactionIcon(transaction.type)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800 text-sm">{transaction.description}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-gray-500">{transaction.date}</p>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${
-                              transaction.status === "completed"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-orange-100 text-orange-700"
-                            }`}
-                          >
-                            {transaction.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${getTransactionColor(transaction.type)}`}>
-                        {transaction.amount > 0 ? "+" : ""}
-                        {transaction.amount}
-                      </p>
-                      <p className="text-xs text-gray-500">tokens</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          {/* Simplified wallet - no transaction history */}
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">Your wallet shows your current token balance above.</p>
+            <p className="text-sm text-gray-500">Transaction history and detailed analytics coming soon.</p>
           </div>
         </div>
 
-        {/* Purchase Modal */}
-        {showPurchase && (
-          <div className="fixed inset-0 bg-black/50 flex items-end justify-center p-4 z-50">
-            <Card className="w-full max-w-md bg-white rounded-t-3xl">
-              <CardHeader className="bg-gradient-to-r from-primary-400 to-kai-600 text-white rounded-t-3xl">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Buy Tokens</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowPurchase(false)}
-                    className="text-white hover:bg-white/20"
-                  >
-                    ×
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { amount: "£10", tokens: "1,000" },
-                      { amount: "£25", tokens: "2,500" },
-                      { amount: "£50", tokens: "5,000" },
-                    ].map((option, index) => (
-                      <button
-                        key={index}
-                        className="p-3 border-2 border-gray-200 rounded-xl hover:border-primary-400 transition-colors"
-                      >
-                        <p className="font-semibold text-gray-800">{option.amount}</p>
-                        <p className="text-xs text-gray-500">{option.tokens} tokens</p>
-                      </button>
-                    ))}
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Amount (£)</label>
-                    <Input
-                      type="number"
-                      placeholder="Enter amount"
-                      value={purchaseAmount}
-                      onChange={(e) => setPurchaseAmount(e.target.value)}
-                      className="rounded-xl"
-                    />
-                  </div>
-
-                  <div className="bg-kai-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className="w-4 h-4 text-kai-500" />
-                      <span className="text-sm font-medium text-gray-800">Payment Method</span>
-                    </div>
-                    <p className="text-sm text-gray-600">Secure payment via Stripe</p>
-                  </div>
-
-                  <Button className="w-full bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full py-3">
-                    Complete Purchase
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
           <Navigation />
         </div>
@@ -315,193 +208,46 @@ export default function WalletPage() {
             </div>
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
               <Sparkles className="w-5 h-5 text-kai-600" />
-              <span className="font-semibold text-gray-800">{currentTokens.toLocaleString()} tokens</span>
+              <span className="font-semibold text-gray-800">{availableTokens.toLocaleString()} tokens</span>
             </div>
           </div>
 
-          {/* Desktop Balance Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            
-            {/* Main Balance Card */}
-            <div className="lg:col-span-2">
-              <Card className="border-0 shadow-xl bg-gradient-to-br from-kai-600 via-primary-500 to-gold-500 text-white overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
-                <CardContent className="p-8 relative">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <p className="text-white/80 text-sm font-medium">Available Balance</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Sparkles className="w-8 h-8" />
-                        <span className="text-4xl font-bold">{currentTokens.toLocaleString()}</span>
-                      </div>
-                      <p className="text-white/80 text-sm mt-1">KAI Tokens</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-white/80 text-sm">Estimated Value</p>
-                      <p className="text-2xl font-bold">£{(currentTokens * 0.01).toFixed(2)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={() => setShowPurchase(true)}
-                      className="bg-white text-kai-600 hover:bg-gray-100 font-semibold px-6"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Buy Tokens
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-white/30 text-white hover:bg-white/10 bg-transparent font-semibold px-6"
-                    >
-                      <ArrowDownLeft className="w-4 h-4 mr-2" />
-                      Withdraw
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="space-y-4">
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                      <TrendingUp className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900">+£24.50</p>
-                      <p className="text-sm text-gray-600">This Month</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-                      <Gift className="w-6 h-6 text-primary-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900">1,250</p>
-                      <p className="text-sm text-gray-600">Rewards Earned</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Desktop Actions & Transactions */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Quick Actions */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => setShowPurchase(true)}
-                  className="w-full justify-start bg-green-50 text-green-700 hover:bg-green-100 border-green-200 h-14"
-                  variant="outline"
-                >
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                    <Plus className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold">Buy More Tokens</p>
-                    <p className="text-xs text-green-600">Add funds to your wallet</p>
-                  </div>
-                </Button>
-                
-                <Button 
-                  className="w-full justify-start bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 h-14"
-                  variant="outline"
-                >
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                    <ArrowDownLeft className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold">Withdraw Funds</p>
-                    <p className="text-xs text-blue-600">Cash out your earnings</p>
-                  </div>
-                </Button>
-                
-                <Button 
-                  className="w-full justify-start bg-kai-50 text-kai-700 hover:bg-kai-100 border-kai-200 h-14"
-                  variant="outline"
-                >
-                  <div className="w-10 h-10 bg-kai-100 rounded-lg flex items-center justify-center mr-3">
-                    <Gift className="w-5 h-5 text-kai-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold">View Rewards</p>
-                    <p className="text-xs text-kai-600">Check your bonuses</p>
-
-                  </div>
-                </Button>
-              </div>
-            </div>
-
-            {/* Transaction History */}
-            <div className="lg:col-span-2">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
-                <Button variant="ghost" className="text-kai-600 hover:text-kai-700">
-                  View All
-                </Button>
-              </div>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-0">
-                  <div className="divide-y divide-gray-100">
-                    {transactions.map((transaction, index) => (
-                      <div key={transaction.id} className="p-6 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                              transaction.type === 'purchase' ? 'bg-green-100' :
-                              transaction.type === 'won' ? 'bg-green-100' :
-                              'bg-kai-100'
-                            }`}>
-                              {getTransactionIcon(transaction.type)}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">{transaction.description}</p>
-                              <div className="flex items-center gap-3 mt-1">
-                                <p className="text-sm text-gray-500">{transaction.date}</p>
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-xs ${
-                                    transaction.status === "completed"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-orange-100 text-orange-700"
-                                  }`}
-                                >
-                                  {transaction.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${getTransactionColor(transaction.type)}`}>
-                              {transaction.amount > 0 ? "+" : ""}
-                              {transaction.amount}
-                            </p>
-                            <p className="text-sm text-gray-500">tokens</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          {/* Desktop Wallet Dashboard */}
+          <WalletDashboard
+            onPurchaseClick={() => setShowPurchaseModal(true)}
+            onWithdrawClick={handleWithdrawClick}
+            onViewPrediction={(predictionId) => {
+              // Navigate to prediction page
+              router.push(`/markets/${predictionId}`)
+            }}
+          />
         </div>
       </div>
+
+      {/* Token Purchase Modal */}
+      <TokenPurchaseModal
+        isOpen={showPurchaseModal}
+        onClose={handlePurchaseModalClose}
+        onSuccess={handlePurchaseSuccess}
+      />
+
+      {/* Purchase Confirmation Modal */}
+      {purchaseDetails && (
+        <PurchaseConfirmation
+          isOpen={showConfirmation}
+          purchaseDetails={purchaseDetails}
+          onClose={handleConfirmationClose}
+          onViewWallet={() => {
+            handleConfirmationClose()
+            // Already on wallet page, just scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onContinueShopping={() => {
+            handleConfirmationClose()
+            setShowPurchaseModal(true)
+          }}
+        />
+      )}
     </div>
   )
 }

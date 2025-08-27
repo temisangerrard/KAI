@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,12 +11,40 @@ import { Navigation } from "../components/navigation"
 import { TopNavigation } from "../components/top-navigation"
 
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
+import { useUserStatistics } from "@/hooks/use-user-statistics"
+import { useUserProfileData } from "@/hooks/use-user-profile-data"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from 'date-fns'
 
 export default function ProfilePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
+  const {
+    predictionsCount: oldPredictionsCount,
+    marketsCreated: oldMarketsCreated,
+    winRate: oldWinRate,
+    tokensEarned: oldTokensEarned,
+    isLoading: statsLoading
+  } = useUserStatistics()
+
+  // Use real profile data instead of fake data
+  const {
+    predictions,
+    marketsCreated,
+    predictionsCount,
+    marketsCreatedCount,
+    winRate,
+    tokensEarned,
+    isLoading: profileDataLoading
+  } = useUserProfileData()
+
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("activity")
   const [recentActivity, setRecentActivity] = useState<any[]>([])
@@ -26,46 +55,44 @@ export default function ProfilePage() {
     return null
   }
 
-  // Generate activity data from user predictions and markets
+  // Generate activity data from real predictions and markets
   useEffect(() => {
-    if (user) {
+    if (!profileDataLoading && (predictions.length > 0 || marketsCreated.length > 0)) {
       const activities = [];
 
       // Add prediction activities
-      if (user.predictions && user.predictions.length > 0) {
-        user.predictions.forEach(prediction => {
-          activities.push({
-            id: `pred_${prediction.id}`,
-            type: prediction.status === 'won' ? 'win' : 'prediction',
-            title: prediction.status === 'won'
-              ? `Won prediction on "${prediction.marketTitle}"`
-              : `Backed opinion on "${prediction.marketTitle}"`,
-            date: prediction.predictionDate,
-            tokens: prediction.status === 'won' ? prediction.potentialWin : prediction.tokensAllocated,
-            isWin: prediction.status === 'won'
-          });
+      predictions.forEach(prediction => {
+        activities.push({
+          id: `pred_${prediction.id}`,
+          type: prediction.status === 'won' ? 'win' : 'prediction',
+          title: prediction.status === 'won'
+            ? `Won prediction on "${prediction.marketTitle}"`
+            : `Backed opinion on "${prediction.marketTitle}"`,
+          date: prediction.predictionDate,
+          tokens: prediction.status === 'won' ? prediction.potentialWin : prediction.tokensAllocated,
+          isWin: prediction.status === 'won'
         });
-      }
+      });
 
       // Add market creation activities
-      if (user.marketsCreated && user.marketsCreated.length > 0) {
-        user.marketsCreated.forEach(market => {
-          activities.push({
-            id: `market_${market.id}`,
-            type: 'market',
-            title: `Created market "${market.title}"`,
-            date: market.startDate,
-            tokens: 0
-          });
+      marketsCreated.forEach(market => {
+        activities.push({
+          id: `market_${market.id}`,
+          type: 'market',
+          title: `Created market "${market.title}"`,
+          date: market.startDate,
+          tokens: 0
         });
-      }
+      });
 
       // Sort by date (most recent first)
       activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       setRecentActivity(activities);
+    } else if (!profileDataLoading) {
+      setRecentActivity([]);
     }
-  }, [user]);
+  }, [predictions, marketsCreated, profileDataLoading]);
 
   const handleLogout = () => {
     logout()
@@ -88,7 +115,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
-      
+
       {/* Desktop Top Navigation */}
       <TopNavigation />
 
@@ -148,19 +175,27 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-kai-500">{user?.stats?.predictionsCount || 0}</p>
+                    <p className="text-2xl font-bold text-kai-500">
+                      {!mounted || profileDataLoading ? '0' : predictionsCount}
+                    </p>
                     <p className="text-xs text-gray-500">Predictions</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-kai-500">{user?.stats?.marketsCreated || 0}</p>
+                    <p className="text-2xl font-bold text-kai-500">
+                      {!mounted || profileDataLoading ? '0' : marketsCreatedCount}
+                    </p>
                     <p className="text-xs text-gray-500">Markets</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-kai-500">{user?.stats?.winRate || 0}%</p>
+                    <p className="text-2xl font-bold text-kai-500">
+                      {!mounted || profileDataLoading ? '0' : winRate}%
+                    </p>
                     <p className="text-xs text-gray-500">Win Rate</p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-kai-500">{(user?.stats?.tokensEarned || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-kai-500">
+                      {!mounted || profileDataLoading ? '0' : tokensEarned.toLocaleString()}
+                    </p>
                     <p className="text-xs text-gray-500">Earned</p>
                   </div>
                 </div>
@@ -198,12 +233,14 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-kai-50 p-3 rounded-lg text-center">
-                    <p className="text-2xl font-bold text-kai-600">{user?.totalPredictions || 0}</p>
+                    <p className="text-2xl font-bold text-kai-600">
+                      {!mounted || profileDataLoading ? '0' : predictionsCount}
+                    </p>
                     <p className="text-xs text-gray-600">Total Predictions</p>
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                      {!mounted || profileDataLoading ? '0' : winRate}%
                     </p>
                     <p className="text-xs text-gray-600">Win Rate</p>
                   </div>
@@ -290,9 +327,9 @@ export default function ProfilePage() {
                     <CardTitle className="text-xl">My Predictions</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {user?.predictions && user.predictions.length > 0 ? (
+                    {predictions && predictions.length > 0 ? (
                       <div className="space-y-4">
-                        {user.predictions.map((prediction) => (
+                        {predictions.map((prediction) => (
                           <div key={prediction.id} className="border-b pb-3 last:border-0 last:pb-0">
                             <div className="flex justify-between items-start">
                               <div>
@@ -341,9 +378,9 @@ export default function ProfilePage() {
                     <CardTitle className="text-xl">Markets Created</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {user?.marketsCreated && user.marketsCreated.length > 0 ? (
+                    {marketsCreated && marketsCreated.length > 0 ? (
                       <div className="space-y-4">
-                        {user.marketsCreated.map((market) => (
+                        {marketsCreated.map((market) => (
                           <div key={market.id} className="border-b pb-3 last:border-0 last:pb-0">
                             <div className="flex justify-between items-start">
                               <div>
@@ -426,10 +463,6 @@ export default function ProfilePage() {
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Profile
               </Button>
-              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-                <Sparkles className="w-5 h-5 text-kai-600" />
-                <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()} tokens</span>
-              </div>
             </div>
           </div>
 
@@ -482,17 +515,21 @@ export default function ProfilePage() {
                   {/* Dashboard Stats */}
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="bg-white/20 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold mb-1">{user?.totalPredictions || 0}</div>
+                      <div className="text-2xl font-bold mb-1">
+                        {!mounted || profileDataLoading ? '0' : predictionsCount}
+                      </div>
                       <div className="text-white/80 text-sm">Predictions Made</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold mb-1">
-                        {user?.totalPredictions ? Math.round((user.correctPredictions / user.totalPredictions) * 100) : 0}%
+                        {!mounted || profileDataLoading ? '0' : winRate}%
                       </div>
                       <div className="text-white/80 text-sm">Success Rate</div>
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold mb-1">{user?.tokenBalance?.toLocaleString() || 0}</div>
+                      <div className="text-2xl font-bold mb-1">
+                        {balanceLoading ? '...' : totalTokens.toLocaleString()}
+                      </div>
                       <div className="text-white/80 text-sm">Token Balance</div>
                     </div>
                   </div>
@@ -528,7 +565,9 @@ export default function ProfilePage() {
                       <TrendingUp className="w-6 h-6 text-kai-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">{user?.stats?.predictionsCount || 0}</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {!mounted || profileDataLoading ? '0' : predictionsCount}
+                      </p>
                       <p className="text-sm text-gray-600">Total Predictions</p>
                     </div>
                   </div>
@@ -542,7 +581,9 @@ export default function ProfilePage() {
                       <Award className="w-6 h-6 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">{user?.stats?.winRate || 0}%</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {!mounted || profileDataLoading ? '0' : winRate}%
+                      </p>
                       <p className="text-sm text-gray-600">Win Rate</p>
                     </div>
                   </div>
@@ -558,7 +599,9 @@ export default function ProfilePage() {
                 <div className="w-16 h-16 bg-kai-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <TrendingUp className="w-8 h-8 text-kai-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">{user?.stats?.predictionsCount || 0}</p>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {!mounted || profileDataLoading ? '0' : predictionsCount}
+                </p>
                 <p className="text-gray-600">Predictions Made</p>
               </CardContent>
             </Card>
@@ -570,7 +613,9 @@ export default function ProfilePage() {
                   <BarChart3 className="w-8 h-8 text-primary-600" />
 
                 </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">{user?.stats?.marketsCreated || 0}</p>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {!mounted || profileDataLoading ? '0' : marketsCreatedCount}
+                </p>
                 <p className="text-gray-600">Markets Created</p>
               </CardContent>
             </Card>
@@ -580,7 +625,9 @@ export default function ProfilePage() {
                 <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Award className="w-8 h-8 text-green-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">{user?.stats?.winRate || 0}%</p>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {!mounted || profileDataLoading ? '0' : winRate}%
+                </p>
                 <p className="text-gray-600">Win Rate</p>
               </CardContent>
             </Card>
@@ -590,7 +637,9 @@ export default function ProfilePage() {
                 <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Sparkles className="w-8 h-8 text-amber-600" />
                 </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">{(user?.stats?.tokensEarned || 0).toLocaleString()}</p>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {!mounted || profileDataLoading ? '0' : tokensEarned.toLocaleString()}
+                </p>
                 <p className="text-gray-600">Tokens Earned</p>
               </CardContent>
             </Card>
@@ -695,9 +744,9 @@ export default function ProfilePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {user?.predictions && user.predictions.length > 0 ? (
+                    {predictions && predictions.length > 0 ? (
                       <div className="space-y-4">
-                        {user.predictions.map((prediction) => (
+                        {predictions.map((prediction) => (
                           <div key={prediction.id} className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${prediction.status === 'won' ? 'bg-green-100' :
                               prediction.status === 'lost' ? 'bg-red-100' :
@@ -756,9 +805,9 @@ export default function ProfilePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {user?.marketsCreated && user.marketsCreated.length > 0 ? (
+                    {marketsCreated && marketsCreated.length > 0 ? (
                       <div className="space-y-4">
-                        {user.marketsCreated.map((market) => (
+                        {marketsCreated.map((market) => (
                           <div key={market.id} className="flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${market.status === 'resolved' ? 'bg-green-100' :
                               market.status === 'cancelled' ? 'bg-red-100' :
@@ -885,13 +934,13 @@ export default function ProfilePage() {
                       {
                         name: "Lucky Streak",
                         icon: <Zap className="w-5 h-5" />,
-                        earned: (user?.stats?.winRate || 0) > 50,
+                        earned: mounted && winRate > 50,
                         color: "text-green-600"
                       },
                       {
                         name: "Market Creator",
                         icon: <Building className="w-5 h-5" />,
-                        earned: (user?.stats?.marketsCreated || 0) > 0,
+                        earned: marketsCreated > 0,
 
                         color: "text-primary-600"
 
@@ -899,7 +948,7 @@ export default function ProfilePage() {
                       {
                         name: "High Roller",
                         icon: <Crown className="w-5 h-5" />,
-                        earned: (user?.stats?.tokensEarned || 0) > 1000,
+                        earned: tokensEarned > 1000,
                         color: "text-amber-600"
                       }
                     ].map((achievement, index) => (
@@ -918,30 +967,7 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              {/* Performance Summary */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-lg">Performance Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">This Month</span>
-                      <span className="font-bold text-green-600">+{Math.floor(Math.random() * 500) + 100} tokens</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Best Streak</span>
-                      <span className="font-bold text-kai-600">{Math.floor(Math.random() * 10) + 3} wins</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Rank</span>
-                      <Badge className="bg-kai-100 text-kai-700">
-                        Top {Math.floor(Math.random() * 20) + 5}%
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+
             </div>
           </div>
         </div>

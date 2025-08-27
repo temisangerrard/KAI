@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Sparkles, TrendingUp, Users, MessageCircle, ArrowRight, ArrowLeft, Gift, X } from "lucide-react"
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 import { useOnboarding } from "../auth/onboarding-context"
 
 export function OnboardingFlow() {
   const { user } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
   const { currentStep, totalSteps, nextStep, prevStep, completeOnboarding } = useOnboarding()
   const router = useRouter()
   const [progressValue, setProgressValue] = useState(0)
@@ -145,7 +147,7 @@ export function OnboardingFlow() {
           <div className="bg-gradient-to-r from-green-100 to-emerald-100 p-6 rounded-xl text-center">
             <Sparkles className="h-10 w-10 text-green-500 mx-auto mb-2" />
             <h3 className="text-xl font-bold text-green-700 mb-1">
-              {user?.tokenBalance.toLocaleString()} Tokens
+              {balanceLoading ? '...' : totalTokens.toLocaleString()} Tokens
             </h3>
             <p className="text-sm text-green-600">
               Have been added to your wallet!

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { getMarketById } from "../create/market-service"
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 import { MarketDetailView } from "./market-detail-view"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,28 +17,28 @@ export default function MarketDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadMarket = async () => {
-      setIsLoading(true)
-      setError(null)
+  const loadMarket = async () => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const marketId = params.id as string
+      const foundMarket = await getMarketById(marketId)
       
-      try {
-        const marketId = params.id as string
-        const foundMarket = await getMarketById(marketId)
-        
-        if (!foundMarket) {
-          setError("Market not found")
-        } else {
-          setMarket(foundMarket)
-        }
-      } catch (err) {
-        console.error("Failed to load market:", err)
-        setError("Failed to load market")
-      } finally {
-        setIsLoading(false)
+      if (!foundMarket) {
+        setError("Market not found")
+      } else {
+        setMarket(foundMarket)
       }
+    } catch (err) {
+      console.error("Failed to load market:", err)
+      setError("Failed to load market")
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     if (params.id) {
       loadMarket()
     }
@@ -113,7 +113,7 @@ export default function MarketDetailPage() {
 
   return (
     <div>
-      <MarketDetailView market={market} />
+      <MarketDetailView market={market} onMarketUpdate={loadMarket} />
       <Navigation />
     </div>
   )

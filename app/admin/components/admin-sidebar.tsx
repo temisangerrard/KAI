@@ -12,7 +12,8 @@ import {
   BarChart3,
   DollarSign,
   Bell,
-  Shield
+  Shield,
+  Coins
 } from 'lucide-react'
 
 const navigation = [
@@ -25,6 +26,11 @@ const navigation = [
     name: 'Markets',
     href: '/admin/markets',
     icon: TrendingUp,
+  },
+  {
+    name: 'Token Management',
+    href: '/admin/tokens',
+    icon: Coins,
   },
   {
     name: 'Users',

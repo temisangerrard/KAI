@@ -9,7 +9,16 @@
     "start": "next start",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "token:migrate": "node scripts/run-token-migration.js",
+    "token:test": "npx ts-node --project tsconfig.json scripts/test-token-database.ts",
+    "commitment:audit": "node scripts/run-commitment-audit.js",
+    "commitment:migrate": "node scripts/run-commitment-metadata-migration.js",
+    "test:performance": "npx ts-node __tests__/scripts/run-performance-tests.ts",
+    "test:load": "npx vitest run __tests__/integration/commitment-flow-load.test.ts --run",
+    "test:integrity": "npx vitest run __tests__/integration/data-integrity-validation.test.ts --run",
+    "test:analytics": "npx vitest run __tests__/integration/admin-analytics-performance.test.ts --run",
+    "test:database": "npx vitest run __tests__/integration/database-performance-integrity.test.ts --run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -42,7 +51,7 @@
     "react-day-picker": "^9.9.0",
     "react-dom": "^19",
     "react-hook-form": "^7.54.1",
-    "recharts": "2.15.0",
+    "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"
@@ -54,12 +63,15 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^16.4.7",
     "eslint": "^9.33.0",
     "eslint-config-next": "^15.4.6",
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

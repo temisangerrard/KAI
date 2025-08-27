@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 import { 
   Calendar, 
   Users, 
@@ -193,7 +193,8 @@ export function MarketGrid({ markets, isLoading }: MarketGridProps) {
                 <div key={option.id} className="flex items-center justify-between mb-1">
                   <div className="flex items-center">
                     <div 
-                      className={`w-3 h-3 rounded-full mr-2 ${option.color}`}
+                      className="w-3 h-3 rounded-full mr-2"
+                      style={{ backgroundColor: option.color }}
                     ></div>
                     <span className="text-sm text-gray-700 truncate max-w-[150px]">
                       {option.name}

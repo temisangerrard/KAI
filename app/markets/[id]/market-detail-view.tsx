@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 import { useAuth } from "@/app/auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 import { BackOpinionModal } from "@/app/components/back-opinion-modal"
+import { PredictionCommitment } from "@/app/components/prediction-commitment"
+import { TokenCommitmentConfirmationModal } from "@/app/components/token-commitment-confirmation-modal"
+import { InsufficientBalanceModal } from "@/app/components/insufficient-balance-modal"
 import { MarketTimeline } from "./market-timeline"
 import { MarketStatistics } from "./market-statistics"
 import { RelatedMarkets } from "./related-markets"
@@ -32,13 +36,24 @@ import {
 
 interface MarketDetailViewProps {
   market: Market
+  onMarketUpdate?: () => Promise<void>
 }
 
-export function MarketDetailView({ market }: MarketDetailViewProps) {
+export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { availableTokens, refreshBalance } = useTokenBalance()
   const [showBackOpinionModal, setShowBackOpinionModal] = useState(false)
   const [selectedOption, setSelectedOption] = useState<string>("")
+  const [showCommitmentModal, setShowCommitmentModal] = useState(false)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false)
+  const [commitmentData, setCommitmentData] = useState<{
+    position: 'yes' | 'no'
+    tokensToCommit: number
+    currentOdds: number
+    potentialWinnings: number
+  } | null>(null)
 
   // Format date to readable string
   const formatDate = (date: Date) => {
@@ -85,6 +100,188 @@ export function MarketDetailView({ market }: MarketDetailViewProps) {
   const handleBackOpinion = (optionName: string) => {
     setSelectedOption(optionName)
     setShowBackOpinionModal(true)
+  }
+
+  const handleCommitTokens = async (position: 'yes' | 'no', tokensToCommit: number) => {
+    if (!user?.id) return
+
+    try {
+      // Calculate odds and potential winnings
+      const totalTokensOnPosition = market.options.find(opt => 
+        (position === 'yes' && opt.id === 'yes') || 
+        (position === 'no' && opt.id === 'no')
+      )?.totalTokens || 0
+      
+      const totalTokensOnOpposite = market.options.find(opt => 
+        (position === 'yes' && opt.id === 'no') || 
+        (position === 'no' && opt.id === 'yes')
+      )?.totalTokens || 0
+
+      const totalMarketTokens = market.totalTokens
+      const currentOdds = totalMarketTokens > 0 ? (totalTokensOnOpposite + tokensToCommit) / (totalTokensOnPosition + tokensToCommit) : 1
+      const potentialWinnings = Math.floor(tokensToCommit * currentOdds)
+
+      setCommitmentData({
+        position,
+        tokensToCommit,
+        currentOdds,
+        potentialWinnings
+      })
+
+      setShowCommitmentModal(false)
+      setShowConfirmationModal(true)
+    } catch (error) {
+      console.error('Error preparing commitment:', error)
+    }
+  }
+
+  const handleConfirmCommitment = async () => {
+    console.log('handleConfirmCommitment called with:', {
+      hasUser: !!user,
+      userId: user?.id,
+      hasCommitmentData: !!commitmentData,
+      commitmentData,
+      availableTokens
+    })
+
+    if (!user?.id || !commitmentData) {
+      console.error('Missing required data:', {
+        hasUser: !!user,
+        userId: user?.id,
+        hasCommitmentData: !!commitmentData
+      })
+      return
+    }
+
+    console.log('Starting commitment with data:', {
+      userId: user.id,
+      predictionId: market.id,
+      tokensToCommit: commitmentData.tokensToCommit,
+      position: commitmentData.position,
+      availableTokens
+    })
+
+    try {
+      const requestBody = {
+        predictionId: market.id,
+        tokensToCommit: commitmentData.tokensToCommit,
+        position: commitmentData.position,
+        userId: user.id
+      }
+
+      console.log('Sending API request:', requestBody)
+
+      const response = await fetch('/api/tokens/commit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      console.log('API response status:', response.status, response.statusText)
+      console.log('API response headers:', Object.fromEntries(response.headers.entries()))
+
+      let data
+      try {
+        const responseText = await response.text()
+        console.log('Raw response text:', responseText)
+        
+        if (responseText) {
+          data = JSON.parse(responseText)
+          console.log('API response data:', data)
+        } else {
+          console.error('Empty response from server')
+          throw new Error(`Server returned empty response (${response.status})`)
+        }
+      } catch (jsonError) {
+        console.error('Failed to parse response JSON:', jsonError)
+        throw new Error(`Server returned invalid response (${response.status}): ${jsonError.message}`)
+      }
+
+      if (!response.ok) {
+        if (response.status === 400 && (data.error === 'Insufficient balance' || data.errorCode === 'INSUFFICIENT_BALANCE')) {
+          console.log('Insufficient balance detected, showing modal')
+          setShowConfirmationModal(false)
+          setShowInsufficientBalanceModal(true)
+          return
+        }
+        
+        const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`
+        console.error('API Error Details:', { 
+          status: response.status, 
+          statusText: response.statusText,
+          data, 
+          errorMessage,
+          errorCode: data.errorCode,
+          details: data.details
+        })
+        throw new Error(errorMessage)
+      }
+
+      // Success - close modals and show success message
+      setShowConfirmationModal(false)
+      setCommitmentData(null)
+      
+      console.log('Tokens committed successfully:', data)
+      
+      // Refresh balance and market data with retry mechanism
+      console.log('Calling refreshBalance...')
+      let refreshAttempts = 0
+      const maxRefreshAttempts = 3
+      
+      while (refreshAttempts < maxRefreshAttempts) {
+        try {
+          refreshAttempts++
+          console.log(`RefreshBalance attempt ${refreshAttempts}/${maxRefreshAttempts}`)
+          await refreshBalance()
+          console.log('RefreshBalance completed successfully')
+          break
+        } catch (refreshError) {
+          console.error(`RefreshBalance attempt ${refreshAttempts} failed:`, refreshError)
+          if (refreshAttempts >= maxRefreshAttempts) {
+            console.error('All refresh attempts failed, continuing without refresh')
+            // Don't throw - we want the commitment to still be considered successful
+          } else {
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        }
+      }
+      
+      if (onMarketUpdate) {
+        console.log('Calling onMarketUpdate...')
+        try {
+          await onMarketUpdate()
+          console.log('onMarketUpdate completed')
+        } catch (updateError) {
+          console.error('Error updating market:', updateError)
+        }
+      }
+      
+      // If all refresh attempts failed, show a message and offer to reload
+      if (refreshAttempts >= maxRefreshAttempts) {
+        console.log('Balance refresh failed, but commitment was successful. Consider reloading the page.')
+        // You could show a toast notification here suggesting a page reload
+      }
+      
+    } catch (error) {
+      console.error('Error committing tokens:', error)
+      
+      // Re-throw with a more user-friendly message if it's a generic error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error. Please check your connection and try again.')
+      }
+      
+      throw error
+    }
+  }
+
+  const handlePurchaseTokens = (packageId: string) => {
+    // This would integrate with the token purchase system
+    console.log('Purchase tokens:', packageId)
+    // For now, just close the modal
+    setShowInsufficientBalanceModal(false)
   }
 
   const handleShare = async () => {
@@ -230,7 +427,16 @@ export function MarketDetailView({ market }: MarketDetailViewProps) {
                           {Math.round((option.tokens / market.totalTokens) * market.participants)} supporters
                         </div>
                         <Button
-                          onClick={() => handleBackOpinion(option.name)}
+                          onClick={() => {
+                            const position = option.id === 'yes' ? 'yes' : 'no'
+                            setCommitmentData({ 
+                              position, 
+                              tokensToCommit: 1, 
+                              currentOdds: 1, 
+                              potentialWinnings: 1 
+                            })
+                            setShowCommitmentModal(true)
+                          }}
                           disabled={market.status !== 'active' || !user}
                           className="bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full px-4 py-1 text-sm"
                         >
@@ -276,8 +482,50 @@ export function MarketDetailView({ market }: MarketDetailViewProps) {
               vibeScore: Math.floor(Math.random() * 100) + 1, // Mock vibe score
               timeLeft: timeRemaining.text,
             }}
-            userTokens={user.tokenBalance}
+            userTokens={availableTokens}
             onClose={() => setShowBackOpinionModal(false)}
+          />
+        )}
+
+        {/* Token Commitment Modal */}
+        {showCommitmentModal && commitmentData && user && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <PredictionCommitment
+              predictionId={market.id}
+              predictionTitle={market.title}
+              position={commitmentData.position}
+              currentOdds={commitmentData.currentOdds}
+              maxTokens={10000} // Max tokens per commitment
+              onCommit={(tokens) => handleCommitTokens(commitmentData.position, tokens)}
+              onCancel={() => setShowCommitmentModal(false)}
+            />
+          </div>
+        )}
+
+        {/* Token Commitment Confirmation Modal */}
+        {showConfirmationModal && commitmentData && (
+          <TokenCommitmentConfirmationModal
+            isOpen={showConfirmationModal}
+            onClose={() => setShowConfirmationModal(false)}
+            onConfirm={handleConfirmCommitment}
+            predictionTitle={market.title}
+            position={commitmentData.position}
+            tokensToCommit={commitmentData.tokensToCommit}
+            currentOdds={commitmentData.currentOdds}
+            potentialWinnings={commitmentData.potentialWinnings}
+            availableTokens={availableTokens}
+          />
+        )}
+
+        {/* Insufficient Balance Modal */}
+        {showInsufficientBalanceModal && commitmentData && (
+          <InsufficientBalanceModal
+            isOpen={showInsufficientBalanceModal}
+            onClose={() => setShowInsufficientBalanceModal(false)}
+            onPurchase={handlePurchaseTokens}
+            currentBalance={availableTokens}
+            requiredTokens={commitmentData.tokensToCommit}
+            predictionTitle={market.title}
           />
         )}
       </div>

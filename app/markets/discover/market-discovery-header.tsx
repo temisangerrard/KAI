@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button"
 import { PlusCircle, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/app/auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 
 export function MarketDiscoveryHeader() {
   const router = useRouter()
   const { user } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
@@ -22,7 +24,9 @@ export function MarketDiscoveryHeader() {
         {user && (
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
             <Sparkles className="w-5 h-5 text-kai-500" />
-            <span className="font-semibold text-gray-800">{user.tokenBalance.toLocaleString()} tokens</span>
+            <span className="font-semibold text-gray-800">
+              {balanceLoading ? '...' : totalTokens.toLocaleString()} tokens
+            </span>
           </div>
         )}
         

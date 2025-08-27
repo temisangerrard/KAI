@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 
 interface HamburgerMenuProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ interface HamburgerMenuProps {
 export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps) {
   const router = useRouter()
   const { logout, user } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
 
   // Handle escape key
   useEffect(() => {
@@ -175,7 +177,7 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
               <p className="font-semibold">{user?.displayName || "User"}</p>
               <div className="flex items-center gap-1 text-white/80 text-sm">
                 <Sparkles className="w-3 h-3" />
-                <span>{user?.tokenBalance?.toLocaleString() || 0} tokens</span>
+                <span>{balanceLoading ? '...' : totalTokens.toLocaleString()} tokens</span>
               </div>
             </div>
           </div>

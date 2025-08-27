@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 import { 
   Calendar, 
   Clock, 

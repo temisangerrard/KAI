@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation"
 import { Navigation } from "../../components/navigation"
 import { MarketCreationForm } from "./market-creation-form"
 import { useAuth } from "../../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 import { ArrowLeft, Sparkles } from "lucide-react"
 
 export default function CreateMarketPage() {
   const { user, isLoading, isAuthenticated } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
   const router = useRouter()
   
   // Redirect to home if not authenticated
@@ -36,7 +38,9 @@ export default function CreateMarketPage() {
               </div>
               <div className="flex items-center gap-1">
                 <Sparkles className="w-4 h-4" />
-                <span className="font-semibold text-sm">{user?.tokenBalance.toLocaleString()}</span>
+                <span className="font-semibold text-sm">
+                  {balanceLoading ? '...' : totalTokens.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
@@ -62,7 +66,9 @@ export default function CreateMarketPage() {
               </div>
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
                 <Sparkles className="w-5 h-5 text-kai-600" />
-                <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()} tokens</span>
+                <span className="font-semibold text-gray-800">
+                  {balanceLoading ? '...' : totalTokens.toLocaleString()} tokens
+                </span>
               </div>
             </div>
           </div>

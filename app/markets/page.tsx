@@ -23,7 +23,7 @@ import { TopNavigation } from "../components/top-navigation"
 
 import { MarketGrid } from "./discover/market-grid"
 import { getAllMarkets, getTrendingMarketsWithMetadata, isSampleMarket } from "./create/market-service"
-import { Market } from "@/lib/types/database"
+import { Market } from "@/lib/db/database"
 import { useAuth } from "../auth/auth-context"
 import { useIsMobile } from "@/hooks/use-mobile"
 
@@ -151,7 +151,9 @@ function MarketsPageContent() {
       switch (sortOption) {
         case "trending":
           try {
-            const trendingMarkets = await getTrendingMarketsWithMetadata(result.length)
+            // Use the trending service directly on the filtered results instead of calling getAllMarkets again
+            const { getTrendingMarkets } = await import('@/lib/services/trending-service')
+            const trendingMarkets = getTrendingMarkets(result, result.length)
             const trendingIds = trendingMarkets.map(m => m.id)
             result = result.sort((a, b) => {
               const aIndex = trendingIds.indexOf(a.id)

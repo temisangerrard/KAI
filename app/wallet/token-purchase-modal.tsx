@@ -12,16 +12,47 @@ import {
   AlertCircle,
   Wallet,
   Apple,
-  CircleDollarSign
+  CircleDollarSign,
+  Loader2
 } from "lucide-react"
-
 import { TokenRewardAnimation } from "../components/token-reward-animation"
+import { TokenPackage } from "@/lib/types/token"
 
-// Define package options
-const packageOptions = [
-  { amount: "£10", tokens: "1,000", popular: false },
-  { amount: "£25", tokens: "2,500", popular: true },
-  { amount: "£50", tokens: "5,000", popular: false },
+// Define package options based on design spec
+const packageOptions: TokenPackage[] = [
+  { 
+    id: "starter", 
+    name: "Starter Pack",
+    tokens: 1000, 
+    priceUSD: 10, 
+    bonusTokens: 0,
+    stripePriceId: "price_starter",
+    isActive: true,
+    sortOrder: 1,
+    createdAt: new Date() as any
+  },
+  { 
+    id: "popular", 
+    name: "Popular Pack",
+    tokens: 2500, 
+    priceUSD: 25, 
+    bonusTokens: 100,
+    stripePriceId: "price_popular",
+    isActive: true,
+    sortOrder: 2,
+    createdAt: new Date() as any
+  },
+  { 
+    id: "premium", 
+    name: "Premium Pack",
+    tokens: 5000, 
+    priceUSD: 50, 
+    bonusTokens: 300,
+    stripePriceId: "price_premium",
+    isActive: true,
+    sortOrder: 3,
+    createdAt: new Date() as any
+  },
 ]
 
 // Define payment methods
@@ -33,16 +64,18 @@ const paymentMethods = [
 ]
 
 interface TokenPurchaseModalProps {
+  isOpen: boolean
   onClose: () => void
-  onPurchaseComplete: (amount: number, paymentMethod?: string) => void
+  onSuccess: (tokens: number) => void
 }
 
-export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchaseModalProps) {
+export function TokenPurchaseModal({ isOpen, onClose, onSuccess }: TokenPurchaseModalProps) {
   const [step, setStep] = useState<'package' | 'payment' | 'processing' | 'success' | 'error'>('package')
-  const [selectedPackage, setSelectedPackage] = useState<number | null>(1) // Default to the middle (popular) option
+  const [selectedPackage, setSelectedPackage] = useState<TokenPackage | null>(packageOptions[1]) // Default to popular option
   const [customAmount, setCustomAmount] = useState<string>("")
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("credit-card")
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
+  const [error, setError] = useState<string>("")
   const [cardDetails, setCardDetails] = useState({
     cardNumber: "",
     expiryDate: "",
@@ -65,28 +98,33 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
 
   // Get selected package amount
   const getSelectedAmount = (): number => {
-    if (selectedPackage !== null) {
-      return parseInt(packageOptions[selectedPackage].amount.replace("£", ""))
+    if (selectedPackage) {
+      return selectedPackage.priceUSD
     }
     return customAmount ? parseInt(customAmount) : 0
   }
 
-  // Get selected package tokens
+  // Get selected package tokens (including bonus)
   const getSelectedTokens = (): number => {
-    const amount = getSelectedAmount()
+    if (selectedPackage) {
+      return selectedPackage.tokens + selectedPackage.bonusTokens
+    }
+    const amount = customAmount ? parseInt(customAmount) : 0
     return calculateTokens(amount)
   }
 
   // Handle package selection
-  const handlePackageSelect = (index: number) => {
-    setSelectedPackage(index)
+  const handlePackageSelect = (pkg: TokenPackage) => {
+    setSelectedPackage(pkg)
     setCustomAmount("")
+    setError("")
   }
 
   // Handle custom amount change
   const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedPackage(null)
     setCustomAmount(e.target.value)
+    setError("")
   }
 
   // Handle payment method selection
@@ -96,41 +134,86 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
 
   // Handle continue to payment
   const handleContinueToPayment = () => {
-    if (getSelectedAmount() > 0) {
-      setStep('payment')
+    const amount = getSelectedAmount()
+    if (amount <= 0) {
+      setError("Please select a package or enter a valid amount")
+      return
     }
+    if (amount < 1) {
+      setError("Minimum purchase amount is £1")
+      return
+    }
+    if (amount > 1000) {
+      setError("Maximum purchase amount is £1000")
+      return
+    }
+    setStep('payment')
   }
 
   // Handle purchase submission
-  const handlePurchaseSubmit = () => {
+  const handlePurchaseSubmit = async () => {
+    // Validate payment details for credit card
+    if (selectedPaymentMethod === "credit-card") {
+      if (!cardDetails.cardNumber || !cardDetails.expiryDate || !cardDetails.cvv || !cardDetails.name) {
+        setError("Please fill in all card details")
+        return
+      }
+    }
+
     setIsProcessing(true)
     setStep('processing')
+    setError("")
     
-    // Get the payment method name
-    const paymentMethod = paymentMethods.find(method => method.id === selectedPaymentMethod)?.name || "Credit Card";
-    
-    // Simulate payment processing
-    setTimeout(() => {
-      // 90% chance of success
-      const success = Math.random() < 0.9
-      
-      if (success) {
-        setStep('success')
-        // Wait 2 seconds before closing modal and updating balance
+    try {
+      // Simulate API call to process payment
+      await new Promise((resolve, reject) => {
         setTimeout(() => {
-          onPurchaseComplete(getSelectedTokens(), paymentMethod)
-          onClose()
+          // 90% chance of success for demo
+          const success = Math.random() < 0.9
+          if (success) {
+            resolve(true)
+          } else {
+            reject(new Error("Payment processing failed"))
+          }
         }, 2000)
-      } else {
-        setStep('error')
-      }
-    }, 2000)
+      })
+      
+      setStep('success')
+      // Wait 2 seconds before calling success callback
+      setTimeout(() => {
+        onSuccess(getSelectedTokens())
+        onClose()
+      }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed")
+      setStep('error')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // Handle retry after error
   const handleRetry = () => {
+    setError("")
     setStep('payment')
   }
+
+  // Reset modal state when closed
+  const handleClose = () => {
+    setStep('package')
+    setSelectedPackage(packageOptions[1])
+    setCustomAmount("")
+    setError("")
+    setCardDetails({
+      cardNumber: "",
+      expiryDate: "",
+      cvv: "",
+      name: ""
+    })
+    onClose()
+  }
+
+  if (!isOpen) return null
 
   // Render package selection step
   const renderPackageSelection = () => (
@@ -141,7 +224,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-white hover:bg-white/20"
           >
             <X className="w-5 h-5" />
@@ -152,26 +235,29 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
       <CardContent className="p-6">
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-3">
-            {packageOptions.map((option, index) => (
+            {packageOptions.map((pkg) => (
               <button
-                key={index}
-                onClick={() => handlePackageSelect(index)}
+                key={pkg.id}
+                onClick={() => handlePackageSelect(pkg)}
                 className={`relative p-4 border-2 rounded-xl transition-all ${
-                  selectedPackage === index
+                  selectedPackage?.id === pkg.id
                     ? "border-primary-400 bg-kai-50"
                     : "border-gray-200 hover:border-kai-200"
                 }`}
               >
-                {option.popular && (
+                {pkg.id === "popular" && (
                   <span className="absolute -top-2 -right-2 bg-kai-500 text-white text-xs px-2 py-0.5 rounded-full">
                     Popular
                   </span>
                 )}
-                <p className="font-semibold text-gray-800">{option.amount}</p>
+                <p className="font-semibold text-gray-800">£{pkg.priceUSD}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <Sparkles className="w-3 h-3 text-kai-500" />
-                  <p className="text-xs text-gray-500">{option.tokens} tokens</p>
+                  <p className="text-xs text-gray-500">{pkg.tokens.toLocaleString()}</p>
                 </div>
+                {pkg.bonusTokens > 0 && (
+                  <p className="text-xs text-green-600 font-medium">+{pkg.bonusTokens} bonus</p>
+                )}
               </button>
             ))}
           </div>
@@ -186,12 +272,21 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
               className="rounded-xl"
               min="1"
             />
-            {customAmount && (
+            {customAmount && parseInt(customAmount) > 0 && (
               <p className="text-xs text-gray-500 mt-1">
                 You'll receive {calculateTokens(parseInt(customAmount)).toLocaleString()} tokens
               </p>
             )}
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
 
           <div className="bg-kai-50 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -230,7 +325,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setStep('package')}
+            onClick={handleClose}
             className="text-white hover:bg-white/20"
           >
             <X className="w-5 h-5" />
@@ -329,11 +424,28 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
             </div>
           </div>
 
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
           <Button 
             onClick={handlePurchaseSubmit}
-            className="w-full bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full py-3"
+            disabled={isProcessing}
+            className="w-full bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full py-3 disabled:opacity-50"
           >
-            Complete Purchase
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Complete Purchase"
+            )}
           </Button>
           
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
@@ -354,7 +466,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-white hover:bg-white/20"
             disabled={true}
           >
@@ -418,7 +530,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
           </div>
           
           <Button 
-            onClick={onClose}
+            onClick={handleClose}
             className="w-full bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 text-white rounded-full py-3 animate-scale-up"
             style={{ animationDelay: '0.4s' }}
           >
@@ -476,7 +588,7 @@ export function TokenPurchaseModal({ onClose, onPurchaseComplete }: TokenPurchas
               Try Again
             </Button>
             <Button 
-              onClick={onClose}
+              onClick={handleClose}
               variant="outline"
               className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-full"
             >

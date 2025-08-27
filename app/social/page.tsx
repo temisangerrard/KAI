@@ -11,6 +11,7 @@ import { Navigation } from "../components/navigation"
 import { TopNavigation } from "../components/top-navigation"
 
 import { useAuth } from "../auth/auth-context"
+import { useTokenBalance } from "@/hooks/use-token-balance"
 
 // Mock social feed data
 const mockSocialFeed = [
@@ -136,6 +137,7 @@ const mockSuggestedUsers = [
 
 export default function SocialPage() {
   const { user, isLoading, isAuthenticated } = useAuth()
+  const { totalTokens, isLoading: balanceLoading } = useTokenBalance()
   const router = useRouter()
   const [feedData, setFeedData] = useState(mockSocialFeed)
   const [suggestedUsers, setSuggestedUsers] = useState(mockSuggestedUsers)
@@ -428,7 +430,9 @@ export default function SocialPage() {
               </Button>
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
                 <Sparkles className="w-5 h-5 text-kai-600" />
-                <span className="font-semibold text-gray-800">{user?.tokenBalance.toLocaleString()} tokens</span>
+                <span className="font-semibold text-gray-800">
+                  {balanceLoading ? '...' : totalTokens.toLocaleString()} tokens
+                </span>
               </div>
             </div>
           </div>
