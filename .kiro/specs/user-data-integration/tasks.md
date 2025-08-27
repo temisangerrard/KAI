@@ -15,12 +15,12 @@
   - Display real commitment status and amounts from database
   - _Requirements: 2.1, 2.2, 2.5_
 
-- [ ] 4. Add basic error handling
+- [x] 4. Add basic error handling
   - Show "No data" messages when users have no transactions or commitments
   - Add simple loading states while fetching real data
   - _Requirements: 1.5, 2.5, 4.5_
 
-- [ ] 5. Implement efficient data fetching
+- [x] 5. Implement efficient data fetching
   - Add basic caching to prevent redundant Firebase queries
   - Use Firebase listeners only where needed to minimize read costs
   - Implement pagination for transaction history to limit data fetching

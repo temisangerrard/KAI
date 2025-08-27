@@ -17,7 +17,6 @@ import {
 import { db } from '@/lib/db/database'
 import { Market, Prediction, MarketOption } from '@/lib/types/database'
 import { PredictionCommitment } from '@/lib/types/token'
-import { PredictionCommitmentService } from '@/lib/services/token-database'
 
 export interface UserPredictionData {
   id: string
@@ -116,6 +115,7 @@ export class UserProfileDataService {
       console.log('[USER_PROFILE_DATA] Fetching commitments for userId:', userId)
       
       // Use the PredictionCommitmentService to get real user commitments
+      const { PredictionCommitmentService } = await import('@/lib/services/token-database')
       const commitments = await PredictionCommitmentService.getUserCommitments(userId)
       console.log('[USER_PROFILE_DATA] Raw commitments count:', commitments.length)
       

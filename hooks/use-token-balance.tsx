@@ -24,6 +24,7 @@ export function useTokenBalance() {
         setError(null)
         
         console.log('[TOKEN_BALANCE_HOOK] Fetching balance for user:', user.id)
+        
         let userBalance = await TokenBalanceService.getUserBalance(user.id)
         console.log('[TOKEN_BALANCE_HOOK] Retrieved balance:', userBalance)
         

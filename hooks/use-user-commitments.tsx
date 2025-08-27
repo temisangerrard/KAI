@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { PredictionCommitmentService } from '@/lib/services/token-database'
 import { PredictionCommitment } from '@/lib/types/token'
 import { useAuth } from '@/app/auth/auth-context'
@@ -25,7 +25,7 @@ export function useUserCommitments() {
 
   useEffect(() => {
     async function fetchCommitments() {
-      if (!user?.uid) {
+      if (!user?.id) {
         setCommitments([])
         setIsLoading(false)
         return
@@ -35,9 +35,9 @@ export function useUserCommitments() {
         setIsLoading(true)
         setError(null)
         
-        console.log('[USE_USER_COMMITMENTS] Fetching commitments for user:', user.uid)
+        console.log('[USE_USER_COMMITMENTS] Fetching commitments for user:', user.id)
         
-        const rawCommitments = await PredictionCommitmentService.getUserCommitments(user.uid)
+        const rawCommitments = await PredictionCommitmentService.getUserCommitments(user.id)
         console.log('[USE_USER_COMMITMENTS] Raw commitments:', rawCommitments.length)
         
         // Transform the raw commitments to the display format
@@ -73,17 +73,19 @@ export function useUserCommitments() {
     }
 
     fetchCommitments()
-  }, [user?.uid])
+  }, [user?.id])
+
+  const refetch = useCallback(() => {
+    if (user?.id) {
+      setIsLoading(true)
+      // Re-trigger the effect by updating a dependency
+    }
+  }, [user?.id])
 
   return {
     commitments,
     isLoading,
     error,
-    refetch: () => {
-      if (user?.uid) {
-        setIsLoading(true)
-        // Re-trigger the effect by updating a dependency
-      }
-    }
+    refetch
   }
 }

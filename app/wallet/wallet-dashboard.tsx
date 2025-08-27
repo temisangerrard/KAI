@@ -50,32 +50,39 @@ export function WalletDashboard({
 
     // Load initial data
     useEffect(() => {
-        if (!user?.uid) return
+        if (!user?.id) return
 
         loadWalletData()
-    }, [user?.uid])
+    }, [user?.id])
 
     // Set up real-time listeners
     useEffect(() => {
-        if (!user?.uid) return
+        if (!user?.id) return
 
         // Balance is handled by useTokenBalance hook
 
-        // Listen to transaction changes
+        // Listen to transaction changes (simplified query to avoid index requirement)
         const transactionsQuery = query(
             collection(db, 'token_transactions'),
             where('userId', '==', user.id),
-            orderBy('timestamp', 'desc'),
             limit(50)
         )
 
         const transactionsUnsubscribe = onSnapshot(
             transactionsQuery,
             (snapshot) => {
-                const transactionData = snapshot.docs.map(doc => ({
+                let transactionData = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })) as TokenTransaction[]
+                
+                // Sort on client side to avoid index requirement
+                transactionData.sort((a, b) => {
+                    const aTime = a.timestamp?.toMillis?.() || 0
+                    const bTime = b.timestamp?.toMillis?.() || 0
+                    return bTime - aTime // Descending order (newest first)
+                })
+                
                 setTransactions(transactionData)
             },
             (error) => {
@@ -86,19 +93,18 @@ export function WalletDashboard({
         return () => {
             transactionsUnsubscribe()
         }
-    }, [user?.uid])
+    }, [user?.id])
 
     const loadWalletData = async () => {
-        if (!user?.uid || !userBalance) return
+        if (!user?.id || !userBalance) return
 
         try {
             setIsLoading(true)
 
-            // Load recent transactions
+            // Load recent transactions (simplified query to avoid index requirement)
             const transactionsQuery = query(
                 collection(db, 'token_transactions'),
                 where('userId', '==', user.id),
-                orderBy('timestamp', 'desc'),
                 limit(50)
             )
 
