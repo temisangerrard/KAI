@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db/database'
-import { doc, getDoc, runTransaction, collection, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, runTransaction, collection, Timestamp, query, where, getDocs } from 'firebase/firestore'
 
 const CommitTokensSchema = z.object({
   predictionId: z.string().min(1, 'Prediction ID is required'),
   tokensToCommit: z.number().min(1, 'Must commit at least 1 token').max(10000, 'Cannot commit more than 10,000 tokens'),
-  position: z.enum(['yes', 'no'], { required_error: 'Position must be yes or no' }),
+  position: z.string().min(1, 'Option ID is required'), // Changed to accept actual option IDs
   userId: z.string().min(1, 'User ID is required')
 })
 
@@ -35,6 +35,12 @@ export async function POST(request: NextRequest) {
 
     const { predictionId, tokensToCommit, position, userId } = result.data
     console.log(`[COMMIT_API] Processing commitment: userId=${userId}, predictionId=${predictionId}, tokens=${tokensToCommit}, position=${position}`)
+    
+    // Debug: Check if position is "yes" or "no"
+    if (position === 'yes' || position === 'no') {
+      console.warn(`[COMMIT_API] ⚠️  RECEIVED YES/NO POSITION: ${position}`)
+      console.warn(`[COMMIT_API] This suggests the frontend is sending yes/no instead of actual option IDs`)
+    }
 
     // Get market data
     const marketRef = doc(db, 'markets', predictionId)
@@ -66,6 +72,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Get existing commitments to count unique participants (before transaction)
+    const existingCommitmentsQuery = query(
+      collection(db, 'prediction_commitments'),
+      where('predictionId', '==', predictionId),
+      where('status', '==', 'active')
+    )
+    const existingCommitmentsSnap = await getDocs(existingCommitmentsQuery)
+    const existingUserIds = new Set(existingCommitmentsSnap.docs.map(doc => doc.data().userId))
+    const isNewParticipant = !existingUserIds.has(userId)
+    
+    console.log(`[COMMIT_API] Participant analysis:`, {
+      userId,
+      existingParticipants: existingUserIds.size,
+      isNewParticipant,
+      existingUserIds: Array.from(existingUserIds)
+    })
 
     // Get or create user balance
     const balanceRef = doc(db, 'user_balances', userId)
@@ -138,18 +161,35 @@ export async function POST(request: NextRequest) {
       transaction.set(commitmentRef, commitmentData)
 
       // Update market statistics
+      console.log(`[COMMIT_API] Updating market for option ID: ${position}`)
+      console.log(`[COMMIT_API] Market options before update:`, market.options?.map((opt, idx) => ({ 
+        index: idx, 
+        id: opt.id, 
+        name: opt.name || opt.text, 
+        tokens: opt.tokens, 
+        percentage: opt.percentage 
+      })))
+      
+      // Only increment participants if this is a new user
+      const newParticipantCount = isNewParticipant ? (market.participants || 0) + 1 : (market.participants || 0)
+      
       const updatedMarket = {
         ...market,
         totalTokens: (market.totalTokens || 0) + tokensToCommit,
-        participants: (market.participants || 0) + 1,
-        options: (market.options || []).map(option => {
-          if ((position === 'yes' && option.id === 'yes') || 
-              (position === 'no' && option.id === 'no')) {
+        participants: newParticipantCount,
+        options: (market.options || []).map((option, index) => {
+          // Direct match by option ID (no more guessing!)
+          const isTargetOption = option.id === position
+          
+          console.log(`[COMMIT_API] Checking option ${index}: id="${option.id}", name="${option.name}", position="${position}", isTarget=${isTargetOption}`)
+          
+          if (isTargetOption) {
+            console.log(`[COMMIT_API] ✅ EXACT MATCH: Updating option "${option.name}" (${option.id}) with ${tokensToCommit} tokens`)
             return {
               ...option,
               tokens: (option.tokens || 0) + tokensToCommit,
               totalTokens: (option.totalTokens || 0) + tokensToCommit,
-              participantCount: (option.participantCount || 0) + 1
+              commitmentCount: (option.commitmentCount || 0) + 1
             }
           }
           return option
@@ -164,6 +204,14 @@ export async function POST(request: NextRequest) {
           percentage: Math.round(((option.tokens || 0) / totalMarketTokens) * 100)
         }))
       }
+
+      console.log(`[COMMIT_API] Market options after update:`, updatedMarket.options?.map((opt, idx) => ({ 
+        index: idx, 
+        id: opt.id, 
+        name: opt.name || opt.text, 
+        tokens: opt.tokens, 
+        percentage: opt.percentage 
+      })))
 
       transaction.update(marketRef, updatedMarket)
 

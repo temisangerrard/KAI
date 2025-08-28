@@ -60,9 +60,7 @@ export const PredictionCommitmentSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
   predictionId: z.string().min(1, 'Prediction ID is required'),
   tokensCommitted: z.number().int().positive('Tokens committed must be positive'),
-  position: z.enum(['yes', 'no'], {
-    errorMap: () => ({ message: 'Position must be either "yes" or "no"' }),
-  }),
+  position: z.string().min(1, 'Position/Option ID is required'),
   odds: z.number().positive('Odds must be positive'),
   potentialWinning: z.number().min(0, 'Potential winning cannot be negative'),
   status: z.enum(['active', 'won', 'lost', 'refunded'], {
@@ -118,9 +116,7 @@ export const TokenPurchaseRequestSchema = z.object({
 export const TokenCommitmentRequestSchema = z.object({
   predictionId: z.string().min(1, 'Prediction ID is required'),
   tokensToCommit: z.number().int().positive('Tokens to commit must be positive'),
-  position: z.enum(['yes', 'no'], {
-    errorMap: () => ({ message: 'Position must be either "yes" or "no"' }),
-  }),
+  position: z.string().min(1, 'Position/Option ID is required'),
   userId: z.string().min(1, 'User ID is required'),
 });
 

@@ -306,22 +306,28 @@ export class CommitmentValidationService {
     }
   ): Promise<PredictionCommitment['metadata']> {
     // Calculate current odds snapshot
-    const totalYesTokens = market.options.find(o => o.id === 'yes')?.totalTokens || 0;
-    const totalNoTokens = market.options.find(o => o.id === 'no')?.totalTokens || 0;
-    const totalTokens = totalYesTokens + totalNoTokens;
+    const selectedOption = market.options.find(o => o.id === request.position);
+    const selectedOptionTokens = selectedOption?.totalTokens || 0;
+    const totalTokens = market.options.reduce((sum, opt) => sum + (opt.totalTokens || 0), 0);
     
-    const yesOdds = totalTokens > 0 ? (totalTokens + request.tokensToCommit) / (totalYesTokens + (request.position === 'yes' ? request.tokensToCommit : 0)) : 2.0;
-    const noOdds = totalTokens > 0 ? (totalTokens + request.tokensToCommit) / (totalNoTokens + (request.position === 'no' ? request.tokensToCommit : 0)) : 2.0;
+    // For binary markets, calculate odds for both options
+    const firstOption = market.options[0];
+    const secondOption = market.options[1];
+    const firstOptionTokens = firstOption?.totalTokens || 0;
+    const secondOptionTokens = secondOption?.totalTokens || 0;
+    
+    const firstOdds = totalTokens > 0 ? (totalTokens + request.tokensToCommit) / (firstOptionTokens + (request.position === firstOption?.id ? request.tokensToCommit : 0)) : 2.0;
+    const secondOdds = totalTokens > 0 ? (totalTokens + request.tokensToCommit) / (secondOptionTokens + (request.position === secondOption?.id ? request.tokensToCommit : 0)) : 2.0;
 
     return {
       marketStatus: market.status,
       marketTitle: market.title,
       marketEndsAt: new Date(market.endDate),
       oddsSnapshot: {
-        yesOdds,
-        noOdds,
-        totalYesTokens,
-        totalNoTokens,
+        yesOdds: firstOdds,
+        noOdds: secondOdds,
+        totalYesTokens: firstOptionTokens,
+        totalNoTokens: secondOptionTokens,
         totalParticipants: market.participants,
       },
       userBalanceAtCommitment: userBalance.availableTokens,

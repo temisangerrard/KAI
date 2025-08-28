@@ -6,14 +6,13 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   TrendingUp,
-  Users,
-  MessageSquare,
-  Settings,
-  BarChart3,
-  DollarSign,
-  Bell,
   Shield,
-  Coins
+  Coins,
+  Database,
+  RefreshCw,
+  Wrench,
+  Search,
+  Target
 } from 'lucide-react'
 
 const navigation = [
@@ -28,39 +27,34 @@ const navigation = [
     icon: TrendingUp,
   },
   {
+    name: 'Market Data',
+    href: '/admin/market-data',
+    icon: Database,
+  },
+  {
+    name: 'Examine Database',
+    href: '/admin/examine-database',
+    icon: Search,
+  },
+  {
+    name: 'Fix Structure',
+    href: '/admin/fix-commitment-structure',
+    icon: Wrench,
+  },
+  {
+    name: 'Rebuild Stats',
+    href: '/admin/rebuild-market-stats',
+    icon: Target,
+  },
+  {
+    name: 'DB Migration',
+    href: '/admin/database-migration',
+    icon: RefreshCw,
+  },
+  {
     name: 'Token Management',
     href: '/admin/tokens',
     icon: Coins,
-  },
-  {
-    name: 'Users',
-    href: '/admin/users',
-    icon: Users,
-  },
-  {
-    name: 'Comments',
-    href: '/admin/comments',
-    icon: MessageSquare,
-  },
-  {
-    name: 'Analytics',
-    href: '/admin/analytics',
-    icon: BarChart3,
-  },
-  {
-    name: 'Transactions',
-    href: '/admin/transactions',
-    icon: DollarSign,
-  },
-  {
-    name: 'Notifications',
-    href: '/admin/notifications',
-    icon: Bell,
-  },
-  {
-    name: 'Settings',
-    href: '/admin/settings',
-    icon: Settings,
   },
 ]
 

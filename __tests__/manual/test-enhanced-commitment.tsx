@@ -133,7 +133,36 @@ export function TestEnhancedCommitment() {
             predictionId="test-prediction-123"
             predictionTitle="Will the next iPhone have a foldable screen?"
             position="yes"
-            currentOdds={2.5}
+            optionId="yes"
+            market={{
+              id: 'test-market-123',
+              title: 'Will the next iPhone have a foldable screen?',
+              description: 'Test market for iPhone predictions',
+              category: 'technology' as any,
+              status: 'active' as any,
+              createdBy: 'user-123',
+              createdAt: new Date() as any,
+              endsAt: new Date() as any,
+              tags: ['technology', 'apple'],
+              totalParticipants: 150,
+              totalTokensStaked: 2500,
+              featured: false,
+              trending: false,
+              options: [
+                {
+                  id: 'yes',
+                  text: 'Yes, it will have a foldable screen',
+                  totalTokens: 1500,
+                  participantCount: 90
+                },
+                {
+                  id: 'no',
+                  text: 'No, it will not have a foldable screen',
+                  totalTokens: 1000,
+                  participantCount: 60
+                }
+              ]
+            }}
             maxTokens={1000}
             onCommit={mockCommit}
             onCancel={mockCancel}

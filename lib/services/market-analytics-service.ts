@@ -107,11 +107,10 @@ export class MarketAnalyticsService {
     }
 
     try {
-      // Query all commitments for this market
+      // Query all commitments for this market (simplified to avoid index requirement)
       const commitmentsQuery = query(
         collection(db, this.COLLECTIONS.predictionCommitments),
-        where('predictionId', '==', marketId),
-        orderBy('committedAt', 'desc')
+        where('predictionId', '==', marketId)
       )
 
       const commitmentsSnap = await getDocs(commitmentsQuery)
@@ -151,8 +150,7 @@ export class MarketAnalyticsService {
 
     const commitmentsQuery = query(
       collection(db, this.COLLECTIONS.predictionCommitments),
-      where('predictionId', '==', marketId),
-      orderBy('committedAt', 'desc')
+      where('predictionId', '==', marketId)
     )
 
     const unsubscribe = onSnapshot(commitmentsQuery, (snapshot) => {

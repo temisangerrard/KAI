@@ -51,6 +51,41 @@ Create `.env.local` with Firebase configuration:
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
 
+## Testing
+
+### Firebase Testing Requirements
+**CRITICAL**: All Firebase services are already mocked in `jest.setup.js`. When writing tests:
+
+1. **DO NOT** add Firebase mocks to individual test files
+2. **DO NOT** try to configure Firebase in tests
+3. **USE** the existing mocks from jest.setup.js
+4. **MOCK** Firebase services at the service layer, not the Firebase SDK level
+
+### Test Structure
+- Unit tests: `__tests__/components/`, `__tests__/hooks/`, `__tests__/services/`
+- Integration tests: `__tests__/integration/`
+- Manual tests: `__tests__/manual/`
+
+### Common Test Commands
+```bash
+npm test                    # Run all tests
+npm test -- --watch        # Run tests in watch mode
+npm test <file-pattern>     # Run specific test files
+```
+
+### Firebase Service Mocking Pattern
+```typescript
+// ✅ CORRECT: Mock at service layer
+jest.mock('@/lib/services/token-balance-service', () => ({
+  TokenBalanceService: {
+    getUserBalance: jest.fn()
+  }
+}))
+
+// ❌ WRONG: Don't mock Firebase SDK directly in tests
+jest.mock('firebase/firestore', () => ({ ... }))
+```
+
 ## Build Configuration
 - Images are unoptimized for static export compatibility
 - ESLint and TypeScript errors are ignored during builds for rapid development

@@ -38,13 +38,13 @@ if (typeof window !== 'undefined') {
 export { app }
 
 // Database functions
-import { 
-  collection, 
-  getDocs, 
-  addDoc, 
-  doc, 
-  getDoc, 
-  updateDoc, 
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  getDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -77,24 +77,24 @@ export interface Market {
 export async function getAllMarkets(): Promise<Market[]> {
   try {
     const marketsRef = collection(db, 'markets')
-    
+
     // Add timeout to prevent hanging requests
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Firestore request timeout')), 8000)
     })
-    
+
     const snapshotPromise = getDocs(marketsRef)
     const snapshot = await Promise.race([snapshotPromise, timeoutPromise])
-    
+
     const markets = snapshot.docs.map(doc => {
       const data = doc.data()
-      console.log(`Transforming market ${doc.id}:`, { 
-        title: data.title, 
+      console.log(`Transforming market ${doc.id}:`, {
+        title: data.title,
         hasOptions: !!data.options,
         optionsLength: data.options?.length,
         firstOption: data.options?.[0]
       })
-      
+
       // Transform Firestore data to match our Market interface
       const transformedMarket = {
         id: doc.id,
@@ -115,23 +115,23 @@ export async function getAllMarkets(): Promise<Market[]> {
         participants: data.participants || data.totalParticipants || 0,
         tags: data.tags || []
       }
-      
+
       console.log(`Transformed market ${doc.id}:`, {
         title: transformedMarket.title,
         optionsLength: transformedMarket.options.length,
         firstOptionName: transformedMarket.options[0]?.name
       })
-      
+
       return transformedMarket
     }) as Market[]
-    
+
     console.log(`Successfully loaded ${markets.length} markets from Firestore`)
     return markets
-    
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.warn(`Firestore unavailable: ${errorMessage}`)
-    
+
     // Return empty array instead of mock data - let the service layer handle fallbacks
     return []
   }
@@ -141,7 +141,7 @@ export async function getAllMarkets(): Promise<Market[]> {
 export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Market> {
   try {
     const marketsRef = collection(db, 'markets')
-    
+
     // Clean the market data to remove undefined values
     const cleanMarketData: any = {
       title: market.title,
@@ -155,14 +155,14 @@ export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Ma
       participants: market.participants,
       createdAt: new Date(),
     }
-    
+
     // Only add optional fields if they exist and are not empty
     if (market.tags && market.tags.length > 0) {
       cleanMarketData.tags = market.tags
     }
-    
+
     const docRef = await addDoc(marketsRef, cleanMarketData)
-    
+
     return {
       id: docRef.id,
       ...market,
@@ -177,22 +177,22 @@ export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Ma
 export async function getMarketById(id: string): Promise<Market | null> {
   try {
     const marketRef = doc(db, 'markets', id)
-    
+
     // Add timeout to prevent hanging requests
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Firestore request timeout')), 5000)
     })
-    
+
     const snapshotPromise = getDoc(marketRef)
     const snapshot = await Promise.race([snapshotPromise, timeoutPromise])
-    
+
     if (!snapshot.exists()) {
       console.log(`Market ${id} not found in Firestore`)
       return null
     }
-    
+
     const data = snapshot.data()
-    
+
     // Transform Firestore data to match our Market interface
     const market = {
       id: snapshot.id,
@@ -213,10 +213,10 @@ export async function getMarketById(id: string): Promise<Market | null> {
       participants: data.participants || data.totalParticipants || 0,
       tags: data.tags || []
     } as Market
-    
+
     console.log(`Successfully loaded market ${id} from Firestore`)
     return market
-    
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.warn(`Failed to fetch market ${id} from Firestore: ${errorMessage}`)
@@ -232,7 +232,7 @@ export async function updateMarket(id: string, updates: Partial<Omit<Market, 'id
       ...updates,
       updatedAt: new Date(),
     })
-    
+
     // Return updated market
     return await getMarketById(id)
   } catch (error) {

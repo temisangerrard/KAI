@@ -26,11 +26,42 @@ import { TokenBalanceService } from '@/lib/services/token-balance-service'
 const mockTokenBalanceService = TokenBalanceService as jest.Mocked<typeof TokenBalanceService>
 
 describe('Enhanced PredictionCommitment Error Handling', () => {
+  const mockMarket = {
+    id: 'market-123',
+    title: 'Test Prediction',
+    description: 'Test market description',
+    category: 'test' as any,
+    status: 'active' as any,
+    createdBy: 'user-123',
+    createdAt: new Date() as any,
+    endsAt: new Date() as any,
+    tags: ['test'],
+    totalParticipants: 100,
+    totalTokensStaked: 1000,
+    featured: false,
+    trending: false,
+    options: [
+      {
+        id: 'yes',
+        text: 'Yes',
+        totalTokens: 600,
+        participantCount: 60
+      },
+      {
+        id: 'no',
+        text: 'No',
+        totalTokens: 400,
+        participantCount: 40
+      }
+    ]
+  }
+
   const defaultProps = {
     predictionId: 'test-prediction',
     predictionTitle: 'Test Prediction',
     position: 'yes' as const,
-    currentOdds: 2.5,
+    optionId: 'yes',
+    market: mockMarket,
     maxTokens: 1000,
     onCommit: jest.fn(),
     onCancel: jest.fn()

@@ -62,6 +62,18 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
     }))
   })
 
+  // Debug: Check if any option IDs are "yes" or "no"
+  const problematicOptions = market.options.filter(opt => opt.id === 'yes' || opt.id === 'no')
+  if (problematicOptions.length > 0) {
+    console.error('🚨 FOUND PROBLEMATIC OPTION IDs:', problematicOptions)
+    console.error('Market ID:', market.id)
+    console.error('All option IDs:', market.options.map(opt => opt.id))
+    console.error('This market has yes/no option IDs which will cause API validation errors!')
+  }
+  
+  // Always log option IDs for debugging
+  console.log('Market option IDs:', market.options.map(opt => ({ id: opt.id, name: opt.name })))
+
   // Debug the calculation for each option
   market.options.forEach(option => {
     const actualTokens = option.tokens > 0 ? option.tokens : Math.round((option.percentage / 100) * market.totalTokens)
@@ -220,6 +232,13 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
 
 
   const handleCommitTokens = async (optionId: string, tokensToCommit: number) => {
+    console.log('handleCommitTokens called with:', {
+      optionId,
+      tokensToCommit,
+      typeof_optionId: typeof optionId,
+      userId: user?.id
+    })
+    
     if (!user?.id) return
 
     try {
@@ -229,10 +248,6 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
         console.error('Selected option not found:', optionId)
         return
       }
-
-      // Calculate odds and potential winnings based on the selected option
-      const totalTokensOnPosition = selectedOption.tokens || 0
-      const totalMarketTokens = market.totalTokens
 
       // Use the calculated odds from market utils with proper error handling
       console.log('Looking for odds for optionId:', optionId)
@@ -267,7 +282,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
 
       setCommitmentData({
         position: isFirstOption ? 'yes' : 'no',
-        optionId: optionId,
+        optionId: optionId, // Store the actual option ID
         optionName: selectedOption.name,
         tokensToCommit,
         currentOdds: optionOdds,
@@ -304,8 +319,11 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       predictionId: market.id,
       tokensToCommit: commitmentData.tokensToCommit,
       position: commitmentData.position,
+      optionId: commitmentData.optionId,
       availableTokens
     })
+
+    console.log('DEBUGGING: commitmentData object:', JSON.stringify(commitmentData, null, 2))
 
     try {
       const requestBody = {
@@ -313,6 +331,18 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
         tokensToCommit: commitmentData.tokensToCommit,
         position: commitmentData.optionId, // Use the actual option ID for the API
         userId: user.id
+      }
+
+      console.log('Request body being sent to API:', requestBody)
+      console.log('commitmentData.optionId:', commitmentData.optionId)
+      console.log('typeof commitmentData.optionId:', typeof commitmentData.optionId)
+      console.log('Full commitmentData object:', JSON.stringify(commitmentData, null, 2))
+      
+      // Double-check that we're sending the right data
+      if (commitmentData.optionId === 'yes' || commitmentData.optionId === 'no') {
+        console.error('❌ FRONTEND ERROR: Sending yes/no instead of option ID!')
+        console.error('This should not happen. Check the data flow.')
+        return
       }
 
       console.log('Sending API request:', requestBody)
@@ -694,7 +724,14 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                 optionId={commitmentData.optionId} // Use the actual option ID
                 market={marketForUtils}
                 maxTokens={10000} // Max tokens per commitment
-                onCommit={(tokens) => handleCommitTokens(commitmentData.optionId, tokens)}
+                onCommit={(tokens) => {
+                  console.log('PredictionCommitment onCommit called with:', {
+                    tokens,
+                    commitmentDataOptionId: commitmentData.optionId,
+                    commitmentData
+                  })
+                  return handleCommitTokens(commitmentData.optionId, tokens)
+                }}
                 onCancel={() => setShowCommitmentModal(false)}
               />
             </div>

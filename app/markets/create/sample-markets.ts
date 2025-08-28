@@ -3,6 +3,40 @@ import { Market } from "@/lib/db/database"
 // Sample markets for testing the market discovery components
 export const sampleMarkets: Market[] = [
   {
+    id: "active_market_1",
+    title: "Will ChatGPT-5 be released this year?",
+    description: "Predict whether OpenAI will release ChatGPT-5 before the end of 2024.",
+    category: "Technology",
+    options: [
+      { id: "active_1_yes", name: "Yes", percentage: 60, tokens: 12000, color: "bg-green-500" },
+      { id: "active_1_no", name: "No", percentage: 40, tokens: 8000, color: "bg-red-500" }
+    ],
+    startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    status: 'active',
+    totalTokens: 20000,
+    participants: 450,
+    tags: ['sample', 'active']
+  },
+  {
+    id: "active_market_2", 
+    title: "Which team will win the next World Cup?",
+    description: "Place your predictions on which national team will lift the FIFA World Cup trophy.",
+    category: "Sports",
+    options: [
+      { id: "active_2_brazil", name: "Brazil", percentage: 35, tokens: 7000, color: "bg-yellow-500" },
+      { id: "active_2_france", name: "France", percentage: 25, tokens: 5000, color: "bg-blue-500" },
+      { id: "active_2_argentina", name: "Argentina", percentage: 20, tokens: 4000, color: "bg-cyan-500" },
+      { id: "active_2_other", name: "Other", percentage: 20, tokens: 4000, color: "bg-gray-500" }
+    ],
+    startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+    status: 'active',
+    totalTokens: 20000,
+    participants: 320,
+    tags: ['sample', 'active']
+  },
+  {
     id: "market_1",
     title: "Will Taylor Swift release a new album this year?",
     description: "Predict whether Taylor Swift will surprise fans with a new album release before the end of the year.",

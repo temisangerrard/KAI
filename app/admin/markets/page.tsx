@@ -34,56 +34,128 @@ import {
 } from 'lucide-react'
 
 import { Market, MarketStatus } from "@/lib/types/database"
+import { AdminCommitmentService } from "@/lib/services/admin-commitment-service"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/db/database"
 
-// Mock data - replace with real Firestore queries
-const mockMarkets: Market[] = [
-  {
-    id: '1',
-    title: 'Who will win BBNaija All Stars?',
-    description: 'Predict the winner of Big Brother Naija All Stars season',
-    category: 'reality-tv',
-    status: 'active',
-    createdBy: 'admin1',
-    createdAt: new Date('2024-01-15') as any,
-    endsAt: new Date('2024-03-15') as any,
-    imageUrl: 'https://example.com/bbnaija.jpg',
-    tags: ['bbnaija', 'reality-tv', 'entertainment'],
-    options: [
-      { id: '1', text: 'Mercy', totalTokens: 5000, participantCount: 50 },
-      { id: '2', text: 'Tacha', totalTokens: 3000, participantCount: 30 }
-    ],
-    totalParticipants: 80,
-    totalTokensStaked: 8000,
-    featured: true,
-    trending: true
-  },
-  {
-    id: '2',
-    title: 'Next Afrobeats Grammy Winner?',
-    description: 'Which Afrobeats artist will win the next Grammy?',
-    category: 'music',
-    status: 'active',
-    createdBy: 'admin1',
-    createdAt: new Date('2024-01-14') as any,
-    endsAt: new Date('2024-02-28') as any,
-    tags: ['music', 'grammy', 'afrobeats'],
-    options: [
-      { id: '1', text: 'Burna Boy', totalTokens: 4000, participantCount: 40 },
-      { id: '2', text: 'Wizkid', totalTokens: 3500, participantCount: 35 }
-    ],
-    totalParticipants: 75,
-    totalTokensStaked: 7500,
-    featured: false,
-    trending: false
-  }
-]
+interface MarketWithStats {
+  id: string
+  title: string
+  description: string
+  category: string
+  status: string
+  createdAt: any
+  endsAt: any
+  featured?: boolean
+  trending?: boolean
+  totalParticipants: number
+  totalTokensCommitted: number
+}
 
 export default function MarketsPage() {
-  const [markets, setMarkets] = useState<Market[]>(mockMarkets)
-  const [filteredMarkets, setFilteredMarkets] = useState<Market[]>(mockMarkets)
+  const [markets, setMarkets] = useState<MarketWithStats[]>([])
+  const [filteredMarkets, setFilteredMarkets] = useState<MarketWithStats[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Load markets on component mount
+  useEffect(() => {
+    const loadMarkets = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        console.log('🔍 Loading markets with optimized calculations...')
+        
+        // Get all markets from Firestore
+        const marketsSnapshot = await getDocs(collection(db, 'markets'))
+        const rawMarkets = marketsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        
+        console.log(`Found ${rawMarkets.length} markets`)
+        
+        const marketsWithStats: MarketWithStats[] = []
+        
+        // Process each market with optimized service
+        for (const market of rawMarkets) {
+          try {
+            // Use AdminCommitmentService to get real commitment data
+            const result = await AdminCommitmentService.getMarketCommitments(market.id, {
+              pageSize: 1000,
+              includeAnalytics: true
+            })
+            
+            if (result.commitments && result.commitments.length > 0) {
+              // Calculate real statistics from commitments
+              const totalTokensCommitted = result.commitments.reduce((sum, c) => sum + c.tokensCommitted, 0)
+              const totalParticipants = new Set(result.commitments.map(c => c.userId)).size
+              
+              marketsWithStats.push({
+                id: market.id,
+                title: market.title || 'Unnamed Market',
+                description: market.description || '',
+                category: market.category || 'other',
+                status: market.status || 'unknown',
+                createdAt: market.createdAt,
+                endsAt: market.endsAt,
+                featured: market.featured || false,
+                trending: market.trending || false,
+                totalParticipants,
+                totalTokensCommitted
+              })
+            } else {
+              // Market exists but has no commitments yet
+              marketsWithStats.push({
+                id: market.id,
+                title: market.title || 'Unnamed Market',
+                description: market.description || '',
+                category: market.category || 'other',
+                status: market.status || 'unknown',
+                createdAt: market.createdAt,
+                endsAt: market.endsAt,
+                featured: market.featured || false,
+                trending: market.trending || false,
+                totalParticipants: 0,
+                totalTokensCommitted: 0
+              })
+            }
+          } catch (marketError) {
+            console.warn(`Error processing market ${market.id}:`, marketError)
+            // Use fallback data
+            marketsWithStats.push({
+              id: market.id,
+              title: market.title || 'Unnamed Market',
+              description: market.description || '',
+              category: market.category || 'other',
+              status: market.status || 'unknown',
+              createdAt: market.createdAt,
+              endsAt: market.endsAt,
+              featured: market.featured || false,
+              trending: market.trending || false,
+              totalParticipants: market.participants || 0,
+              totalTokensCommitted: market.totalTokens || 0
+            })
+          }
+        }
+        
+        setMarkets(marketsWithStats)
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+        setError(errorMessage)
+        console.error('💥 Failed to load markets:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadMarkets()
+  }, [])
 
   // Filter markets based on search and filters
   useEffect(() => {
@@ -107,7 +179,7 @@ export default function MarketsPage() {
     setFilteredMarkets(filtered)
   }, [markets, searchTerm, statusFilter, categoryFilter])
 
-  const getStatusBadge = (status: MarketStatus) => {
+  const getStatusBadge = (status: string) => {
     const variants = {
       draft: 'secondary',
       active: 'default',
@@ -117,7 +189,7 @@ export default function MarketsPage() {
     } as const
 
     return (
-      <Badge variant={variants[status] || 'secondary'}>
+      <Badge variant={variants[status as keyof typeof variants] || 'secondary'}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     )
@@ -125,8 +197,31 @@ export default function MarketsPage() {
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A'
-    const d = date.toDate ? date.toDate() : new Date(date)
+    const d = date.toMillis ? new Date(date.toMillis()) : new Date(date)
     return d.toLocaleDateString()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-pulse">Loading markets...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Markets</h1>
+            <p className="text-red-600">Error loading markets: {error}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -241,7 +336,7 @@ export default function MarketsPage() {
                   {getStatusBadge(market.status)}
                 </TableCell>
                 <TableCell>{market.totalParticipants}</TableCell>
-                <TableCell>{market.totalTokensStaked.toLocaleString()}</TableCell>
+                <TableCell>{market.totalTokensCommitted.toLocaleString()}</TableCell>
                 <TableCell>{formatDate(market.endsAt)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
