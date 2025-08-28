@@ -106,7 +106,7 @@ export function TokenCommitmentConfirmationModal({
                 {position.toUpperCase()}
               </Badge>
               <span className="text-sm text-gray-500">
-                Current odds: {currentOdds.toFixed(2)}x
+                Current odds: {(typeof currentOdds === 'number' && !isNaN(currentOdds) ? currentOdds : 2.0).toFixed(2)}x
               </span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export function TokenCommitmentConfirmationModal({
               
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Current odds</span>
-                <span className="font-medium">{currentOdds.toFixed(2)}x</span>
+                <span className="font-medium">{(typeof currentOdds === 'number' && !isNaN(currentOdds) ? currentOdds : 2.0).toFixed(2)}x</span>
               </div>
               
               <Separator />

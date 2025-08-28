@@ -25,12 +25,15 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/app/auth/auth-context'
 import { TokenBalanceService } from '@/lib/services/token-balance-service'
+import { calculatePayout, previewOddsImpact, formatOdds, formatTokenAmount } from '@/lib/utils/market-utils'
+import { Market } from '@/lib/types'
 
 interface PredictionCommitmentProps {
   predictionId: string
   predictionTitle: string
   position: 'yes' | 'no'
-  currentOdds: number
+  optionId: string
+  market: Market
   maxTokens: number
   onCommit: (tokens: number) => Promise<void>
   onCancel: () => void
@@ -76,7 +79,8 @@ export function PredictionCommitment({
   predictionId,
   predictionTitle,
   position,
-  currentOdds,
+  optionId,
+  market,
   maxTokens,
   onCommit,
   onCancel,
@@ -266,15 +270,14 @@ export function PredictionCommitment({
     loadBalance()
   }, [loadBalance])
 
-  // Calculate potential winnings
-  const calculatePotentialWinnings = (tokens: number): number => {
-    return Math.floor(tokens * currentOdds)
+  // Calculate potential winnings using market utils
+  const getPayoutCalculation = (tokens: number) => {
+    return calculatePayout(tokens, optionId, market)
   }
 
-  // Calculate return on investment percentage
-  const calculateROI = (tokens: number): number => {
-    const winnings = calculatePotentialWinnings(tokens)
-    return tokens > 0 ? Math.round(((winnings - tokens) / tokens) * 100) : 0
+  // Get odds impact preview
+  const getOddsImpact = (tokens: number) => {
+    return previewOddsImpact(tokens, optionId, market)
   }
 
   // Handle token amount change
@@ -407,8 +410,9 @@ export function PredictionCommitment({
     { label: 'Max', value: Math.min(balance.availableTokens, maxTokens) }
   ].filter(amount => amount.value >= 1) : []
 
-  const potentialWinnings = calculatePotentialWinnings(tokensToCommit)
-  const roi = calculateROI(tokensToCommit)
+  const payoutCalc = getPayoutCalculation(tokensToCommit)
+  const oddsImpact = getOddsImpact(tokensToCommit)
+  const currentOdds = oddsImpact.currentOdds[optionId] || 2.0
   const isInsufficientBalance = balance && tokensToCommit > balance.availableTokens
   const canCommit = balance && 
     tokensToCommit >= 1 && 
@@ -477,7 +481,7 @@ export function PredictionCommitment({
               {position.toUpperCase()}
             </Badge>
             <span className="text-xs text-gray-500">
-              Current odds: {currentOdds.toFixed(2)}x
+              Current odds: {formatOdds(currentOdds)}
             </span>
           </div>
         </div>
@@ -579,6 +583,47 @@ export function PredictionCommitment({
 
         <Separator />
 
+        {/* Odds Information */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-kai-600" />
+            <span className="text-sm font-medium">Odds Information</span>
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-blue-700">Current odds</span>
+              <span className="font-bold text-blue-700">
+                {formatOdds(oddsImpact.currentOdds[optionId])}
+              </span>
+            </div>
+            {tokensToCommit > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-blue-700">Odds after your commitment</span>
+                  <span className="font-bold text-blue-700">
+                    {formatOdds(oddsImpact.projectedOdds[optionId])}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-600">Market impact</span>
+                  <Badge 
+                    variant={
+                      oddsImpact.impactLevel === 'significant' ? 'destructive' :
+                      oddsImpact.impactLevel === 'moderate' ? 'default' : 'secondary'
+                    }
+                    className="text-xs"
+                  >
+                    {oddsImpact.impactLevel}
+                  </Badge>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Potential Winnings */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -588,18 +633,24 @@ export function PredictionCommitment({
           
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-green-700">If you win</span>
+              <span className="text-sm text-green-700">You could win</span>
               <div className="flex items-center gap-1">
                 <TrendingUp className="h-4 w-4 text-green-600" />
                 <span className="font-bold text-green-700">
-                  +{potentialWinnings.toLocaleString()} tokens
+                  {formatTokenAmount(payoutCalc.grossPayout)} tokens
                 </span>
               </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-green-600">Return on Investment</span>
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="text-green-600">Net profit</span>
               <span className="font-medium text-green-600">
-                {roi > 0 ? '+' : ''}{roi}%
+                +{formatTokenAmount(payoutCalc.netProfit)} tokens
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-green-600">ROI</span>
+              <span className="font-medium text-green-600">
+                {payoutCalc.roi > 0 ? '+' : ''}{(typeof payoutCalc.roi === 'number' && !isNaN(payoutCalc.roi) ? payoutCalc.roi : 0).toFixed(1)}%
               </span>
             </div>
           </div>
@@ -608,7 +659,7 @@ export function PredictionCommitment({
             <div className="flex items-center justify-between">
               <span className="text-sm text-red-700">If you lose</span>
               <span className="font-bold text-red-700">
-                -{tokensToCommit.toLocaleString()} tokens
+                -{formatTokenAmount(tokensToCommit)} tokens
               </span>
             </div>
           </div>
@@ -703,7 +754,7 @@ export function PredictionCommitment({
             ) : (
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4" />
-                Commit {tokensToCommit.toLocaleString()}
+                Commit {formatTokenAmount(tokensToCommit)}
                 <ArrowRight className="h-4 w-4" />
               </div>
             )}

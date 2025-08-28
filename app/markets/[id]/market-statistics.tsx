@@ -68,16 +68,21 @@ export function MarketStatistics({ market }: MarketStatisticsProps) {
               // Get odds from the same calculation as main component
               let optionOdds = 2.0 // Default fallback
               if (currentOdds && typeof currentOdds === 'object') {
-                if (currentOdds[option.id]) {
+                if (currentOdds[option.id] && typeof currentOdds[option.id] === 'number') {
                   optionOdds = currentOdds[option.id]
                 } else {
                   // If exact match not found, try to find by index
                   const oddsKeys = Object.keys(currentOdds)
                   const optionIndex = market.options.indexOf(option)
-                  if (oddsKeys[optionIndex]) {
+                  if (oddsKeys[optionIndex] && typeof currentOdds[oddsKeys[optionIndex]] === 'number') {
                     optionOdds = currentOdds[oddsKeys[optionIndex]]
                   }
                 }
+              }
+
+              // Ensure optionOdds is always a valid number
+              if (typeof optionOdds !== 'number' || isNaN(optionOdds)) {
+                optionOdds = 2.0
               }
 
               const colors = ['text-green-600', 'text-red-600', 'text-blue-600', 'text-yellow-600']
@@ -91,7 +96,7 @@ export function MarketStatistics({ market }: MarketStatisticsProps) {
                       {optionTokens} tokens ({percentage}%)
                     </div>
                     <div className="text-xs text-gray-500">
-                      {optionOdds.toFixed(1)}x odds
+                      {(typeof optionOdds === 'number' && !isNaN(optionOdds) ? optionOdds : 2.0).toFixed(1)}x odds
                     </div>
                   </div>
                 </div>
