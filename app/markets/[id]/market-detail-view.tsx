@@ -239,7 +239,25 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       console.log('Available odds:', currentOdds)
       console.log('Option IDs in market:', market.options.map(opt => opt.id))
       
-      const optionOdds = (currentOdds && currentOdds[optionId]) ? currentOdds[optionId] : 2.0
+      // Try to find odds for this option, with fallback
+      let optionOdds = 2.0 // Default fallback
+      if (currentOdds && typeof currentOdds === 'object') {
+        if (currentOdds[optionId]) {
+          optionOdds = currentOdds[optionId]
+        } else {
+          // If exact match not found, try to find by index
+          const selectedOption = market.options.find(opt => opt.id === optionId)
+          if (selectedOption) {
+            const optionIndex = market.options.indexOf(selectedOption)
+            const oddsKeys = Object.keys(currentOdds)
+            if (oddsKeys[optionIndex]) {
+              optionOdds = currentOdds[oddsKeys[optionIndex]]
+              console.log(`Using odds from index ${optionIndex}: ${optionOdds}`)
+            }
+          }
+        }
+      }
+      
       const potentialWinnings = Math.floor(tokensToCommit * optionOdds)
       
       console.log('Using odds:', optionOdds, 'for potential winnings:', potentialWinnings)
@@ -534,7 +552,25 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
               </h3>
               <div className="space-y-4">
                 {market.options.map((option) => {
-                  const optionOdds = (currentOdds && currentOdds[option.id]) ? currentOdds[option.id] : 2.0
+                  // Debug: log what we're looking for vs what's available
+                  console.log('Looking for option ID:', option.id)
+                  console.log('Available odds keys:', Object.keys(currentOdds))
+                  
+                  // Try to find odds for this option, with fallback
+                  let optionOdds = 2.0 // Default fallback
+                  if (currentOdds && typeof currentOdds === 'object') {
+                    if (currentOdds[option.id]) {
+                      optionOdds = currentOdds[option.id]
+                    } else {
+                      // If exact match not found, try to find by index or other means
+                      const oddsKeys = Object.keys(currentOdds)
+                      const optionIndex = market.options.indexOf(option)
+                      if (oddsKeys[optionIndex]) {
+                        optionOdds = currentOdds[oddsKeys[optionIndex]]
+                        console.log(`Using odds from index ${optionIndex}: ${optionOdds}`)
+                      }
+                    }
+                  }
 
                   // Use actual token data from the option
                   const actualTokens = option.tokens || 0
@@ -585,7 +621,8 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                             onClick={() => {
                               // Determine position for UI compatibility (first option = 'yes', others = 'no')
                               const isFirstOption = market.options.indexOf(option) === 0
-                              const safeOdds = optionOdds || 2.0 // Ensure we have a valid odds value
+                              const safeOdds = optionOdds && !isNaN(optionOdds) ? optionOdds : 2.0 // Ensure we have a valid odds value
+                              console.log('Button click - using odds:', safeOdds, 'for option:', option.id)
                               setCommitmentData({
                                 position: isFirstOption ? 'yes' : 'no',
                                 optionId: option.id,
