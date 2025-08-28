@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Market } from "@/lib/db/database"
+import { Market as MarketUtilsType } from "@/lib/types/database"
 import { useAuth } from "@/app/auth/auth-context"
 import { useTokenBalance } from "@/hooks/use-token-balance"
 import { BackOpinionModal } from "@/app/components/back-opinion-modal"
@@ -16,16 +17,17 @@ import { TokenCommitmentConfirmationModal } from "@/app/components/token-commitm
 import { InsufficientBalanceModal } from "@/app/components/insufficient-balance-modal"
 import { MarketTimeline } from "./market-timeline"
 import { MarketStatistics } from "./market-statistics"
-import { RelatedMarkets } from "./related-markets"
-import { 
-  ArrowLeft, 
-  Calendar, 
-  Users, 
-  TrendingUp, 
+
+import { calculateOdds, formatTokenAmount } from "@/lib/utils/market-utils"
+import {
+  ArrowLeft,
+  Calendar,
+  Users,
+  TrendingUp,
   Clock,
   Share2,
   Heart,
-  MessageCircle,
+
   Flame,
   Zap,
   Star,
@@ -43,17 +45,129 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
   const router = useRouter()
   const { user } = useAuth()
   const { availableTokens, refreshBalance } = useTokenBalance()
+
+  // Debug logging to see what data we're getting
+  console.log('MarketDetailView received market data:', {
+    id: market.id,
+    title: market.title,
+    totalTokens: market.totalTokens,
+    participants: market.participants,
+    options: market.options.map(opt => ({
+      id: opt.id,
+      name: opt.name,
+      tokens: opt.tokens,
+      percentage: opt.percentage,
+      totalTokens: (opt as any).totalTokens,
+      participantCount: (opt as any).participantCount
+    }))
+  })
+
+  // Debug the calculation for each option
+  market.options.forEach(option => {
+    const actualTokens = option.tokens > 0 ? option.tokens : Math.round((option.percentage / 100) * market.totalTokens)
+    const supporterCount = actualTokens > 0 ? Math.round((actualTokens / market.totalTokens) * market.participants) : 0
+    console.log(`Option ${option.name}:`, {
+      'option.tokens': option.tokens,
+      'option.percentage': option.percentage,
+      'calculated actualTokens': actualTokens,
+      'calculated supporterCount': supporterCount,
+      'market.totalTokens': market.totalTokens,
+      'market.participants': market.participants
+    })
+  })
+
   const [showBackOpinionModal, setShowBackOpinionModal] = useState(false)
-  const [selectedOption, setSelectedOption] = useState<string>("")
   const [showCommitmentModal, setShowCommitmentModal] = useState(false)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false)
+  const [isRecalculating, setIsRecalculating] = useState(false)
+
+  // Auto-repair broken data on component mount
+  useEffect(() => {
+    const autoRepairData = async () => {
+      // Check if market has totals but options are empty (broken data)
+      const marketHasData = market.totalTokens > 0 && market.participants > 0
+      const optionsHaveData = market.options.some(opt =>
+        opt.tokens > 0 || opt.percentage > 0 || (opt as any).participantCount > 0
+      )
+
+      if (marketHasData && !optionsHaveData && !isRecalculating) {
+        console.log('Detected broken option data, auto-repairing...')
+        setIsRecalculating(true)
+
+        try {
+          const response = await fetch(`/api/markets/${market.id}/recalculate`, {
+            method: 'POST'
+          })
+
+          if (response.ok) {
+            console.log('Data repaired successfully')
+            // Refresh the market data
+            if (onMarketUpdate) {
+              await onMarketUpdate()
+            }
+          }
+        } catch (error) {
+          console.error('Failed to auto-repair data:', error)
+        } finally {
+          setIsRecalculating(false)
+        }
+      }
+    }
+
+    autoRepairData()
+  }, [market.id, market.totalTokens, market.participants, market.options, onMarketUpdate, isRecalculating])
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showCommitmentModal || showConfirmationModal || showInsufficientBalanceModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showCommitmentModal, showConfirmationModal, showInsufficientBalanceModal])
   const [commitmentData, setCommitmentData] = useState<{
-    position: 'yes' | 'no'
+    position: 'yes' | 'no' // Keep for UI compatibility
+    optionId: string // Store the actual option ID
+    optionName: string // Store the option name for display
     tokensToCommit: number
     currentOdds: number
     potentialWinnings: number
   } | null>(null)
+
+  // Convert current Market interface to the one expected by market-utils
+  const convertMarketForUtils = (market: Market): MarketUtilsType => {
+    return {
+      id: market.id,
+      title: market.title,
+      description: market.description,
+      category: market.category as any, // Type conversion for category
+      status: market.status as any, // Type conversion for status
+      createdBy: 'system', // Default value
+      createdAt: new Date() as any, // Default value
+      endsAt: market.endDate as any, // Convert Date to Timestamp
+      tags: market.tags || [],
+      totalParticipants: market.participants,
+      totalTokensStaked: market.totalTokens,
+      featured: false,
+      trending: false,
+      options: market.options.map(option => ({
+        id: option.id,
+        text: option.name,
+        totalTokens: option.tokens,
+        participantCount: Math.round((option.tokens / market.totalTokens) * market.participants) || 0
+      }))
+    }
+  }
+
+  // Calculate odds for display
+  const marketForUtils = convertMarketForUtils(market)
+  const currentOdds = calculateOdds(marketForUtils)
 
   // Format date to readable string
   const formatDate = (date: Date) => {
@@ -71,7 +185,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
     const end = new Date(endDate)
     const diffTime = end.getTime() - now.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) return { text: 'Market ended', color: 'text-gray-500', urgent: false }
     if (diffDays === 0) return { text: 'Ends today', color: 'text-red-600', urgent: true }
     if (diffDays === 1) return { text: '1 day left', color: 'text-amber-600', urgent: true }
@@ -97,34 +211,36 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
   const timeRemaining = getDaysRemaining(market.endDate)
   const trendingIndicator = getTrendingIndicator(market)
 
-  const handleBackOpinion = (optionName: string) => {
-    setSelectedOption(optionName)
-    setShowBackOpinionModal(true)
-  }
 
-  const handleCommitTokens = async (position: 'yes' | 'no', tokensToCommit: number) => {
+
+  const handleCommitTokens = async (optionId: string, tokensToCommit: number) => {
     if (!user?.id) return
 
     try {
-      // Calculate odds and potential winnings
-      const totalTokensOnPosition = market.options.find(opt => 
-        (position === 'yes' && opt.id === 'yes') || 
-        (position === 'no' && opt.id === 'no')
-      )?.totalTokens || 0
-      
-      const totalTokensOnOpposite = market.options.find(opt => 
-        (position === 'yes' && opt.id === 'no') || 
-        (position === 'no' && opt.id === 'yes')
-      )?.totalTokens || 0
+      // Find the selected option
+      const selectedOption = market.options.find(opt => opt.id === optionId)
+      if (!selectedOption) {
+        console.error('Selected option not found:', optionId)
+        return
+      }
 
+      // Calculate odds and potential winnings based on the selected option
+      const totalTokensOnPosition = selectedOption.tokens || 0
       const totalMarketTokens = market.totalTokens
-      const currentOdds = totalMarketTokens > 0 ? (totalTokensOnOpposite + tokensToCommit) / (totalTokensOnPosition + tokensToCommit) : 1
-      const potentialWinnings = Math.floor(tokensToCommit * currentOdds)
+
+      // Use the calculated odds from market utils
+      const optionOdds = currentOdds[optionId] || 2.0
+      const potentialWinnings = Math.floor(tokensToCommit * optionOdds)
+
+      // Determine position for UI compatibility
+      const isFirstOption = market.options.indexOf(selectedOption) === 0
 
       setCommitmentData({
-        position,
+        position: isFirstOption ? 'yes' : 'no',
+        optionId: optionId,
+        optionName: selectedOption.name,
         tokensToCommit,
-        currentOdds,
+        currentOdds: optionOdds,
         potentialWinnings
       })
 
@@ -165,7 +281,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       const requestBody = {
         predictionId: market.id,
         tokensToCommit: commitmentData.tokensToCommit,
-        position: commitmentData.position,
+        position: commitmentData.optionId, // Use the actual option ID for the API
         userId: user.id
       }
 
@@ -186,7 +302,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       try {
         const responseText = await response.text()
         console.log('Raw response text:', responseText)
-        
+
         if (responseText) {
           data = JSON.parse(responseText)
           console.log('API response data:', data)
@@ -196,7 +312,8 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
         }
       } catch (jsonError) {
         console.error('Failed to parse response JSON:', jsonError)
-        throw new Error(`Server returned invalid response (${response.status}): ${jsonError.message}`)
+        const errorMessage = jsonError instanceof Error ? jsonError.message : 'Unknown parsing error'
+        throw new Error(`Server returned invalid response (${response.status}): ${errorMessage}`)
       }
 
       if (!response.ok) {
@@ -206,12 +323,12 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           setShowInsufficientBalanceModal(true)
           return
         }
-        
+
         const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`
-        console.error('API Error Details:', { 
-          status: response.status, 
+        console.error('API Error Details:', {
+          status: response.status,
           statusText: response.statusText,
-          data, 
+          data,
           errorMessage,
           errorCode: data.errorCode,
           details: data.details
@@ -222,14 +339,14 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       // Success - close modals and show success message
       setShowConfirmationModal(false)
       setCommitmentData(null)
-      
+
       console.log('Tokens committed successfully:', data)
-      
+
       // Refresh balance and market data with retry mechanism
       console.log('Calling refreshBalance...')
       let refreshAttempts = 0
       const maxRefreshAttempts = 3
-      
+
       while (refreshAttempts < maxRefreshAttempts) {
         try {
           refreshAttempts++
@@ -248,7 +365,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           }
         }
       }
-      
+
       if (onMarketUpdate) {
         console.log('Calling onMarketUpdate...')
         try {
@@ -258,21 +375,21 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           console.error('Error updating market:', updateError)
         }
       }
-      
+
       // If all refresh attempts failed, show a message and offer to reload
       if (refreshAttempts >= maxRefreshAttempts) {
         console.log('Balance refresh failed, but commitment was successful. Consider reloading the page.')
         // You could show a toast notification here suggesting a page reload
       }
-      
+
     } catch (error) {
       console.error('Error committing tokens:', error)
-      
+
       // Re-throw with a more user-friendly message if it's a generic error
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error. Please check your connection and try again.')
       }
-      
+
       throw error
     }
   }
@@ -303,9 +420,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
   }
 
   return (
-
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
-
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Back button */}
         <Button
@@ -363,7 +478,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="p-6">
             {/* Market stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -371,14 +486,14 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                 <div className="flex items-center justify-center mb-1">
                   <Users className="h-4 w-4 text-gray-500 mr-1" />
                 </div>
-                <div className="text-2xl font-bold text-gray-800">{market.participants.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-gray-800">{formatTokenAmount(market.participants)}</div>
                 <div className="text-sm text-gray-500">Participants</div>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center mb-1">
                   <Trophy className="h-4 w-4 text-amber-500 mr-1" />
                 </div>
-                <div className="text-2xl font-bold text-gray-800">{market.totalTokens.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-gray-800">{formatTokenAmount(market.totalTokens)}</div>
                 <div className="text-sm text-gray-500">Total Tokens</div>
               </div>
               <div className="text-center">
@@ -406,46 +521,78 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                 Current Predictions
               </h3>
               <div className="space-y-4">
-                {market.options.map((option) => (
-                  <Card key={option.id} className="border-2 hover:border-kai-200 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full ${option.color}`}></div>
-                          <h4 className="font-medium text-gray-800">{option.name}</h4>
+                {market.options.map((option) => {
+                  const optionOdds = currentOdds[option.id] || 2.0
+
+                  // Use actual token data from the option
+                  const actualTokens = option.tokens || 0
+                  const actualPercentage = option.percentage || 0
+
+                  // Check if we have valid option data
+                  const hasValidOptionData = actualTokens > 0 || actualPercentage > 0
+                  const marketHasData = market.totalTokens > 0 && market.participants > 0
+                  
+                  // Calculate win chance based on token distribution (not odds)
+                  const winChance = market.totalTokens > 0 
+                    ? Math.round((actualTokens / market.totalTokens) * 100) 
+                    : 0
+
+                  return (
+                    <Card key={option.id} className="border-2 hover:border-kai-200 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full ${option.color}`}></div>
+                            <h4 className="font-medium text-gray-800 text-lg">{option.name}</h4>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-kai-600">
+                              {market.totalTokens > 0 ? `${winChance}%` : '—'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {market.totalTokens > 0 ? 'chance to win' : 'no data yet'}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-gray-800">{option.percentage}%</div>
-                          <div className="text-sm text-gray-500">{option.tokens.toLocaleString()} tokens</div>
+
+                        <Progress value={winChance} className="mb-3 h-3" />
+
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-600">
+                            {hasValidOptionData ? (
+                              <span className="font-semibold">{formatTokenAmount(actualTokens)} tokens committed</span>
+                            ) : marketHasData ? (
+                              <span className="text-gray-500 italic">
+                                {isRecalculating ? 'Updating data...' : 'Loading commitment data...'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 italic">No tokens committed</span>
+                            )}
+                          </div>
+                          <Button
+                            onClick={() => {
+                              // Determine position for UI compatibility (first option = 'yes', others = 'no')
+                              const isFirstOption = market.options.indexOf(option) === 0
+                              setCommitmentData({
+                                position: isFirstOption ? 'yes' : 'no',
+                                optionId: option.id,
+                                optionName: option.name,
+                                tokensToCommit: 1,
+                                currentOdds: optionOdds,
+                                potentialWinnings: Math.floor(1 * optionOdds)
+                              })
+                              setShowCommitmentModal(true)
+                            }}
+                            disabled={market.status !== 'active' || !user}
+                            className="bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full px-6 py-2 font-medium"
+                          >
+                            Back This
+                          </Button>
                         </div>
-                      </div>
-                      
-                      <Progress value={option.percentage} className="mb-3 h-2" />
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          {Math.round((option.tokens / market.totalTokens) * market.participants)} supporters
-                        </div>
-                        <Button
-                          onClick={() => {
-                            const position = option.id === 'yes' ? 'yes' : 'no'
-                            setCommitmentData({ 
-                              position, 
-                              tokensToCommit: 1, 
-                              currentOdds: 1, 
-                              potentialWinnings: 1 
-                            })
-                            setShowCommitmentModal(true)
-                          }}
-                          disabled={market.status !== 'active' || !user}
-                          className="bg-gradient-to-r from-primary-400 to-kai-600 hover:from-kai-500 hover:to-kai-500 text-white rounded-full px-4 py-1 text-sm"
-                        >
-                          Back This Opinion
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             </div>
 
@@ -471,8 +618,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           <MarketStatistics market={market} />
         </div>
 
-        {/* Related markets */}
-        <RelatedMarkets currentMarket={market} />
+
 
         {/* Back Opinion Modal */}
         {showBackOpinionModal && user && (
@@ -489,16 +635,19 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
 
         {/* Token Commitment Modal */}
         {showCommitmentModal && commitmentData && user && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <PredictionCommitment
-              predictionId={market.id}
-              predictionTitle={market.title}
-              position={commitmentData.position}
-              currentOdds={commitmentData.currentOdds}
-              maxTokens={10000} // Max tokens per commitment
-              onCommit={(tokens) => handleCommitTokens(commitmentData.position, tokens)}
-              onCancel={() => setShowCommitmentModal(false)}
-            />
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="w-full max-w-md max-h-full overflow-y-auto">
+              <PredictionCommitment
+                predictionId={market.id}
+                predictionTitle={market.title}
+                position={commitmentData.position}
+                optionId={commitmentData.optionId} // Use the actual option ID
+                market={marketForUtils}
+                maxTokens={10000} // Max tokens per commitment
+                onCommit={(tokens) => handleCommitTokens(commitmentData.optionId, tokens)}
+                onCancel={() => setShowCommitmentModal(false)}
+              />
+            </div>
           </div>
         )}
 
