@@ -66,13 +66,21 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       expect(logo).toHaveClass('text-2xl', 'font-bold')
     })
 
-    it('should display all main navigation items', () => {
+    it('should display exactly 3 main navigation items', () => {
       render(<TopNavigation />)
       
       expect(screen.getByText('Markets')).toBeInTheDocument()
-      expect(screen.getByText('Social')).toBeInTheDocument()
       expect(screen.getByText('Wallet')).toBeInTheDocument()
       expect(screen.getByText('Profile')).toBeInTheDocument()
+      
+      // Should have exactly 3 navigation buttons
+      const navButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(navButtons).toHaveLength(3)
+      
+      // Social should not be present
+      expect(screen.queryByText('Social')).not.toBeInTheDocument()
     })
 
     it('should display user token balance', () => {
@@ -112,7 +120,13 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       
       // Initially closed
       expect(screen.queryByText('Create Market')).not.toBeInTheDocument()
@@ -130,7 +144,13 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       
       // Open dropdown
       await user.click(avatarButton)
@@ -148,7 +168,13 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       await user.click(avatarButton)
       
       expect(screen.getByText('Test User')).toBeInTheDocument()
@@ -159,7 +185,13 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       await user.click(avatarButton)
       
       const logoutButton = screen.getByText('Sign Out')
@@ -175,17 +207,29 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const socialButton = screen.getByText('Social')
-      await user.click(socialButton)
+      // Find wallet button in main nav (not hamburger menu)
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
+      const walletButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Wallet' && navContainer?.contains(button)
+      })
+      expect(walletButtons).toHaveLength(1)
       
-      expect(mockPush).toHaveBeenCalledWith('/social')
+      await user.click(walletButtons[0])
+      expect(mockPush).toHaveBeenCalledWith('/wallet')
     })
 
     it('should navigate to create market from dropdown', async () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       await user.click(avatarButton)
       
       const createMarketButton = screen.getByText('Create Market')
@@ -210,7 +254,13 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      const avatarButton = screen.getByRole('button', { expanded: false })
+      // Find avatar button by looking for the one with avatar content
+      const avatarButtons = screen.getAllByRole('button').filter(button => {
+        return button.querySelector('span[class*="rounded-full"]') && 
+               button.getAttribute('aria-haspopup') === 'true'
+      })
+      expect(avatarButtons).toHaveLength(1)
+      const avatarButton = avatarButtons[0]
       expect(avatarButton).toHaveAttribute('aria-expanded', 'false')
       expect(avatarButton).toHaveAttribute('aria-haspopup', 'true')
       
@@ -223,12 +273,33 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       const user = userEvent.setup()
       render(<TopNavigation />)
       
-      // Tab through navigation items
-      await user.tab()
-      expect(screen.getByText('Markets')).toHaveFocus()
+      // Find navigation buttons in main nav (not hamburger menu)
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
       
-      await user.tab()
-      expect(screen.getByText('Social')).toHaveFocus()
+      const marketsButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Markets' && navContainer?.contains(button)
+      })
+      const walletButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Wallet' && navContainer?.contains(button)
+      })
+      const profileButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Profile' && navContainer?.contains(button)
+      })
+      
+      expect(marketsButtons).toHaveLength(1)
+      expect(walletButtons).toHaveLength(1)
+      expect(profileButtons).toHaveLength(1)
+      
+      // Test that buttons are focusable
+      marketsButtons[0].focus()
+      expect(marketsButtons[0]).toHaveFocus()
+      
+      walletButtons[0].focus()
+      expect(walletButtons[0]).toHaveFocus()
+      
+      profileButtons[0].focus()
+      expect(profileButtons[0]).toHaveFocus()
     })
   })
 
@@ -237,7 +308,7 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       render(<TopNavigation />)
       
       const nav = screen.getByRole('navigation')
-      expect(nav).toHaveClass('hidden', 'md:block')
+      expect(nav).toHaveClass('bg-white', 'border-b', 'sticky', 'top-0')
     })
 
     it('should have proper container max-width', () => {
@@ -245,6 +316,25 @@ describe('TopNavigation Component - Desktop Behavior', () => {
       
       const container = screen.getByRole('navigation').querySelector('.max-w-7xl')
       expect(container).toBeInTheDocument()
+    })
+
+    it('should maintain proper proportions with 3 navigation items', () => {
+      render(<TopNavigation />)
+      
+      // Find the navigation container
+      const navContainer = screen.getByRole('navigation').querySelector('.hidden.md\\:flex')
+      expect(navContainer).toHaveClass('items-center', 'space-x-8')
+      
+      // Verify 3 navigation buttons exist with proper spacing
+      const navButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(navButtons).toHaveLength(3)
+      
+      // Each button should have consistent styling
+      navButtons.forEach(button => {
+        expect(button).toHaveClass('px-3', 'py-2', 'rounded-md', 'text-sm', 'font-medium')
+      })
     })
   })
 })

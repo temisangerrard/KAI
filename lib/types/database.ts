@@ -16,10 +16,6 @@ export interface UserProfile {
   isAdmin?: boolean
   bio?: string
   location?: string
-  socialLinks?: {
-    twitter?: string
-    instagram?: string
-  }
 }
 
 // Market/Prediction Topic

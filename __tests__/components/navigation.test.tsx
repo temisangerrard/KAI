@@ -38,21 +38,56 @@ describe('Navigation Component - Responsive Behavior', () => {
       expect(nav).toHaveClass('fixed', 'bottom-0', 'left-0', 'right-0')
     })
 
-    it('should display all 4 navigation items on mobile', () => {
+    it('should display exactly 3 navigation items on mobile', () => {
       render(<Navigation />)
       
       expect(screen.getByLabelText(/navigate to markets/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/navigate to social/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/navigate to wallet/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/navigate to profile/i)).toBeInTheDocument()
+      
+      // Should have exactly 3 items, no more, no less
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+      
+      // Social should not be present
+      expect(screen.queryByLabelText(/navigate to social/i)).not.toBeInTheDocument()
     })
 
     it('should have touch-friendly minimum sizes on mobile', () => {
       render(<Navigation />)
       
       const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3) // Should have exactly 3 items
+      
       navLinks.forEach(link => {
         expect(link).toHaveClass('min-w-[44px]', 'min-h-[44px]')
+      })
+    })
+
+    it('should have proper spacing for 3 navigation items', () => {
+      render(<Navigation />)
+      
+      const navContainer = screen.getByRole('navigation').querySelector('div')
+      expect(navContainer).toHaveClass('justify-around') // Even spacing for 3 items
+      
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+    })
+
+    it('should distribute 3 items evenly across mobile navigation', () => {
+      render(<Navigation />)
+      
+      const navContainer = screen.getByRole('navigation').querySelector('div')
+      expect(navContainer).toHaveClass('flex', 'items-center', 'justify-around')
+      
+      // Each item should have equal flex distribution
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+      
+      // Verify each link has proper mobile styling
+      navLinks.forEach(link => {
+        expect(link).toHaveClass('flex', 'flex-col', 'items-center')
+        expect(link).toHaveClass('py-2', 'px-3')
       })
     })
 
@@ -94,9 +129,11 @@ describe('Navigation Component - Responsive Behavior', () => {
       render(<Navigation />)
       
       expect(screen.queryByLabelText(/navigate to markets/i)).not.toBeInTheDocument()
-      expect(screen.queryByLabelText(/navigate to social/i)).not.toBeInTheDocument()
       expect(screen.queryByLabelText(/navigate to wallet/i)).not.toBeInTheDocument()
       expect(screen.queryByLabelText(/navigate to profile/i)).not.toBeInTheDocument()
+      
+      // Social should not be present anywhere
+      expect(screen.queryByLabelText(/navigate to social/i)).not.toBeInTheDocument()
     })
   })
 
@@ -139,11 +176,11 @@ describe('Navigation Component - Responsive Behavior', () => {
       const user = userEvent.setup()
       render(<Navigation />)
       
-      const socialLink = screen.getByLabelText(/navigate to social/i)
-      await user.click(socialLink)
+      const walletLink = screen.getByLabelText(/navigate to wallet/i)
+      await user.click(walletLink)
       
       // Link should navigate (handled by Next.js Link component)
-      expect(socialLink).toHaveAttribute('href', '/social')
+      expect(walletLink).toHaveAttribute('href', '/wallet')
     })
 
     it('should maintain focus management for accessibility', async () => {

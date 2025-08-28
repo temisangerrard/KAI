@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Home, TrendingUp, User, Wallet, MessageSquare } from "lucide-react"
+import { Home, User, Wallet } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -14,14 +14,12 @@ export function Navigation() {
   // Update active tab based on current pathname
   useEffect(() => {
     if (pathname === "/markets") setActiveTab("markets")
-    else if (pathname === "/social") setActiveTab("social")
     else if (pathname === "/wallet") setActiveTab("wallet")
     else if (pathname === "/profile") setActiveTab("profile")
   }, [pathname])
 
   const navItems = [
     { id: "markets", icon: Home, label: "Markets", href: "/markets" },
-    { id: "social", icon: MessageSquare, label: "Social", href: "/social" },
     { id: "wallet", icon: Wallet, label: "Wallet", href: "/wallet" },
     { id: "profile", icon: User, label: "Profile", href: "/profile" },
   ]

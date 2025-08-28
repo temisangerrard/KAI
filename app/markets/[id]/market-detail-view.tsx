@@ -17,6 +17,7 @@ import { TokenCommitmentConfirmationModal } from "@/app/components/token-commitm
 import { InsufficientBalanceModal } from "@/app/components/insufficient-balance-modal"
 import { MarketTimeline } from "./market-timeline"
 import { MarketStatistics } from "./market-statistics"
+import { CommentSection } from "./comment-section"
 
 import { calculateOdds, formatTokenAmount } from "@/lib/utils/market-utils"
 import {
@@ -697,6 +698,21 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           <MarketTimeline market={market} />
           <MarketStatistics market={market} />
         </div>
+
+        {/* Comments Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+              <Users className="h-5 w-5 mr-2 text-kai-500" />
+              Community Discussion
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div id="comments-section">
+              <CommentSection marketId={market.id} marketTitle={market.title} />
+            </div>
+          </CardContent>
+        </Card>
 
 
 

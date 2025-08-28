@@ -11,7 +11,6 @@ import {
   LogOut,
   Sparkles,
   Home,
-  MessageSquare,
   Wallet,
   User
 } from "lucide-react"
@@ -71,12 +70,7 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
       onClick: () => handleNavigation("/markets"),
       primary: true
     },
-    {
-      icon: MessageSquare,
-      label: "Social",
-      description: "Community feed",
-      onClick: () => handleNavigation("/social")
-    },
+
     {
       icon: Wallet,
       label: "Wallet",

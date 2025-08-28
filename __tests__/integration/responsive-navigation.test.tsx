@@ -94,9 +94,12 @@ describe('Responsive Navigation Integration', () => {
       const user = userEvent.setup()
       render(<TestNavigationLayout />)
       
-      // Test bottom navigation
-      const socialLink = screen.getByLabelText(/navigate to social/i)
-      expect(socialLink).toHaveAttribute('href', '/social')
+      // Test bottom navigation - should have exactly 3 items
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+      
+      const marketsLink = screen.getByLabelText(/navigate to markets/i)
+      expect(marketsLink).toHaveAttribute('href', '/markets')
       
       // Test hamburger menu
       const hamburgerButton = screen.getByRole('button', { name: /open menu/i })
@@ -157,10 +160,15 @@ describe('Responsive Navigation Integration', () => {
       const user = userEvent.setup()
       render(<TestNavigationLayout />)
       
-      // Test top navigation
-      const socialButton = screen.getByText('Social')
-      await user.click(socialButton)
-      expect(mockPush).toHaveBeenCalledWith('/social')
+      // Test top navigation - should have exactly 3 items
+      const navButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(navButtons).toHaveLength(3)
+      
+      const walletButton = screen.getByText('Wallet')
+      await user.click(walletButton)
+      expect(mockPush).toHaveBeenCalledWith('/wallet')
       
       // Test user dropdown
       const avatarButton = screen.getByRole('button', { expanded: false })
@@ -190,7 +198,16 @@ describe('Responsive Navigation Integration', () => {
       
       // Verify mobile layout
       expect(screen.getByRole('navigation', { name: /main navigation/i })).toBeInTheDocument()
-      expect(screen.queryByText('Markets')).not.toBeInTheDocument() // Top nav hidden
+      
+      // Bottom nav should have 3 items
+      const bottomNavLinks = screen.getAllByRole('link')
+      expect(bottomNavLinks).toHaveLength(3)
+      
+      // Top nav buttons should not be visible (hidden by responsive classes)
+      const topNavButtons = screen.queryAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(topNavButtons).toHaveLength(0) // Hidden on mobile
       
       // Switch to desktop
       mockUseIsMobile.mockReturnValue(false)
@@ -198,7 +215,12 @@ describe('Responsive Navigation Integration', () => {
       
       // Verify desktop layout
       expect(screen.queryByRole('navigation', { name: /main navigation/i })).not.toBeInTheDocument()
-      expect(screen.getByText('Markets')).toBeInTheDocument() // Top nav visible
+      
+      // Top nav should have 3 navigation buttons
+      const topNavButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(topNavButtons).toHaveLength(3)
     })
 
     it('should transition from desktop to mobile layout', () => {
@@ -206,8 +228,11 @@ describe('Responsive Navigation Integration', () => {
       mockUseIsMobile.mockReturnValue(false)
       const { rerender } = render(<TestNavigationLayout />)
       
-      // Verify desktop layout
-      expect(screen.getByText('Markets')).toBeInTheDocument()
+      // Verify desktop layout - should have 3 top nav buttons
+      const topNavButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(topNavButtons).toHaveLength(3)
       expect(screen.queryByRole('navigation', { name: /main navigation/i })).not.toBeInTheDocument()
       
       // Switch to mobile
@@ -225,9 +250,13 @@ describe('Responsive Navigation Integration', () => {
       mockUseIsMobile.mockReturnValue(true)
       render(<TestNavigationLayout />)
       
-      // Both bottom nav and hamburger menu should show Markets as active
+      // Bottom nav should show Markets as active and have exactly 3 items
       const bottomNavMarkets = screen.getByLabelText(/navigate to markets.*current page/i)
       expect(bottomNavMarkets).toHaveClass('text-kai-700', 'bg-kai-100')
+      
+      // Verify 3 navigation items in bottom nav
+      const bottomNavLinks = screen.getAllByRole('link')
+      expect(bottomNavLinks).toHaveLength(3)
       
       // Open hamburger menu and navigate
       const hamburgerButton = screen.getByRole('button', { name: /open menu/i })

@@ -1,531 +1,408 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Navigation } from '@/app/components/navigation'
+import { TopNavigation } from '@/app/components/top-navigation'
+import { useIsMobile } from '@/hooks/use-mobile'
 
-// Mock components for testing
-const MockHamburgerMenu = ({ isOpen, onToggle, onClose }: any) => {
-  // Handle escape key
-  React.useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose()
-      }
-    }
+// Mock the mobile hook
+jest.mock('@/hooks/use-mobile')
+const mockUseIsMobile = useIsMobile as jest.MockedFunction<typeof useIsMobile>
 
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape)
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape)
-    }
-  }, [isOpen, onClose])
-
-  return (
-    <div>
-      <button 
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            onToggle()
-          }
-        }}
-        aria-label={isOpen ? "Close menu" : "Open menu"}
-        aria-expanded={isOpen}
-        data-testid="hamburger-toggle"
-      >
-        {isOpen ? 'X' : '☰'}
-      </button>
-      {isOpen && (
-        <div 
-          data-testid="hamburger-drawer"
-          role="dialog"
-          aria-modal="true"
-          className="fixed top-0 left-0 w-80 max-w-[85vw] bg-white transform transition-transform duration-300 ease-in-out translate-x-0"
-        >
-          <div data-testid="overlay" onClick={onClose} className="fixed inset-0 bg-black/50" />
-          <div className="p-4">
-            <button onClick={() => { onClose(); }}>Create Market</button>
-            <button onClick={() => { onClose(); }}>Settings</button>
-            <button onClick={() => { onClose(); }}>Sign Out</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+// Mock auth context
+const mockUser = {
+  displayName: 'Test User',
+  email: 'test@example.com',
+  profileImage: 'https://example.com/avatar.jpg'
 }
 
-const MockBottomNavigation = ({ isMobile }: { isMobile: boolean }) => {
-  if (!isMobile) return null
-  
-  return (
-    <nav 
-      className="fixed bottom-0 left-0 right-0 bg-white border-t"
-      data-testid="bottom-navigation"
-      role="navigation"
-      aria-label="Main navigation"
-    >
-      <div className="flex justify-around py-2">
-        <a href="/markets" className="min-w-[44px] min-h-[44px] flex flex-col items-center py-2 px-3 text-kai-700 bg-kai-100" aria-current="page">
-          <span>🏠</span>
-          <span>Markets</span>
-        </a>
-        <a href="/social" className="min-w-[44px] min-h-[44px] flex flex-col items-center py-2 px-3">
-          <span>💬</span>
-          <span>Social</span>
-        </a>
-        <a href="/wallet" className="min-w-[44px] min-h-[44px] flex flex-col items-center py-2 px-3">
-          <span>💰</span>
-          <span>Wallet</span>
-        </a>
-        <a href="/profile" className="min-w-[44px] min-h-[44px] flex flex-col items-center py-2 px-3">
-          <span>👤</span>
-          <span>Profile</span>
-        </a>
-      </div>
-    </nav>
-  )
-}
+const mockLogout = jest.fn()
 
-const MockTopNavigation = ({ isMobile }: { isMobile: boolean }) => {
-  const [showDropdown, setShowDropdown] = React.useState(false)
-  
-  return (
-    <nav 
-      className={`bg-white border-b sticky top-0 ${isMobile ? 'hidden' : 'block'} md:block`}
-      data-testid="top-navigation"
-      role="navigation"
-    >
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-        <div className="text-2xl font-bold">KAI</div>
-        <div className="flex items-center space-x-8">
-          <button className="px-3 py-2 text-kai-600 bg-kai-50">Markets</button>
-          <button className="px-3 py-2">Social</button>
-          <button className="px-3 py-2">Wallet</button>
-          <button className="px-3 py-2">Profile</button>
-        </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowDropdown(!showDropdown)}
-            aria-expanded={showDropdown}
-            data-testid="user-dropdown-toggle"
-          >
-            👤
-          </button>
-          {showDropdown && (
-            <div 
-              className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border"
-              data-testid="user-dropdown"
-            >
-              <button className="w-full text-left px-4 py-2">Create Market</button>
-              <button className="w-full text-left px-4 py-2">View Profile</button>
-              <button className="w-full text-left px-4 py-2">Settings</button>
-              <button className="w-full text-left px-4 py-2 text-red-600">Sign Out</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </nav>
-  )
-}
+jest.mock('@/app/auth/auth-context', () => ({
+  useAuth: () => ({
+    user: mockUser,
+    logout: mockLogout,
+  }),
+}))
 
-// Test component that combines all navigation elements
-const ResponsiveNavigationTest = ({ isMobile }: { isMobile: boolean }) => {
-  const [hamburgerOpen, setHamburgerOpen] = React.useState(false)
+// Mock token balance hook
+jest.mock('@/hooks/use-token-balance', () => ({
+  useTokenBalance: () => ({
+    totalTokens: 1500,
+    availableTokens: 1200,
+    committedTokens: 300,
+    isLoading: false,
+  }),
+}))
 
-  return (
-    <div>
-      <MockTopNavigation isMobile={isMobile} />
-      <MockHamburgerMenu 
-        isOpen={hamburgerOpen}
-        onToggle={() => setHamburgerOpen(!hamburgerOpen)}
-        onClose={() => setHamburgerOpen(false)}
-      />
-      <MockBottomNavigation isMobile={isMobile} />
-      <main className="p-4">
-        <h1>Test Content</h1>
-      </main>
-    </div>
-  )
-}
+// Mock Next.js navigation
+const mockPush = jest.fn()
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+  usePathname: () => '/markets',
+}))
 
-describe('Responsive Navigation Behavior - Task 11', () => {
+// Mock hamburger menu hook
+jest.mock('@/hooks/use-hamburger-menu', () => ({
+  useHamburgerMenu: () => ({
+    isOpen: false,
+    toggle: jest.fn(),
+    close: jest.fn(),
+  }),
+}))
+
+describe('Responsive Navigation Layout - Task 5 Requirements', () => {
   beforeEach(() => {
-    // Reset any global state
-    document.body.style.overflow = 'unset'
+    jest.clearAllMocks()
   })
 
-  describe('Hamburger Menu - All Screen Sizes', () => {
-    it('should work on mobile screens (320px)', () => {
-      // Mock mobile viewport
-      Object.defineProperty(window, 'innerWidth', {
-        writable: true,
-        configurable: true,
-        value: 320,
-      })
-
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toBeInTheDocument()
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'false')
+  describe('Mobile Bottom Navigation - 3 Items with Even Spacing', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(true)
     })
 
-    it('should work on tablet screens (768px)', () => {
-      Object.defineProperty(window, 'innerWidth', {
-        writable: true,
-        configurable: true,
-        value: 768,
-      })
-
-      render(<ResponsiveNavigationTest isMobile={false} />)
+    it('should display exactly 3 items with even spacing', () => {
+      render(<Navigation />)
       
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toBeInTheDocument()
+      // Verify exactly 3 navigation items
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+      
+      // Verify the specific items
+      expect(screen.getByLabelText(/navigate to markets/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/navigate to wallet/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/navigate to profile/i)).toBeInTheDocument()
+      
+      // Verify even spacing with justify-around
+      const navContainer = screen.getByRole('navigation').querySelector('div')
+      expect(navContainer).toHaveClass('flex', 'items-center', 'justify-around')
     })
 
-    it('should work on desktop screens (1024px)', () => {
-      Object.defineProperty(window, 'innerWidth', {
-        writable: true,
-        configurable: true,
-        value: 1024,
-      })
-
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toBeInTheDocument()
-    })
-
-    it('should work on large desktop screens (1920px)', () => {
-      Object.defineProperty(window, 'innerWidth', {
-        writable: true,
-        configurable: true,
-        value: 1920,
-      })
-
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toBeInTheDocument()
-    })
-
-    it('should open and close hamburger menu properly', async () => {
-      const user = userEvent.setup()
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      
-      // Initially closed
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'false')
-      expect(screen.queryByTestId('hamburger-drawer')).not.toBeInTheDocument()
-      
-      // Open menu
-      await user.click(hamburgerToggle)
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'true')
-      expect(screen.getByTestId('hamburger-drawer')).toBeInTheDocument()
-      
-      // Close menu
-      await user.click(hamburgerToggle)
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'false')
-      expect(screen.queryByTestId('hamburger-drawer')).not.toBeInTheDocument()
-    })
-
-    it('should close hamburger menu when clicking overlay', async () => {
-      const user = userEvent.setup()
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      
-      // Open menu
-      await user.click(hamburgerToggle)
-      expect(screen.getByTestId('hamburger-drawer')).toBeInTheDocument()
-      
-      // Click overlay to close
-      const overlay = screen.getByTestId('overlay')
-      await user.click(overlay)
-      expect(screen.queryByTestId('hamburger-drawer')).not.toBeInTheDocument()
-    })
-
-    it('should have proper responsive width classes', async () => {
-      const user = userEvent.setup()
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      await user.click(hamburgerToggle)
-      
-      const drawer = screen.getByTestId('hamburger-drawer')
-      expect(drawer).toHaveClass('w-80', 'max-w-[85vw]')
-    })
-  })
-
-  describe('Bottom Navigation - Mobile Devices', () => {
-    it('should display on mobile screens', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      const bottomNav = screen.getByTestId('bottom-navigation')
-      expect(bottomNav).toBeInTheDocument()
-      expect(bottomNav).toHaveClass('fixed', 'bottom-0', 'left-0', 'right-0')
-    })
-
-    it('should not display on desktop screens', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      const bottomNav = screen.queryByTestId('bottom-navigation')
-      expect(bottomNav).not.toBeInTheDocument()
-    })
-
-    it('should have touch-friendly minimum sizes', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should maintain proper proportions for 3 items', () => {
+      render(<Navigation />)
       
       const navLinks = screen.getAllByRole('link')
+      
+      // Each item should have consistent styling for proper distribution
+      navLinks.forEach(link => {
+        expect(link).toHaveClass('flex', 'flex-col', 'items-center')
+        expect(link).toHaveClass('py-2', 'px-3', 'rounded-lg')
+      })
+      
+      // Container should use space-around for even distribution
+      const container = screen.getByRole('navigation').querySelector('.flex')
+      expect(container).toHaveClass('justify-around')
+    })
+
+    it('should validate touch targets remain 44px minimum', () => {
+      render(<Navigation />)
+      
+      const navLinks = screen.getAllByRole('link')
+      expect(navLinks).toHaveLength(3)
+      
+      // Each navigation item must meet minimum touch target size
       navLinks.forEach(link => {
         expect(link).toHaveClass('min-w-[44px]', 'min-h-[44px]')
+        expect(link).toHaveClass('touch-manipulation')
       })
     })
 
-    it('should highlight active tab correctly', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should ensure active state highlighting works for all 3 tabs', () => {
+      render(<Navigation />)
       
-      const marketsLink = screen.getByRole('link', { name: /markets/i })
-      expect(marketsLink).toHaveClass('text-kai-700', 'bg-kai-100')
+      // Markets should be active (based on mocked pathname)
+      const marketsLink = screen.getByLabelText(/navigate to markets.*current page/i)
+      expect(marketsLink).toHaveClass('text-kai-700', 'bg-kai-100', 'font-medium')
       expect(marketsLink).toHaveAttribute('aria-current', 'page')
+      
+      // Other items should have inactive styling
+      const walletLink = screen.getByLabelText(/navigate to wallet/i)
+      const profileLink = screen.getByLabelText(/navigate to profile/i)
+      
+      expect(walletLink).toHaveClass('text-gray-600')
+      expect(profileLink).toHaveClass('text-gray-600')
+      expect(walletLink).not.toHaveAttribute('aria-current')
+      expect(profileLink).not.toHaveAttribute('aria-current')
     })
 
-    it('should have proper accessibility attributes', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should have proper mobile navigation structure', () => {
+      render(<Navigation />)
       
-      const bottomNav = screen.getByTestId('bottom-navigation')
-      expect(bottomNav).toHaveAttribute('role', 'navigation')
-      expect(bottomNav).toHaveAttribute('aria-label', 'Main navigation')
-    })
-  })
-
-  describe('Top Navigation - Desktop', () => {
-    it('should be hidden on mobile screens', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
+      const nav = screen.getByRole('navigation')
       
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).toHaveClass('hidden')
-    })
-
-    it('should be visible on desktop screens', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
+      // Should be fixed at bottom
+      expect(nav).toHaveClass('fixed', 'bottom-0', 'left-0', 'right-0')
       
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).toHaveClass('md:block')
-      expect(topNav).not.toHaveClass('hidden')
-    })
-
-    it('should be sticky positioned at top', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
+      // Should have proper z-index and styling
+      expect(nav).toHaveClass('w-full', 'bg-white', 'border-t', 'z-50', 'shadow-lg')
       
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).toHaveClass('sticky', 'top-0')
-    })
-
-    it('should display all navigation items', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      expect(screen.getByText('KAI')).toBeInTheDocument()
-      expect(screen.getByText('Markets')).toBeInTheDocument()
-      expect(screen.getByText('Social')).toBeInTheDocument()
-      expect(screen.getByText('Wallet')).toBeInTheDocument()
-      expect(screen.getByText('Profile')).toBeInTheDocument()
-    })
-
-    it('should highlight active navigation item', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      const marketsButton = screen.getByText('Markets')
-      expect(marketsButton).toHaveClass('text-kai-600', 'bg-kai-50')
-    })
-
-    it('should handle user dropdown correctly', async () => {
-      const user = userEvent.setup()
-      render(<ResponsiveNavigationTest isMobile={false} />)
-      
-      const dropdownToggle = screen.getByTestId('user-dropdown-toggle')
-      
-      // Initially closed
-      expect(dropdownToggle).toHaveAttribute('aria-expanded', 'false')
-      expect(screen.queryByTestId('user-dropdown')).not.toBeInTheDocument()
-      
-      // Open dropdown
-      await user.click(dropdownToggle)
-      expect(dropdownToggle).toHaveAttribute('aria-expanded', 'true')
-      expect(screen.getByTestId('user-dropdown')).toBeInTheDocument()
-      
-      // Check dropdown items
-      expect(screen.getByText('Create Market')).toBeInTheDocument()
-      expect(screen.getByText('View Profile')).toBeInTheDocument()
-      expect(screen.getByText('Settings')).toBeInTheDocument()
-      expect(screen.getByText('Sign Out')).toBeInTheDocument()
+      // Should have proper accessibility attributes
+      expect(nav).toHaveAttribute('aria-label', 'Main navigation')
+      expect(nav).toHaveAttribute('role', 'navigation')
     })
   })
 
-  describe('Proper Hiding/Showing of Navigation Elements', () => {
-    it('should show correct navigation elements on mobile', () => {
-      render(<ResponsiveNavigationTest isMobile={true} />)
-      
-      // Should show bottom navigation
-      expect(screen.getByTestId('bottom-navigation')).toBeInTheDocument()
-      
-      // Should show hamburger menu
-      expect(screen.getByTestId('hamburger-toggle')).toBeInTheDocument()
-      
-      // Top navigation should be hidden
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).toHaveClass('hidden')
+  describe('Desktop Top Navigation - 3 Items with Proper Proportions', () => {
+    beforeEach(() => {
+      mockUseIsMobile.mockReturnValue(false)
     })
 
-    it('should show correct navigation elements on desktop', () => {
-      render(<ResponsiveNavigationTest isMobile={false} />)
+    it('should display exactly 3 navigation items with proper spacing', () => {
+      render(<TopNavigation />)
       
-      // Should not show bottom navigation
-      expect(screen.queryByTestId('bottom-navigation')).not.toBeInTheDocument()
+      // Find the main navigation container (not hamburger menu)
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
+      expect(navContainer).toBeInTheDocument()
       
-      // Should show hamburger menu
-      expect(screen.getByTestId('hamburger-toggle')).toBeInTheDocument()
-      
-      // Top navigation should be visible
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).not.toHaveClass('hidden')
-      expect(topNav).toHaveClass('md:block')
+      // Verify exactly 3 navigation buttons in the main nav
+      const navButtons = screen.getAllByRole('button').filter(button => {
+        const text = button.textContent || ''
+        const isNavButton = ['Markets', 'Wallet', 'Profile'].includes(text)
+        const isInMainNav = navContainer?.contains(button)
+        return isNavButton && isInMainNav
+      })
+      expect(navButtons).toHaveLength(3)
     })
 
-    it('should transition properly between mobile and desktop', () => {
-      const { rerender } = render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should maintain proper proportions for desktop navigation', () => {
+      render(<TopNavigation />)
       
-      // Verify mobile layout
-      expect(screen.getByTestId('bottom-navigation')).toBeInTheDocument()
-      expect(screen.getByTestId('top-navigation')).toHaveClass('hidden')
+      // Find navigation container (hidden on mobile, visible on desktop)
+      const navContainer = screen.getByRole('navigation').querySelector('.hidden.md\\:flex')
+      expect(navContainer).toHaveClass('items-center', 'space-x-8')
       
-      // Switch to desktop
-      rerender(<ResponsiveNavigationTest isMobile={false} />)
+      // Each navigation button should have consistent styling
+      const navButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
       
-      // Verify desktop layout
-      expect(screen.queryByTestId('bottom-navigation')).not.toBeInTheDocument()
-      expect(screen.getByTestId('top-navigation')).not.toHaveClass('hidden')
-    })
-  })
-
-  describe('Cross-Screen Size Consistency', () => {
-    const screenSizes = [
-      { name: 'Mobile Small', width: 320, isMobile: true },
-      { name: 'Mobile Large', width: 414, isMobile: true },
-      { name: 'Tablet', width: 768, isMobile: false },
-      { name: 'Desktop', width: 1024, isMobile: false },
-      { name: 'Large Desktop', width: 1440, isMobile: false },
-      { name: 'Extra Large', width: 1920, isMobile: false },
-    ]
-
-    screenSizes.forEach(({ name, width, isMobile }) => {
-      it(`should work correctly on ${name} (${width}px)`, async () => {
-        const user = userEvent.setup()
-        
-        // Mock viewport size
-        Object.defineProperty(window, 'innerWidth', {
-          writable: true,
-          configurable: true,
-          value: width,
-        })
-
-        render(<ResponsiveNavigationTest isMobile={isMobile} />)
-        
-        // Hamburger menu should always be available
-        const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-        expect(hamburgerToggle).toBeInTheDocument()
-        
-        // Test hamburger menu functionality
-        await user.click(hamburgerToggle)
-        expect(screen.getByTestId('hamburger-drawer')).toBeInTheDocument()
-        
-        // Close menu
-        await user.click(hamburgerToggle)
-        expect(screen.queryByTestId('hamburger-drawer')).not.toBeInTheDocument()
-        
-        // Check appropriate navigation visibility
-        if (isMobile) {
-          expect(screen.getByTestId('bottom-navigation')).toBeInTheDocument()
-          expect(screen.getByTestId('top-navigation')).toHaveClass('hidden')
-        } else {
-          expect(screen.queryByTestId('bottom-navigation')).not.toBeInTheDocument()
-          expect(screen.getByTestId('top-navigation')).not.toHaveClass('hidden')
-        }
+      navButtons.forEach(button => {
+        expect(button).toHaveClass('px-3', 'py-2', 'rounded-md', 'text-sm', 'font-medium')
       })
     })
-  })
 
-  describe('Accessibility Across All Screen Sizes', () => {
-    it('should maintain proper ARIA attributes on all screen sizes', () => {
-      const { rerender } = render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should ensure active state highlighting works correctly', () => {
+      render(<TopNavigation />)
       
-      // Mobile
-      let hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'false')
-      expect(hamburgerToggle).toHaveAttribute('aria-label', 'Open menu')
+      // Find the main navigation container
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
       
-      let bottomNav = screen.getByTestId('bottom-navigation')
-      expect(bottomNav).toHaveAttribute('role', 'navigation')
-      expect(bottomNav).toHaveAttribute('aria-label', 'Main navigation')
+      // Find Markets button in main nav (not hamburger menu)
+      const navButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Markets' && navContainer?.contains(button)
+      })
+      expect(navButtons).toHaveLength(1)
       
-      // Desktop
-      rerender(<ResponsiveNavigationTest isMobile={false} />)
+      const marketsButton = navButtons[0]
+      expect(marketsButton).toHaveClass('text-kai-600', 'bg-kai-50')
       
-      hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      expect(hamburgerToggle).toHaveAttribute('aria-expanded', 'false')
-      
-      const topNav = screen.getByTestId('top-navigation')
-      expect(topNav).toHaveAttribute('role', 'navigation')
-      
-      const userDropdown = screen.getByTestId('user-dropdown-toggle')
-      expect(userDropdown).toHaveAttribute('aria-expanded', 'false')
+      // Should have active indicator
+      const activeIndicator = marketsButton.querySelector('.absolute.bottom-0')
+      expect(activeIndicator).toBeInTheDocument()
+      expect(activeIndicator).toHaveClass('h-0.5', 'bg-kai-600', 'rounded-full')
     })
 
-    it('should handle keyboard navigation properly', async () => {
+    it('should have proper desktop navigation structure', () => {
+      render(<TopNavigation />)
+      
+      const nav = screen.getByRole('navigation')
+      
+      // Should be sticky at top
+      expect(nav).toHaveClass('bg-white', 'border-b', 'sticky', 'top-0', 'z-30')
+      
+      // Should have proper container structure
+      const container = nav.querySelector('.max-w-7xl')
+      expect(container).toBeInTheDocument()
+      expect(container).toHaveClass('mx-auto', 'px-6')
+      
+      // Should have proper height
+      const innerContainer = container?.querySelector('.flex')
+      expect(innerContainer).toHaveClass('items-center', 'justify-between', 'h-16')
+    })
+  })
+
+  describe('Cross-Device Navigation Consistency', () => {
+    it('should maintain consistent navigation items across devices', () => {
+      // Test mobile
+      mockUseIsMobile.mockReturnValue(true)
+      const { rerender } = render(<Navigation />)
+      
+      const mobileLinks = screen.getAllByRole('link')
+      expect(mobileLinks).toHaveLength(3)
+      
+      // Test desktop
+      mockUseIsMobile.mockReturnValue(false)
+      rerender(<TopNavigation />)
+      
+      const desktopButtons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(desktopButtons).toHaveLength(3)
+    })
+
+    it('should maintain active states consistently across devices', () => {
+      // Test mobile active state
+      mockUseIsMobile.mockReturnValue(true)
+      const { rerender } = render(<Navigation />)
+      
+      const mobileMarketsLink = screen.getByLabelText(/navigate to markets.*current page/i)
+      expect(mobileMarketsLink).toHaveAttribute('aria-current', 'page')
+      
+      // Test desktop active state
+      mockUseIsMobile.mockReturnValue(false)
+      rerender(<TopNavigation />)
+      
+      // Find Markets button in main nav (not hamburger menu)
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
+      const desktopMarketsButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Markets' && navContainer?.contains(button)
+      })
+      expect(desktopMarketsButtons).toHaveLength(1)
+      
+      const desktopMarketsButton = desktopMarketsButtons[0]
+      expect(desktopMarketsButton).toHaveClass('text-kai-600', 'bg-kai-50')
+    })
+  })
+
+  describe('Accessibility Requirements', () => {
+    it('should maintain proper ARIA labels for 3 navigation items on mobile', () => {
+      mockUseIsMobile.mockReturnValue(true)
+      render(<Navigation />)
+      
+      const marketsLink = screen.getByLabelText(/navigate to markets/i)
+      const walletLink = screen.getByLabelText(/navigate to wallet/i)
+      const profileLink = screen.getByLabelText(/navigate to profile/i)
+      
+      expect(marketsLink).toHaveAttribute('aria-label')
+      expect(walletLink).toHaveAttribute('aria-label')
+      expect(profileLink).toHaveAttribute('aria-label')
+      
+      // Active item should have additional context
+      expect(marketsLink).toHaveAttribute('aria-label', expect.stringContaining('current page'))
+    })
+
+    it('should support keyboard navigation for 3 items', async () => {
       const user = userEvent.setup()
-      render(<ResponsiveNavigationTest isMobile={true} />)
+      mockUseIsMobile.mockReturnValue(true)
+      render(<Navigation />)
       
-      // Focus directly on hamburger menu for testing
-      const hamburgerToggle = screen.getByTestId('hamburger-toggle')
-      hamburgerToggle.focus()
-      expect(hamburgerToggle).toHaveFocus()
+      // Tab through all 3 navigation items
+      await user.tab()
+      expect(screen.getByLabelText(/navigate to markets/i)).toHaveFocus()
       
-      // Enter to open menu
-      await user.keyboard('{Enter}')
-      expect(screen.getByTestId('hamburger-drawer')).toBeInTheDocument()
+      await user.tab()
+      expect(screen.getByLabelText(/navigate to wallet/i)).toHaveFocus()
       
-      // Escape to close menu
-      await user.keyboard('{Escape}')
-      expect(screen.queryByTestId('hamburger-drawer')).not.toBeInTheDocument()
+      await user.tab()
+      expect(screen.getByLabelText(/navigate to profile/i)).toHaveFocus()
+    })
+
+    it('should have proper focus management on desktop', async () => {
+      const user = userEvent.setup()
+      mockUseIsMobile.mockReturnValue(false)
+      render(<TopNavigation />)
+      
+      // Find navigation buttons in main nav (not hamburger menu)
+      const mainNav = screen.getByRole('navigation')
+      const navContainer = mainNav.querySelector('.hidden.md\\:flex')
+      
+      const marketsButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Markets' && navContainer?.contains(button)
+      })
+      const walletButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Wallet' && navContainer?.contains(button)
+      })
+      const profileButtons = screen.getAllByRole('button').filter(button => {
+        return button.textContent === 'Profile' && navContainer?.contains(button)
+      })
+      
+      expect(marketsButtons).toHaveLength(1)
+      expect(walletButtons).toHaveLength(1)
+      expect(profileButtons).toHaveLength(1)
+      
+      // Test that navigation buttons are focusable
+      marketsButtons[0].focus()
+      expect(marketsButtons[0]).toHaveFocus()
+      
+      walletButtons[0].focus()
+      expect(walletButtons[0]).toHaveFocus()
+      
+      profileButtons[0].focus()
+      expect(profileButtons[0]).toHaveFocus()
     })
   })
 
-  describe('Performance and Memory Management', () => {
-    it('should clean up properly when unmounted', () => {
-      const { unmount } = render(<ResponsiveNavigationTest isMobile={true} />)
+  describe('Layout Validation', () => {
+    it('should ensure mobile navigation does not overflow with 3 items', () => {
+      mockUseIsMobile.mockReturnValue(true)
+      render(<Navigation />)
       
-      // Verify initial state
-      expect(document.body.style.overflow).toBe('unset')
+      const nav = screen.getByRole('navigation')
+      expect(nav).toHaveClass('w-full')
       
-      unmount()
+      const container = nav.querySelector('.flex')
+      expect(container).toHaveClass('justify-around', 'py-2')
       
-      // Should not have any lingering effects
-      expect(document.body.style.overflow).toBe('unset')
+      // Items should not exceed container width
+      const links = screen.getAllByRole('link')
+      links.forEach(link => {
+        expect(link).toHaveClass('py-2', 'px-3')
+      })
     })
 
-    it('should handle rapid screen size changes', () => {
-      const { rerender } = render(<ResponsiveNavigationTest isMobile={true} />)
+    it('should ensure desktop navigation maintains proper alignment with 3 items', () => {
+      mockUseIsMobile.mockReturnValue(false)
+      render(<TopNavigation />)
       
-      // Rapidly switch between mobile and desktop
-      for (let i = 0; i < 5; i++) {
-        rerender(<ResponsiveNavigationTest isMobile={i % 2 === 0} />)
-      }
+      const nav = screen.getByRole('navigation')
+      const container = nav.querySelector('.max-w-7xl')
+      expect(container).toHaveClass('mx-auto', 'px-6')
       
-      // Should still render correctly
-      expect(screen.getByTestId('hamburger-toggle')).toBeInTheDocument()
+      const flexContainer = container?.querySelector('.flex')
+      expect(flexContainer).toHaveClass('items-center', 'justify-between', 'h-16')
+      
+      // Navigation items should be properly spaced
+      const navContainer = nav.querySelector('.hidden.md\\:flex')
+      expect(navContainer).toHaveClass('items-center', 'space-x-8')
+    })
+  })
+
+  describe('Visual Consistency', () => {
+    it('should maintain consistent styling across 3 navigation items on mobile', () => {
+      mockUseIsMobile.mockReturnValue(true)
+      render(<Navigation />)
+      
+      const links = screen.getAllByRole('link')
+      expect(links).toHaveLength(3)
+      
+      links.forEach(link => {
+        // Each link should have consistent base styling
+        expect(link).toHaveClass('flex', 'flex-col', 'items-center')
+        expect(link).toHaveClass('py-2', 'px-3', 'rounded-lg', 'transition-colors')
+        expect(link).toHaveClass('focus:outline-none', 'focus:ring-2', 'focus:ring-kai-500')
+        expect(link).toHaveClass('min-w-[44px]', 'min-h-[44px]', 'touch-manipulation')
+      })
+    })
+
+    it('should maintain consistent styling across 3 navigation items on desktop', () => {
+      mockUseIsMobile.mockReturnValue(false)
+      render(<TopNavigation />)
+      
+      const buttons = screen.getAllByRole('button').filter(button => 
+        ['Markets', 'Wallet', 'Profile'].includes(button.textContent || '')
+      )
+      expect(buttons).toHaveLength(3)
+      
+      buttons.forEach(button => {
+        // Each button should have consistent base styling
+        expect(button).toHaveClass('px-3', 'py-2', 'rounded-md')
+        expect(button).toHaveClass('text-sm', 'font-medium', 'transition-colors')
+      })
     })
   })
 })

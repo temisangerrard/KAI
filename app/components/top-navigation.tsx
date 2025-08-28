@@ -35,7 +35,6 @@ export function TopNavigation() {
   // Navigation items
   const navItems = [
     { id: "markets", label: "Markets", href: "/markets" },
-    { id: "social", label: "Social", href: "/social" },
     { id: "wallet", label: "Wallet", href: "/wallet" },
     { id: "profile", label: "Profile", href: "/profile" },
   ]
