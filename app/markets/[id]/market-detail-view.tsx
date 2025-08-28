@@ -159,15 +159,21 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       options: market.options.map(option => ({
         id: option.id,
         text: option.name,
-        totalTokens: option.tokens,
-        participantCount: Math.round((option.tokens / market.totalTokens) * market.participants) || 0
+        totalTokens: option.tokens || 0,
+        participantCount: market.totalTokens > 0 
+          ? Math.round((option.tokens / market.totalTokens) * market.participants) 
+          : 0
       }))
     }
   }
 
   // Calculate odds for display
   const marketForUtils = convertMarketForUtils(market)
-  const currentOdds = calculateOdds(marketForUtils)
+  const currentOdds = calculateOdds(marketForUtils) || {}
+  
+  // Debug logging for odds calculation
+  console.log('Market for utils:', marketForUtils)
+  console.log('Calculated odds:', currentOdds)
 
   // Format date to readable string
   const formatDate = (date: Date) => {
@@ -228,9 +234,15 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       const totalTokensOnPosition = selectedOption.tokens || 0
       const totalMarketTokens = market.totalTokens
 
-      // Use the calculated odds from market utils
-      const optionOdds = currentOdds[optionId] || 2.0
+      // Use the calculated odds from market utils with proper error handling
+      console.log('Looking for odds for optionId:', optionId)
+      console.log('Available odds:', currentOdds)
+      console.log('Option IDs in market:', market.options.map(opt => opt.id))
+      
+      const optionOdds = (currentOdds && currentOdds[optionId]) ? currentOdds[optionId] : 2.0
       const potentialWinnings = Math.floor(tokensToCommit * optionOdds)
+      
+      console.log('Using odds:', optionOdds, 'for potential winnings:', potentialWinnings)
 
       // Determine position for UI compatibility
       const isFirstOption = market.options.indexOf(selectedOption) === 0
@@ -522,7 +534,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
               </h3>
               <div className="space-y-4">
                 {market.options.map((option) => {
-                  const optionOdds = currentOdds[option.id] || 2.0
+                  const optionOdds = (currentOdds && currentOdds[option.id]) ? currentOdds[option.id] : 2.0
 
                   // Use actual token data from the option
                   const actualTokens = option.tokens || 0
@@ -573,13 +585,14 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                             onClick={() => {
                               // Determine position for UI compatibility (first option = 'yes', others = 'no')
                               const isFirstOption = market.options.indexOf(option) === 0
+                              const safeOdds = optionOdds || 2.0 // Ensure we have a valid odds value
                               setCommitmentData({
                                 position: isFirstOption ? 'yes' : 'no',
                                 optionId: option.id,
                                 optionName: option.name,
                                 tokensToCommit: 1,
-                                currentOdds: optionOdds,
-                                potentialWinnings: Math.floor(1 * optionOdds)
+                                currentOdds: safeOdds,
+                                potentialWinnings: Math.floor(1 * safeOdds)
                               })
                               setShowCommitmentModal(true)
                             }}
