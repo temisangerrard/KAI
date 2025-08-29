@@ -18,7 +18,8 @@
     "test:load": "npx vitest run __tests__/integration/commitment-flow-load.test.ts --run",
     "test:integrity": "npx vitest run __tests__/integration/data-integrity-validation.test.ts --run",
     "test:analytics": "npx vitest run __tests__/integration/admin-analytics-performance.test.ts --run",
-    "test:database": "npx vitest run __tests__/integration/database-performance-integrity.test.ts --run"
+    "test:database": "npx vitest run __tests__/integration/database-performance-integrity.test.ts --run",
+    "admin:help": "node scripts/manage-admins-web.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

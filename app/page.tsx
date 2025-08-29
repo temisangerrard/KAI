@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "./auth/auth-context"
@@ -19,10 +19,11 @@ export default function LandingPage() {
   const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login")
 
   // Redirect authenticated users to markets page
-  if (!isLoading && isAuthenticated) {
-    router.push("/markets")
-    return null
-  }
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push("/markets")
+    }
+  }, [isLoading, isAuthenticated, router])
 
   const handleAuthSuccess = () => {
     setShowAuthModal(false)

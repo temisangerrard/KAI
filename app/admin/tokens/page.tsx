@@ -49,6 +49,12 @@ interface TokenStats {
   trends: {
     dailyTransactionCount: number;
     weeklyTransactionCount: number;
+    weeklyTrend: Array<{
+      name: string;
+      purchases: number;
+      payouts: number;
+      date: string;
+    }>;
   };
 }
 

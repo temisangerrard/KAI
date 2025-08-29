@@ -14,7 +14,10 @@ import {
   Plus,
   RefreshCw,
   Mail,
-  Calendar
+  Calendar,
+  Sync,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 
 interface UserData {
@@ -23,10 +26,12 @@ interface UserData {
   displayName: string;
   photoURL?: string;
   createdAt?: any;
+  lastLoginAt?: any;
   tokenBalance: number;
   level: number;
   totalPredictions: number;
   correctPredictions: number;
+  signupMethod?: string;
   balance: {
     availableTokens: number;
     committedTokens: number;
@@ -42,11 +47,14 @@ interface UsersListProps {
 export function UsersList({ onIssueTokens }: UsersListProps) {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
 
   useEffect(() => {
     fetchUsers();
+    checkSyncStatus();
   }, []);
 
   useEffect(() => {
@@ -65,15 +73,64 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/users/search?limit=50');
+      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch('/api/admin/users/search?limit=100', {
+        headers
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
+        console.log('Fetched users:', data.debug);
+      } else if (response.status === 401) {
+        console.error('Unauthorized access to admin API');
+        // Redirect to login or show error
       }
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkSyncStatus = async () => {
+    try {
+      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch('/api/admin/users/sync', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking sync status:', error);
+    }
+  };
+
+  const syncUsers = async () => {
+    try {
+      setSyncing(true);
+      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
+      const headers = await getAuthHeaders();
+      
+      const response = await fetch('/api/admin/users/sync', { 
+        method: 'POST',
+        headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Sync completed:', data);
+        await fetchUsers();
+        await checkSyncStatus();
+      }
+    } catch (error) {
+      console.error('Error syncing users:', error);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -110,11 +167,38 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
           <p className="text-sm text-gray-600">
             Showing {filteredUsers.length} of {users.length} users
           </p>
+          {syncStatus && (
+            <div className="flex items-center gap-2 mt-2">
+              {syncStatus.needsSync ? (
+                <div className="flex items-center gap-1 text-amber-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-xs">
+                    {syncStatus.stats.incompleteProfiles} users need sync
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-xs">All users synced</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <Button variant="outline" onClick={fetchUsers}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={syncUsers}
+            disabled={syncing}
+          >
+            <Sync className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Users'}
+          </Button>
+          <Button variant="outline" onClick={fetchUsers}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -137,6 +221,7 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Signup Method</TableHead>
               <TableHead>Tokens</TableHead>
               <TableHead>Total Earned</TableHead>
               <TableHead>Joined</TableHead>
@@ -175,6 +260,18 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                     <Mail className="w-4 h-4 text-gray-400" />
                     <span className="text-sm">{user.email}</span>
                   </div>
+                </TableCell>
+                <TableCell>
+                  <Badge 
+                    variant={user.signupMethod === 'email' ? 'secondary' : 'outline'}
+                    className="text-xs"
+                  >
+                    {user.signupMethod === 'email' ? 'Email' : 
+                     user.signupMethod === 'google.com' ? 'Google' :
+                     user.signupMethod === 'twitter.com' ? 'Twitter' :
+                     user.signupMethod === 'facebook.com' ? 'Facebook' :
+                     user.signupMethod || 'Unknown'}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">

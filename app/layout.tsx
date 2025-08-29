@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from './auth/auth-context'
 import { OnboardingProvider } from './auth/onboarding-context'
 import { Toaster } from '@/components/ui/toaster'
+import { AdminLink } from './components/admin-link'
 
 export const metadata: Metadata = {
   title: 'KAI Prediction Platform',
@@ -21,6 +22,7 @@ export default function RootLayout({
         <AuthProvider>
           <OnboardingProvider>
             {children}
+            <AdminLink />
           </OnboardingProvider>
         </AuthProvider>
         <Toaster />

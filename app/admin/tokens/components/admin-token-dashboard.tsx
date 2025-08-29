@@ -43,6 +43,12 @@ interface TokenStats {
   trends: {
     dailyTransactionCount: number;
     weeklyTransactionCount: number;
+    weeklyTrend: Array<{
+      name: string;
+      purchases: number;
+      payouts: number;
+      date: string;
+    }>;
   };
 }
 
@@ -59,15 +65,15 @@ export function AdminTokenDashboard({ stats }: AdminTokenDashboardProps) {
     { name: 'Committed', value: stats.circulation.committedTokens, color: '#f59e0b' }
   ];
 
-  // Mock trend data (in a real app, this would come from the API)
-  const trendData = [
-    { name: 'Mon', purchases: 1200, payouts: 800 },
-    { name: 'Tue', purchases: 1900, payouts: 1200 },
-    { name: 'Wed', purchases: 800, payouts: 600 },
-    { name: 'Thu', purchases: 2400, payouts: 1800 },
-    { name: 'Fri', purchases: 1800, payouts: 1400 },
-    { name: 'Sat', purchases: 2200, payouts: 1600 },
-    { name: 'Sun', purchases: 1600, payouts: 1000 }
+  // Use real trend data from the API
+  const trendData = stats.trends.weeklyTrend || [
+    { name: 'Mon', purchases: 0, payouts: 0 },
+    { name: 'Tue', purchases: 0, payouts: 0 },
+    { name: 'Wed', purchases: 0, payouts: 0 },
+    { name: 'Thu', purchases: 0, payouts: 0 },
+    { name: 'Fri', purchases: 0, payouts: 0 },
+    { name: 'Sat', purchases: 0, payouts: 0 },
+    { name: 'Sun', purchases: 0, payouts: 0 }
   ];
 
   const userEngagementRate = stats.circulation.totalUsers > 0 

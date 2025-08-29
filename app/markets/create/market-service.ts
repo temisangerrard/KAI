@@ -5,7 +5,6 @@
 
 import { Market } from "@/lib/db/database"
 import { TransactionService } from "@/lib/services/transaction-service"
-import { sampleMarkets } from "./sample-markets"
 import { z } from "zod"
 
 // Market option interface for creation
@@ -18,10 +17,10 @@ interface MarketOption {
 }
 
 /**
- * Check if a market is a sample/demo market
+ * Check if a market is a sample/demo market (deprecated - no longer used)
  */
 export const isSampleMarket = (market: Market): boolean => {
-  return market.tags?.includes('sample') || false
+  return false // All markets are now live markets from Firestore
 }
 
 // Interface for market creation parameters
@@ -213,80 +212,48 @@ const fetchJSON = async (url: string, options?: RequestInit) => {
 }
 
 /**
- * Get market by ID with proper fallback handling
+ * Get market by ID - only from live Firestore data
  */
 export const getMarketById = async (marketId: string): Promise<Market | null> => {
-  // First check sample markets (they're always available)
-  const sampleMarket = sampleMarkets.find(market => market.id === marketId)
-  if (sampleMarket) {
-    console.log(`Found sample market: ${marketId}`)
-    return sampleMarket
-  }
-  
-  // Then try to fetch from API (real markets)
   try {
     const data = await fetchJSON(`/api/markets/${marketId}`)
     const parsed = MarketSchema.safeParse(data)
     if (parsed.success) {
-      console.log(`Found real market: ${marketId}`)
+      console.log(`Found live market: ${marketId}`)
       return parsed.data
     } else {
       console.warn(`Invalid market data from API for ${marketId}:`, parsed.error)
+      return null
     }
   } catch (error) {
     console.warn(`Failed to fetch market ${marketId} from API:`, error.message)
+    return null
   }
-  
-  console.log(`Market ${marketId} not found in either real or sample data`)
-  return null
 }
 
 /**
- * Get all markets with proper error handling and mixed data support
+ * Get all markets - only live markets from Firestore
  */
 export const getAllMarkets = async (): Promise<Market[]> => {
-  let realMarkets: Market[] = []
-  let hasApiError = false
-  
   try {
-    // Try to fetch real markets from Firestore via API
+    // Fetch real markets from Firestore via API
     const data = await fetchJSON('/api/markets')
     const parsed = MarketArraySchema.safeParse(data)
     
     if (parsed.success) {
-      realMarkets = parsed.data
-      console.log(`Loaded ${realMarkets.length} real markets from API`)
+      console.log(`Loaded ${parsed.data.length} live markets from Firestore`)
+      // Sort by start date (newest first)
+      return parsed.data.sort((a, b) => 
+        new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+      )
     } else {
       console.warn('API returned invalid market data:', parsed.error)
-      hasApiError = true
+      return []
     }
   } catch (error) {
     console.warn('Failed to fetch markets from API:', error)
-    hasApiError = true
+    return []
   }
-  
-  // Always include sample markets for demonstration
-  const allMarkets = [...realMarkets, ...sampleMarkets]
-  
-  // Log the data source for debugging
-  if (hasApiError && realMarkets.length === 0) {
-    console.log('Using sample markets only due to API unavailability')
-  } else if (realMarkets.length > 0) {
-    console.log(`Loaded ${realMarkets.length} real markets and ${sampleMarkets.length} sample markets`)
-  }
-  
-  // Sort markets to prioritize real markets over sample markets
-  return allMarkets.sort((a, b) => {
-    const aIsSample = isSampleMarket(a)
-    const bIsSample = isSampleMarket(b)
-    
-    // Real markets come first
-    if (aIsSample && !bIsSample) return 1
-    if (!aIsSample && bIsSample) return -1
-    
-    // Within same type, sort by start date (newest first)
-    return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  })
 }
 
 

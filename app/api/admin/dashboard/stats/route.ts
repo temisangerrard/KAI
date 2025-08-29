@@ -13,16 +13,15 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Get enhanced token economy statistics from real Firestore data
-    const stats = await AdminDashboardService.getEnhancedTokenStats();
+    // Get comprehensive dashboard statistics from real Firestore data
+    const stats = await AdminDashboardService.getDashboardStats();
     
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('Error fetching token stats:', error);
+    console.error('Error fetching dashboard stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch token statistics' },
+      { error: 'Failed to fetch dashboard statistics' },
       { status: 500 }
     );
   }
 }
-
