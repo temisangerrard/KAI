@@ -79,8 +79,9 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
       const requestData = {
         ...formData,
         amount: amount,
-        adminId: 'admin-user-id', // TODO: Get from auth context
-        adminName: 'Admin User' // TODO: Get from auth context
+        // Admin info will be determined server-side from the authenticated user
+        adminId: null, // Server will set this from auth context
+        adminName: null // Server will set this from auth context
       };
 
       console.log('Sending token issuance request:', requestData);

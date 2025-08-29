@@ -9,10 +9,7 @@ import {
   Shield,
   Coins,
   Database,
-  RefreshCw,
-  Wrench,
-  Search,
-  Target
+  Users
 } from 'lucide-react'
 
 const navigation = [
@@ -20,6 +17,11 @@ const navigation = [
     name: 'Dashboard',
     href: '/admin',
     icon: LayoutDashboard,
+  },
+  {
+    name: 'Users',
+    href: '/admin/users',
+    icon: Users,
   },
   {
     name: 'Markets',
@@ -30,26 +32,6 @@ const navigation = [
     name: 'Market Data',
     href: '/admin/market-data',
     icon: Database,
-  },
-  {
-    name: 'Examine Database',
-    href: '/admin/examine-database',
-    icon: Search,
-  },
-  {
-    name: 'Fix Structure',
-    href: '/admin/fix-commitment-structure',
-    icon: Wrench,
-  },
-  {
-    name: 'Rebuild Stats',
-    href: '/admin/rebuild-market-stats',
-    icon: Target,
-  },
-  {
-    name: 'DB Migration',
-    href: '/admin/database-migration',
-    icon: RefreshCw,
   },
   {
     name: 'Token Management',

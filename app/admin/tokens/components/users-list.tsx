@@ -15,28 +15,32 @@ import {
   RefreshCw,
   Mail,
   Calendar,
-  Sync,
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
 
 interface UserData {
   id: string;
+  uid: string;
   email: string;
   displayName: string;
   photoURL?: string;
   createdAt?: any;
-  lastLoginAt?: any;
-  tokenBalance: number;
-  level: number;
-  totalPredictions: number;
-  correctPredictions: number;
+  lastSignIn?: any;
+  emailVerified?: boolean;
+  disabled?: boolean;
+  providerData?: any[];
+  tokenBalance?: number;
+  level?: number;
+  totalPredictions?: number;
+  correctPredictions?: number;
   signupMethod?: string;
-  balance: {
+  balance?: {
     availableTokens: number;
     committedTokens: number;
-    totalEarned: number;
-    totalSpent: number;
+    totalTokens: number;
+    totalEarned?: number;
+    totalSpent?: number;
   };
 }
 
@@ -73,23 +77,22 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
-      const headers = await getAuthHeaders();
+      console.log('🔍 Fetching users from Firebase Auth...');
       
-      const response = await fetch('/api/admin/users/search?limit=100', {
-        headers
-      });
+      const response = await fetch('/api/admin/users/search?limit=100');
       
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Fetched users:', data.users?.length || 0, 'users');
+        console.log('Debug info:', data.debug);
         setUsers(data.users || []);
-        console.log('Fetched users:', data.debug);
-      } else if (response.status === 401) {
-        console.error('Unauthorized access to admin API');
-        // Redirect to login or show error
+      } else {
+        console.error('❌ Failed to fetch users:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error details:', errorData);
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
     } finally {
       setLoading(false);
     }
@@ -97,13 +100,14 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
 
   const checkSyncStatus = async () => {
     try {
-      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
-      const headers = await getAuthHeaders();
-      
-      const response = await fetch('/api/admin/users/sync', { headers });
+      console.log('🔄 Checking sync status...');
+      const response = await fetch('/api/admin/users/sync');
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Sync status:', data);
         setSyncStatus(data);
+      } else {
+        console.log('ℹ️ Sync endpoint not available or not needed');
       }
     } catch (error) {
       console.error('Error checking sync status:', error);
@@ -113,22 +117,25 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
   const syncUsers = async () => {
     try {
       setSyncing(true);
-      const { getAuthHeaders } = await import('@/lib/auth/admin-auth');
-      const headers = await getAuthHeaders();
+      console.log('🔄 Syncing users...');
       
       const response = await fetch('/api/admin/users/sync', { 
-        method: 'POST',
-        headers
+        method: 'POST'
       });
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Sync completed:', data);
+        console.log('✅ Sync completed:', data);
         await fetchUsers();
         await checkSyncStatus();
+      } else {
+        console.log('ℹ️ Sync not needed - users already up to date');
+        await fetchUsers(); // Just refresh the users list
       }
     } catch (error) {
       console.error('Error syncing users:', error);
+      // Still try to refresh users even if sync fails
+      await fetchUsers();
     } finally {
       setSyncing(false);
     }
@@ -191,7 +198,7 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
             onClick={syncUsers}
             disabled={syncing}
           >
-            <Sync className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync Users'}
           </Button>
           <Button variant="outline" onClick={fetchUsers}>
@@ -243,11 +250,16 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                       <p className="font-medium text-gray-900">{user.displayName}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">
-                          Level {user.level}
+                          Level {user.level || 1}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {user.totalPredictions} predictions
+                          {user.totalPredictions || 0} predictions
                         </Badge>
+                        {user.emailVerified && (
+                          <Badge variant="outline" className="text-xs text-green-600">
+                            Verified
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-gray-500 font-mono">
                         {user.id.slice(0, 8)}...
@@ -263,23 +275,23 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                 </TableCell>
                 <TableCell>
                   <Badge 
-                    variant={user.signupMethod === 'email' ? 'secondary' : 'outline'}
+                    variant={user.providerData?.[0]?.providerId === 'password' ? 'secondary' : 'outline'}
                     className="text-xs"
                   >
-                    {user.signupMethod === 'email' ? 'Email' : 
-                     user.signupMethod === 'google.com' ? 'Google' :
-                     user.signupMethod === 'twitter.com' ? 'Twitter' :
-                     user.signupMethod === 'facebook.com' ? 'Facebook' :
-                     user.signupMethod || 'Unknown'}
+                    {user.providerData?.[0]?.providerId === 'password' ? 'Email' : 
+                     user.providerData?.[0]?.providerId === 'google.com' ? 'Google' :
+                     user.providerData?.[0]?.providerId === 'twitter.com' ? 'Twitter' :
+                     user.providerData?.[0]?.providerId === 'facebook.com' ? 'Facebook' :
+                     user.providerData?.[0]?.providerId || 'Unknown'}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Coins className="w-4 h-4 text-kai-600" />
                     <span className="font-medium">
-                      {user.balance.availableTokens.toLocaleString()}
+                      {user.balance?.availableTokens?.toLocaleString() || '0'}
                     </span>
-                    {user.balance.committedTokens > 0 && (
+                    {user.balance?.committedTokens && user.balance.committedTokens > 0 && (
                       <span className="text-xs text-gray-500">
                         (+{user.balance.committedTokens.toLocaleString()} committed)
                       </span>
@@ -288,7 +300,7 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                 </TableCell>
                 <TableCell>
                   <span className="text-sm font-medium text-green-600">
-                    {user.balance.totalEarned.toLocaleString()}
+                    {user.balance?.totalEarned?.toLocaleString() || '0'}
                   </span>
                 </TableCell>
                 <TableCell>

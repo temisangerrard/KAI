@@ -10,13 +10,10 @@ import {
   Users, 
   DollarSign,
   Plus,
-  Settings,
-  AlertTriangle,
   Activity
 } from 'lucide-react';
 import { AdminTokenDashboard } from './components/admin-token-dashboard';
 import { TokenPackageManager } from './components/token-package-manager';
-import { TransactionMonitor } from './components/transaction-monitor';
 import { TokenIssuanceModal } from './components/token-issuance-modal';
 import { UsersList } from './components/users-list';
 import { MarketCommitmentsList } from './components/market-commitments-list';
@@ -215,14 +212,12 @@ export default function AdminTokensPage() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="commitments">Commitments</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="packages">Packages</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -250,36 +245,6 @@ export default function AdminTokensPage() {
 
         <TabsContent value="packages" className="space-y-6">
           <TokenPackageManager />
-        </TabsContent>
-
-        <TabsContent value="transactions" className="space-y-6">
-          <TransactionMonitor />
-        </TabsContent>
-
-        <TabsContent value="monitoring" className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="w-5 h-5 text-yellow-600" />
-              <h3 className="text-lg font-semibold">Fraud Detection & Monitoring</h3>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Advanced fraud detection and account management tools will be implemented here.
-            </p>
-            <div className="space-y-4">
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="font-medium text-yellow-800">Suspicious Activity Alerts</h4>
-                <p className="text-sm text-yellow-700 mt-1">
-                  No suspicious activity detected in the last 24 hours.
-                </p>
-              </div>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-800">System Health</h4>
-                <p className="text-sm text-green-700 mt-1">
-                  All token management systems are operating normally.
-                </p>
-              </div>
-            </div>
-          </Card>
         </TabsContent>
       </Tabs>
 

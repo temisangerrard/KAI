@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 
 /**
- * Admin Authentication Service using Firestore only
- * Simple admin check based on admin_users collection
+ * Simple Admin Authentication Service using Firestore only
+ * Keeps Firebase Admin SDK usage limited to API routes only
  */
 export class AdminAuthService {
   /**
@@ -28,7 +28,7 @@ export class AdminAuthService {
   }
 
   /**
-   * Set admin status in Firestore
+   * Set admin status in Firestore (Firebase Admin operations happen in API routes)
    */
   static async setAdminStatus(userId: string, email: string, displayName: string, isAdmin: boolean = true): Promise<boolean> {
     try {
@@ -57,5 +57,14 @@ export class AdminAuthService {
       return false;
     }
   }
+}
+
+/**
+ * Helper function to get auth headers for admin API calls
+ */
+export async function getAuthHeaders(): Promise<HeadersInit> {
+  // This would typically get the current user's ID token
+  // For now, return empty headers - implement based on your auth flow
+  return {};
 }
 

@@ -65,16 +65,8 @@ export function AdminTokenDashboard({ stats }: AdminTokenDashboardProps) {
     { name: 'Committed', value: stats.circulation.committedTokens, color: '#f59e0b' }
   ];
 
-  // Use real trend data from the API
-  const trendData = stats.trends.weeklyTrend || [
-    { name: 'Mon', purchases: 0, payouts: 0 },
-    { name: 'Tue', purchases: 0, payouts: 0 },
-    { name: 'Wed', purchases: 0, payouts: 0 },
-    { name: 'Thu', purchases: 0, payouts: 0 },
-    { name: 'Fri', purchases: 0, payouts: 0 },
-    { name: 'Sat', purchases: 0, payouts: 0 },
-    { name: 'Sun', purchases: 0, payouts: 0 }
-  ];
+  // Use real trend data from the API - no fallback fake data
+  const trendData = stats.trends.weeklyTrend || [];
 
   const userEngagementRate = stats.circulation.totalUsers > 0 
     ? (stats.circulation.activeUsers / stats.circulation.totalUsers) * 100 

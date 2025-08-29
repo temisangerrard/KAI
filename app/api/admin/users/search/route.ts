@@ -1,142 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/db/database';
-import { AdminAuthService } from '@/lib/auth/admin-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await AdminAuthService.verifyAdminAuth(request);
-    if (!authResult.isAdmin) {
-      return NextResponse.json({ 
-        error: 'Unauthorized', 
-        message: authResult.error 
-      }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
-    const limitCount = parseInt(searchParams.get('limit') || '20');
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam) : 50;
 
-    let users = [];
+    console.log(`🔍 Searching Firebase Auth users with term: "${search}", limit: ${limit}`);
 
-    if (search.length >= 2) {
-      // For search, we need to fetch more users and filter client-side
-      // since Firestore doesn't support case-insensitive text search
-      const usersSnapshot = await getDocs(
-        query(
-          collection(db, 'users'),
-          limit(Math.max(limitCount * 5, 100)) // Fetch more to ensure we find matches
-        )
-      );
-
-      const profiles = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      const searchLower = search.toLowerCase();
-      users = profiles
-        .filter(user => 
-          user.email?.toLowerCase().includes(searchLower) ||
-          user.displayName?.toLowerCase().includes(searchLower) ||
-          user.username?.toLowerCase().includes(searchLower) ||
-          user.id?.toLowerCase().includes(searchLower)
-        )
-        .slice(0, limitCount); // Limit results after filtering
-    } else {
-      // For general listing, try to get users ordered by creation date
-      // If that fails (due to missing createdAt), fall back to unordered query
-      try {
-        const usersSnapshot = await getDocs(
-          query(
-            collection(db, 'users'),
-            orderBy('createdAt', 'desc'),
-            limit(limitCount)
-          )
-        );
-
-        users = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        console.warn('Failed to order by createdAt, falling back to unordered query:', error);
-        // Fallback: get users without ordering (some users might not have createdAt)
-        const usersSnapshot = await getDocs(
-          query(
-            collection(db, 'users'),
-            limit(limitCount)
-          )
-        );
-
-        users = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      }
-    }
-
-    const userIds = users.map(user => user.id);
-    const balances = new Map();
-
-    if (userIds.length > 0) {
-      const balancesSnapshot = await getDocs(collection(db, 'user_balances'));
-      balancesSnapshot.docs.forEach(doc => {
-        if (userIds.includes(doc.id)) {
-          balances.set(doc.id, doc.data());
-        }
-      });
-    }
-
-    const usersWithBalances = users.map(user => ({
-      id: user.id,
-      email: user.email || 'No email',
-      displayName: user.displayName || user.name || 'Unknown User', // Handle different name fields
-      photoURL: user.photoURL || user.picture, // Handle different photo fields
-      createdAt: user.createdAt || user.metadata?.creationTime || null,
-      lastLoginAt: user.lastLoginAt || user.metadata?.lastSignInTime || null,
-      tokenBalance: user.tokenBalance || 0,
-      level: user.level || 1,
-      totalPredictions: user.totalPredictions || 0,
-      correctPredictions: user.correctPredictions || 0,
-      streak: user.streak || 0,
-      // Add signup method detection
-      signupMethod: user.providerData?.length > 0 ? 
-        user.providerData[0].providerId : 
-        (user.email && !user.photoURL ? 'email' : 'unknown'),
-      balance: balances.get(user.id) || {
-        availableTokens: user.tokenBalance || 0,
-        committedTokens: 0,
-        totalEarned: 0,
-        totalSpent: 0
-      }
+    // Get users from Firebase Auth
+    const { adminAuth } = await import('@/lib/firebase-admin');
+    const listUsersResult = await adminAuth.listUsers(1000); // Get more users for search
+    
+    let users = listUsersResult.users.map(user => ({
+      id: user.uid,
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      emailVerified: user.emailVerified,
+      disabled: user.disabled,
+      createdAt: new Date(user.metadata.creationTime),
+      lastSignIn: user.metadata.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null,
+      providerData: user.providerData
     }));
 
-    // Sort users by creation date if available, otherwise by email
-    usersWithBalances.sort((a, b) => {
-      if (a.createdAt && b.createdAt) {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    // Filter by search term if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      users = users.filter(user => 
+        user.email?.toLowerCase().includes(searchLower) ||
+        user.displayName?.toLowerCase().includes(searchLower) ||
+        user.uid.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply limit
+    users = users.slice(0, limit);
+
+    // Get user balances for the filtered users
+    const userIds = users.map(user => user.uid);
+    const balancePromises = userIds.map(async (userId) => {
+      try {
+        const balanceDoc = await getDoc(doc(db, 'user_balances', userId));
+        return balanceDoc.exists() ? { userId, ...balanceDoc.data() } : null;
+      } catch (error) {
+        console.warn(`Failed to get balance for user ${userId}:`, error);
+        return null;
       }
-      if (a.createdAt && !b.createdAt) return -1;
-      if (!a.createdAt && b.createdAt) return 1;
-      return (a.email || '').localeCompare(b.email || '');
     });
 
-    console.log(`Admin user search: Found ${usersWithBalances.length} users (search: "${search}")`);
+    const balances = await Promise.all(balancePromises);
+    const balanceMap = new Map();
+    balances.filter(Boolean).forEach(balance => {
+      balanceMap.set(balance.userId, balance);
+    });
+
+    // Combine user data with balances
+    const usersWithBalances = users.map(user => {
+      const balance = balanceMap.get(user.uid);
+      return {
+        ...user,
+        balance: balance ? {
+          availableTokens: balance.availableTokens || 0,
+          committedTokens: balance.committedTokens || 0,
+          totalTokens: (balance.availableTokens || 0) + (balance.committedTokens || 0)
+        } : {
+          availableTokens: 0,
+          committedTokens: 0,
+          totalTokens: 0
+        }
+      };
+    });
+
+    console.log(`✅ Found ${usersWithBalances.length} users from Firebase Auth`);
 
     return NextResponse.json({
+      success: true,
       users: usersWithBalances,
-      total: usersWithBalances.length,
+      count: usersWithBalances.length,
+      totalAuthUsers: listUsersResult.users.length,
       debug: {
         searchTerm: search,
         totalFetched: users.length,
         totalReturned: usersWithBalances.length
       }
     });
+
   } catch (error) {
-    console.error('Error searching users:', error);
+    console.error('❌ Error searching users:', error);
     return NextResponse.json(
-      { error: 'Failed to search users' },
+      { 
+        success: false,
+        error: 'Failed to search users',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

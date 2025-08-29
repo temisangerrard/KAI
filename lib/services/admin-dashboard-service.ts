@@ -83,6 +83,41 @@ export interface AdminTokenStats {
 
 export class AdminDashboardService {
   /**
+   * Fetch users from Firebase Auth using dynamic import (server-side only)
+   */
+  private static async fetchAuthUsers(): Promise<{ users: any[] }> {
+    console.log('🔍 Attempting to fetch users from Firebase Auth...');
+    
+    try {
+      // Dynamic import to avoid client-side issues
+      const { adminAuth } = await import('@/lib/firebase-admin');
+      
+      console.log('✅ Firebase Admin imported successfully');
+      
+      const listUsersResult = await adminAuth.listUsers();
+      const users = listUsersResult.users.map(user => ({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        metadata: {
+          creationTime: user.metadata.creationTime,
+          lastSignInTime: user.metadata.lastSignInTime
+        }
+      }));
+
+      console.log(`✅ Successfully fetched ${users.length} users from Firebase Auth`);
+      return { users };
+    } catch (error) {
+      console.error('❌ Failed to fetch from Firebase Admin:', error);
+      console.error('Error details:', error.message);
+      
+      // Don't fall back - let it fail so we can see the error
+      throw new Error(`Firebase Admin failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get comprehensive dashboard statistics from Firestore
    * Uses the same reliable approach as the market data retrieval script
    */
@@ -96,18 +131,15 @@ export class AdminDashboardService {
     try {
       console.log('🔍 Fetching dashboard statistics from Firestore...');
 
-      // Fetch all required data in parallel - using simple getDocs without complex queries
+      // Fetch all required data in parallel - get users from Firebase Auth
       const [
-        usersSnapshot,
+        authUsersResult,
         balancesSnapshot,
         marketsSnapshot,
         commitmentsSnapshot,
         transactionsSnapshot
       ] = await Promise.all([
-        getDocs(collection(db, 'users')).catch(error => {
-          console.warn('Failed to fetch users:', error.message);
-          return { docs: [] };
-        }),
+        this.fetchAuthUsers(),
         getDocs(collection(db, 'user_balances')).catch(error => {
           console.warn('Failed to fetch user_balances:', error.message);
           return { docs: [] };
@@ -126,19 +158,17 @@ export class AdminDashboardService {
         })
       ]);
 
-      console.log(`📊 Found ${usersSnapshot.docs.length} users, ${marketsSnapshot.docs.length} markets, ${commitmentsSnapshot.docs.length} commitments`);
+      console.log(`📊 Found ${authUsersResult.users.length} auth users, ${marketsSnapshot.docs.length} markets, ${commitmentsSnapshot.docs.length} commitments`);
 
-      // Process users data - get ALL users regardless of signup method
-      const users = usersSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          // Ensure we have a consistent date format
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : 
-                    data.createdAt ? new Date(data.createdAt) : null
-        };
-      });
+      // Process users data from Firebase Auth - get ALL authenticated users
+      const users = authUsersResult.users.map(user => ({
+        id: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        createdAt: new Date(user.metadata.creationTime),
+        lastSignIn: user.metadata.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null
+      }));
 
       // Count users by signup method for debugging
       const emailUsers = users.filter(u => u.email && !u.photoURL);
@@ -436,12 +466,14 @@ export class AdminDashboardService {
     const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     try {
-      // Fetch all required data
+      // Fetch all required data including Firebase Auth users
       const [
+        authUsersResult,
         balancesSnapshot,
         transactionsSnapshot,
         packagesSnapshot
       ] = await Promise.all([
+        this.fetchAuthUsers(),
         getDocs(collection(db, 'user_balances')),
         getDocs(query(
           collection(db, 'token_transactions'),
@@ -524,7 +556,7 @@ export class AdminDashboardService {
           totalTokens,
           availableTokens,
           committedTokens,
-          totalUsers: balances.length,
+          totalUsers: authUsersResult.users.length, // Use Firebase Auth user count
           activeUsers
         },
         purchases: {
