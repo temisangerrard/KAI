@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/auth/auth-context';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/db/database';
 
 interface AdminAuthState {
@@ -28,7 +28,7 @@ export function useAdminAuth() {
       setAdminState({
         isAdmin: false,
         loading: false,
-        error: 'Not authenticated'
+        error: null // Don't treat "not authenticated" as an error
       });
       return;
     }
@@ -37,14 +37,16 @@ export function useAdminAuth() {
       setAdminState(prev => ({ ...prev, loading: true, error: null }));
       
       console.log('🔍 Checking admin status for user:', {
-        id: user.id,
+        address: user.address,
         email: user.email,
         displayName: user.displayName
       });
 
-      // Check admin_users collection in Firestore
-      console.log('🔍 Checking admin_users collection for ID:', user.id);
-      const adminDoc = await getDoc(doc(db, 'admin_users', user.id));
+      // Use Firebase UID from user object (now available with hybrid approach)
+      const userId = user.id || user.address; // Fallback to address if id not available
+      
+      console.log('🔍 Checking admin_users collection for userId:', userId);
+      const adminDoc = await getDoc(doc(db, 'admin_users', userId));
       
       if (adminDoc.exists()) {
         const adminData = adminDoc.data();
@@ -60,7 +62,7 @@ export function useAdminAuth() {
           error: null
         });
       } else {
-        console.log('❌ No document found in admin_users collection');
+        console.log('❌ No admin document found for userId:', userId);
         setAdminState({
           isAdmin: false,
           loading: false,
@@ -73,7 +75,7 @@ export function useAdminAuth() {
       setAdminState({
         isAdmin: false,
         loading: false,
-        error: 'Failed to check admin status'
+        error: null // Don't show admin errors to regular users
       });
     }
   };

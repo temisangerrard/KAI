@@ -10,7 +10,8 @@ import {
   Plus, 
   Settings, 
   LogOut,
-  User
+  User,
+  Wallet
 } from "lucide-react"
 import { useAuth } from "../auth/auth-context"
 import { useTokenBalance } from "@/hooks/use-token-balance"
@@ -72,6 +73,9 @@ export function TopNavigation() {
   const isActive = (href: string) => {
     if (href === "/markets") {
       return pathname === "/markets"
+    }
+    if (href === "/wallet") {
+      return pathname === "/wallet"
     }
     return pathname === href
   }
@@ -185,6 +189,17 @@ export function TopNavigation() {
                       Create Market
                     </button>
                     
+                    <button
+                      onClick={() => {
+                        router.push("/wallet")
+                        setShowUserDropdown(false)
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-kai-50 hover:text-kai-600 transition-colors"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      Smart Wallet
+                    </button>
+
                     <button
                       onClick={() => {
                         router.push("/profile")

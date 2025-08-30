@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from './auth/auth-context'
 import { OnboardingProvider } from './auth/onboarding-context'
+import { CDPProviders } from './providers/cdp-providers'
+
 import { Toaster } from '@/components/ui/toaster'
 import { AdminLink } from './components/admin-link'
 
@@ -19,12 +21,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <OnboardingProvider>
-            {children}
-            <AdminLink />
-          </OnboardingProvider>
-        </AuthProvider>
+        <CDPProviders>
+          <AuthProvider>
+            <OnboardingProvider>
+              {children}
+              <AdminLink />
+            </OnboardingProvider>
+          </AuthProvider>
+        </CDPProviders>
         <Toaster />
       </body>
     </html>

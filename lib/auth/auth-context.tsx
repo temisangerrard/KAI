@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from "react"
+import { useIsSignedIn, useCurrentUser, useEvmAddress, useSignOut } from "@coinbase/cdp-hooks"
 import { authService, type AuthUser, type LoginCredentials, type RegisterCredentials } from "./auth-service"
 
 interface AuthContextType {
@@ -28,26 +29,106 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Use CDP hooks for authentication state
+  const isSignedIn = useIsSignedIn()
+  const currentUser = useCurrentUser()
+  const evmAddress = useEvmAddress()
+  const { signOut: cdpSignOut } = useSignOut()
 
-  // Initialize auth state on mount with Firebase listener
+  // Initialize auth state with CDP user data
   useEffect(() => {
+    // Don't run if CDP hooks haven't initialized yet
+    if (isSignedIn === null || evmAddress === null) {
+      console.log('⏳ CDP hooks not yet initialized, waiting...')
+      return
+    }
+
+    const initializeAuth = async () => {
+      try {
+        // Extract values from CDP hook objects
+        const signedIn = isSignedIn?.isSignedIn ?? false
+        const addressString = evmAddress?.evmAddress || null
+        
+        // Extract email from CDP currentUser object with detailed debugging
+        let userEmail = null
+        
+        console.log('🔍 Raw currentUser object:', JSON.stringify(currentUser, null, 2))
+        
+        if (currentUser?.currentUser?.authenticationMethods?.email?.email) {
+          userEmail = currentUser.currentUser.authenticationMethods.email.email
+          console.log('✅ Successfully extracted email:', userEmail)
+        } else {
+          console.log('❌ Failed to extract email, checking structure:')
+          console.log('- currentUser exists:', !!currentUser)
+          console.log('- currentUser.currentUser exists:', !!currentUser?.currentUser)
+          console.log('- authenticationMethods exists:', !!currentUser?.currentUser?.authenticationMethods)
+          console.log('- email exists:', !!currentUser?.currentUser?.authenticationMethods?.email)
+          console.log('- email.email exists:', !!currentUser?.currentUser?.authenticationMethods?.email?.email)
+        }
+        
+        console.log('CDP Auth Debug:', {
+          rawIsSignedIn: isSignedIn,
+          extractedSignedIn: signedIn,
+          rawEvmAddress: evmAddress,
+          extractedAddress: addressString,
+          rawCurrentUser: currentUser,
+          extractedEmail: userEmail
+        })
+        
+        if (signedIn && addressString) {
+          console.log('CDP user signed in with address:', addressString)
+          
+          // Try to get existing user profile
+          let authUser = await authService.getUserByAddress(addressString)
+          
+          // If no profile exists, create one
+          if (!authUser) {
+            if (userEmail) {
+              console.log('Creating new user profile for CDP user with email:', userEmail)
+              authUser = await authService.createUserFromCDP(addressString, userEmail)
+            } else {
+              console.log('⚠️ No email available, cannot create user profile')
+              // For now, we'll wait for email to be available
+              setIsLoading(false)
+              return
+            }
+          }
+          
+          if (authUser) {
+            console.log('✅ User authenticated successfully:', authUser.email)
+            setUser(authUser)
+          } else {
+            console.log('❌ Failed to create or retrieve user profile')
+            setUser(null)
+          }
+        } else {
+          console.log('CDP user signed out or no valid address', { signedIn, addressString })
+          setUser(null)
+        }
+      } catch (error) {
+        console.error('Error initializing auth state:', error)
+        setUser(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     setIsLoading(true)
     
-    try {
-      // Set up Firebase auth state listener
-      const unsubscribe = authService.onAuthStateChanged((user) => {
-        console.log('Auth state changed:', user ? 'User logged in' : 'User logged out')
-        setUser(user)
-        setIsLoading(false)
-      })
-
-      // Cleanup listener on unmount
-      return () => unsubscribe()
-    } catch (error) {
-      console.error('Error setting up auth listener:', error)
+    // Add a timeout to ensure loading state resolves
+    const timeoutId = setTimeout(() => {
       setIsLoading(false)
+    }, 5000)
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeoutId)
+    })
+
+    return () => {
+      clearTimeout(timeoutId)
     }
-  }, [])
+  }, [isSignedIn?.isSignedIn, evmAddress?.evmAddress, currentUser?.currentUser?.authenticationMethods?.email?.email])
 
   const login = async (credentials: LoginCredentials) => {
     try {
@@ -78,7 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true)
-      await authService.logout()
+      // Use CDP signOut to clear the CDP session
+      await cdpSignOut()
       setUser(null)
     } catch (error) {
       console.error('Logout error:', error)
@@ -89,7 +171,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateUser = async (updates: Partial<AuthUser>) => {
     try {
-      const updatedUser = await authService.updateProfile(updates)
+      if (!user?.address) {
+        throw new Error('User not authenticated')
+      }
+      const updatedUser = await authService.updateProfileByAddress(user.address, updates)
       setUser(updatedUser)
     } catch (error) {
       console.error('Profile update error:', error)
@@ -99,18 +184,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const currentUser = await authService.getCurrentUser()
-      setUser(currentUser)
+      // Extract values from CDP hook objects
+      const signedIn = isSignedIn?.isSignedIn ?? false
+      const addressString = evmAddress?.evmAddress || null
+      const userEmail = currentUser?.currentUser?.authenticationMethods?.email?.email || null
+      
+      if (signedIn && addressString) {
+        let authUser = await authService.getUserByAddress(addressString)
+        
+        // If no profile exists, create one
+        if (!authUser && userEmail) {
+          authUser = await authService.createUserFromCDP(addressString, userEmail)
+        }
+        
+        setUser(authUser)
+      } else {
+        setUser(null)
+      }
     } catch (error) {
       console.error('User refresh error:', error)
       setUser(null)
     }
   }
 
+  // Debug logging for authentication state (only when key states change)
+  useEffect(() => {
+    const signedIn = isSignedIn?.isSignedIn ?? false
+    const addressString = evmAddress?.evmAddress || null
+    const userEmail = currentUser?.currentUser?.authenticationMethods?.email?.email || null
+    
+    console.log('Auth state debug:', {
+      rawIsSignedIn: isSignedIn,
+      extractedSignedIn: signedIn,
+      hasUser: !!user,
+      isLoading,
+      addressString: addressString ? `${addressString.slice(0, 6)}...${addressString.slice(-4)}` : null,
+      userEmail: userEmail
+    })
+  }, [isSignedIn, !!user, isLoading, evmAddress, currentUser])
+
   const value: AuthContextType = {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: (isSignedIn?.isSignedIn ?? false) && !!user,
     login,
     register,
     logout,

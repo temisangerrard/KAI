@@ -12,9 +12,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const { login: baseLogin, register: baseRegister, updateUser, ...rest } = useBaseAuth()
-  const login = (email: string, password: string) => baseLogin({ email, password })
-  const register = (email: string, password: string, displayName: string) =>
-    baseRegister({ email, password, displayName })
+  const { updateUser, ...rest } = useBaseAuth()
+  
+  // CDP authentication - login and register are handled by the CDP hooks in the base context
+  const login = async (email: string, password?: string) => {
+    // The base auth context handles CDP authentication automatically
+    // We don't need to do anything here as CDP manages the auth state
+    console.log('Login requested for:', email)
+  }
+  
+  const register = async (email: string, password?: string, displayName?: string) => {
+    // The base auth context handles CDP authentication automatically
+    // We don't need to do anything here as CDP manages the auth state
+    console.log('Register requested for:', email, displayName)
+  }
+  
   return { ...rest, login, register, updateUser }
 }

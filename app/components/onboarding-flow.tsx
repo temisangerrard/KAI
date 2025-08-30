@@ -150,7 +150,7 @@ export function OnboardingFlow() {
               {balanceLoading ? '...' : totalTokens.toLocaleString()} Tokens
             </h3>
             <p className="text-sm text-green-600">
-              Have been added to your wallet!
+              Have been added to your account!
             </p>
           </div>
           <p className="text-gray-600">
