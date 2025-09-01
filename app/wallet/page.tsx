@@ -6,14 +6,16 @@ import {
   useCurrentUser,
   useSendUserOperation
 } from '@coinbase/cdp-hooks'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Copy, CheckCircle, Wallet, ArrowUpRight, ArrowDownLeft, Shield, RefreshCw, AlertCircle, Coins } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { createPublicClient, http, formatUnits } from 'viem'
 import { base } from 'viem/chains'
+import { cn } from '@/lib/utils'
+import { Navigation } from '../components/navigation'
+import { TopNavigation } from '../components/top-navigation'
+import { SendTransactionModal, SendFormData } from './components/send-transaction-modal'
+import { ReceiveModal } from './components/receive-modal'
 
 function WalletPageContent() {
   const { evmAddress: address } = useEvmAddress()
@@ -27,16 +29,13 @@ function WalletPageContent() {
   const [copied, setCopied] = useState(false)
   const [showSendForm, setShowSendForm] = useState(false)
   const [showReceiveModal, setShowReceiveModal] = useState(false)
-  const [sendForm, setSendForm] = useState({
-    to: '',
-    amount: '',
-    asset: 'ETH'
-  })
   const [useSmartAccount, setUseSmartAccount] = useState(true)
   const [transactionStatus, setTransactionStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tokenBalances, setTokenBalances] = useState<any[]>([])
   const [loadingTokens, setLoadingTokens] = useState(false)
+  const [ethPrice, setEthPrice] = useState<number>(0)
+  const [totalUsdValue, setTotalUsdValue] = useState<number>(0)
 
   // Create viem client for Base network
   const client = createPublicClient({
@@ -60,6 +59,42 @@ function WalletPageContent() {
     }
   ]
 
+  // Fetch ETH price from CoinGecko
+  const fetchEthPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
+      const data = await response.json()
+      const price = data.ethereum?.usd || 0
+      setEthPrice(price)
+      return price
+    } catch (error) {
+      console.error('Failed to fetch ETH price:', error)
+      return 0
+    }
+  }
+
+  // Calculate total USD value
+  const calculateTotalUsdValue = (balances: any[], ethPriceValue: number) => {
+    let total = 0
+
+    balances.forEach(token => {
+      const balance = parseFloat(token.balance)
+      if (token.isNative) {
+        // ETH
+        total += balance * ethPriceValue
+      } else if (token.symbol === 'USDC') {
+        // USDC is 1:1 with USD
+        total += balance
+      } else if (token.symbol === 'WETH') {
+        // WETH same price as ETH
+        total += balance * ethPriceValue
+      }
+    })
+
+    setTotalUsdValue(total)
+    return total
+  }
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -70,22 +105,22 @@ function WalletPageContent() {
     }
   }
 
-  const handleSendTransaction = async () => {
-    if (!sendForm.to || !sendForm.amount || !address) return
+  const handleSendTransaction = async (formData: SendFormData) => {
+    if (!formData.to || !formData.amount || !address) return
 
     try {
       setError(null)
       setTransactionStatus('sending')
 
-      if (sendForm.asset === 'ETH') {
+      if (formData.asset === 'ETH') {
         // Send ETH
         if (useSmartAccount && currentUser?.evmSmartAccounts?.[0]) {
           await sendUserOperation({
             evmSmartAccount: currentUser.evmSmartAccounts[0],
             network: 'base',
             calls: [{
-              to: sendForm.to,
-              value: BigInt(Math.floor(parseFloat(sendForm.amount) * 1e18)),
+              to: formData.to as `0x${string}`,
+              value: BigInt(Math.floor(parseFloat(formData.amount) * 1e18)),
               data: "0x"
             }]
           })
@@ -94,24 +129,25 @@ function WalletPageContent() {
             evmAccount: address,
             network: 'base',
             transaction: {
-              to: sendForm.to,
-              value: BigInt(Math.floor(parseFloat(sendForm.amount) * 1e18)),
+              to: formData.to as `0x${string}`,
+              value: BigInt(Math.floor(parseFloat(formData.amount) * 1e18)),
               gas: 21000n,
               maxFeePerGas: 30000000000n,
               maxPriorityFeePerGas: 1000000000n,
+              chainId: 8453,
               type: "eip1559"
             }
           })
         }
       } else {
         // Send ERC-20 token
-        const token = commonTokens.find(t => t.symbol === sendForm.asset)
+        const token = commonTokens.find(t => t.symbol === formData.asset)
         if (!token) throw new Error('Token not supported')
 
-        const amount = BigInt(Math.floor(parseFloat(sendForm.amount) * Math.pow(10, token.decimals)))
+        const amount = BigInt(Math.floor(parseFloat(formData.amount) * Math.pow(10, token.decimals)))
 
         // ERC-20 transfer function call data
-        const transferData = `0xa9059cbb${sendForm.to.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}`
+        const transferData = `0xa9059cbb${formData.to.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` as `0x${string}`
 
         if (useSmartAccount && currentUser?.evmSmartAccounts?.[0]) {
           await sendUserOperation({
@@ -120,7 +156,7 @@ function WalletPageContent() {
             calls: [{
               to: token.address,
               value: 0n,
-              data: transferData as `0x${string}`
+              data: transferData
             }]
           })
         } else {
@@ -130,10 +166,11 @@ function WalletPageContent() {
             transaction: {
               to: token.address,
               value: 0n,
-              data: transferData as `0x${string}`,
+              data: transferData,
               gas: 65000n,
               maxFeePerGas: 30000000000n,
               maxPriorityFeePerGas: 1000000000n,
+              chainId: 8453,
               type: "eip1559"
             }
           })
@@ -141,7 +178,6 @@ function WalletPageContent() {
       }
 
       setTransactionStatus('success')
-      setSendForm({ to: '', amount: '', asset: 'ETH' })
       setShowSendForm(false)
 
       // Refresh all balances after transaction
@@ -160,7 +196,7 @@ function WalletPageContent() {
   // Fetch ETH balance
   const fetchEthBalance = async () => {
     if (!address) return
-    
+
     try {
       setBalanceLoading(true)
       const balance = await client.getBalance({
@@ -189,13 +225,20 @@ function WalletPageContent() {
       setLoadingTokens(true)
       const balances = []
 
+      // Fetch current ETH price
+      const currentEthPrice = await fetchEthPrice()
+
       // Add ETH balance (from CDP hook)
       if (balanceData) {
+        const ethBalance = formatBalance(balanceData)
+        const ethValue = parseFloat(ethBalance) * currentEthPrice
+
         balances.push({
           symbol: 'ETH',
           name: 'Ethereum',
-          balance: formatBalance(balanceData),
-          formatted: `${formatBalance(balanceData)} ETH`,
+          balance: ethBalance,
+          formatted: `${ethBalance} ETH`,
+          usdValue: ethValue,
           isNative: true
         })
       }
@@ -223,11 +266,19 @@ function WalletPageContent() {
 
           // Only show tokens with balance > 0
           if (numericBalance > 0) {
+            let usdValue = 0
+            if (token.symbol === 'USDC') {
+              usdValue = numericBalance // USDC is 1:1 with USD
+            } else if (token.symbol === 'WETH') {
+              usdValue = numericBalance * currentEthPrice // WETH same as ETH
+            }
+
             balances.push({
               symbol: token.symbol,
               name: token.name,
               balance: numericBalance.toFixed(token.decimals === 6 ? 2 : 4),
               formatted: `${numericBalance.toFixed(token.decimals === 6 ? 2 : 4)} ${token.symbol}`,
+              usdValue: usdValue,
               isNative: false
             })
           }
@@ -237,6 +288,7 @@ function WalletPageContent() {
       }
 
       setTokenBalances(balances)
+      calculateTotalUsdValue(balances, currentEthPrice)
     } catch (err) {
       console.error('Failed to fetch token balances:', err)
     } finally {
@@ -266,389 +318,300 @@ function WalletPageContent() {
     }
   }, [address, balanceData, balanceLoading])
 
-
+  // Fetch ETH price on component mount
+  useEffect(() => {
+    fetchEthPrice()
+  }, [])
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Wallet className="h-8 w-8 text-sage-600" />
-            <h1 className="text-3xl font-bold text-sage-800">Your Wallet</h1>
-          </div>
-          <p className="text-gray-600">Send, receive, and manage your tokens</p>
-        </div>
-
-        {/* Error Banner */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-              <div className="flex-1">
-                <h3 className="text-red-800 font-semibold">Transaction Failed</h3>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setError(null)}
-                className="text-red-600 hover:text-red-800"
-              >
-                ✕
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Success Banner */}
-        {transactionStatus === 'success' && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-              <div className="flex-1">
-                <h3 className="text-green-800 font-semibold">Transaction Sent!</h3>
-                <p className="text-green-700 text-sm mt-1">Your transaction has been submitted successfully</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Wallet Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Wallet Address Card */}
-            <Card className="border-sage-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-green-600" />
-                  Your Wallet Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-sage-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-600 mb-1">Address</p>
-                      <p className="font-mono text-sm text-gray-900 break-all">
-                        {address}
-                      </p>
+    <div className="min-h-screen">
+      <TopNavigation />
+      <div className="bg-gradient-to-br from-secondary-50 via-background to-primary-50 pb-20 md:pb-8">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-md mx-auto lg:max-w-4xl">
+            {/* Responsive Wallet Layout */}
+            <div className="lg:grid lg:grid-cols-3 lg:gap-8">
+              {/* Mobile: Full width header, Desktop: Left column header */}
+              <div className="lg:col-span-2">
+                {/* Wallet Header - Responsive */}
+                <div className="bg-gradient-to-r from-primary-600 to-accent-600 rounded-2xl p-6 mb-6 shadow-lg">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                        <Wallet className="h-5 w-5 text-white" />
+                      </div>
+                      <span className="text-white font-medium text-lg">Wallet</span>
                     </div>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(address || '')}
-                      className="ml-3 flex-shrink-0"
+                      onClick={() => {
+                        fetchEthBalance()
+                        fetchAllBalances()
+                        fetchEthPrice()
+                      }}
+                      disabled={balanceLoading || loadingTokens}
+                      className="text-white hover:bg-white/10 rounded-full h-8 w-8 p-0"
                     >
-                      {copied ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
+                      <RefreshCw className={cn(
+                        "h-4 w-4",
+                        (balanceLoading || loadingTokens) && "animate-spin"
+                      )} />
                     </Button>
                   </div>
 
-                  {currentUser?.evmSmartAccounts?.length && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="font-medium">Gasless transactions enabled</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  {/* Account Info - Responsive layout */}
+                  <div className="lg:flex lg:items-center lg:justify-between">
+                    <div className="text-center lg:text-left mb-6 lg:mb-0">
+                      <div className="text-white/80 text-sm mb-1">Account 1</div>
+                      <div className="flex items-center justify-center lg:justify-start gap-2 mb-4">
+                        <span className="text-white/60 text-xs font-mono">
+                          {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(address || '')}
+                          className="text-white/60 hover:text-white hover:bg-white/10 rounded-full h-6 w-6 p-0"
+                        >
+                          {copied ? (
+                            <CheckCircle className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
 
-            {/* Balance Card */}
-            <Card className="border-sage-200">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Balance</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    fetchEthBalance()
-                    fetchAllBalances()
-                  }}
-                  disabled={balanceLoading || loadingTokens}
-                  className="h-8 w-8 p-0"
-                >
-                  <RefreshCw className={`h-4 w-4 ${balanceLoading || loadingTokens ? 'animate-spin' : ''}`} />
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {balanceLoading || loadingTokens ? (
-                    <div className="text-center p-6 bg-gradient-to-br from-sage-50 to-cream-50 rounded-lg">
-                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-sage-600" />
-                      <div className="text-sage-800">Loading balances...</div>
+                      {/* Total Balance */}
+                      <div className="text-center lg:text-left">
+                        <div className="text-3xl lg:text-4xl font-bold text-white mb-1">
+                          {balanceLoading || loadingTokens ? (
+                            <div className="h-8 w-32 bg-white/20 rounded-lg animate-pulse mx-auto lg:mx-0"></div>
+                          ) : (
+                            `$${totalUsdValue.toFixed(2)}`
+                          )}
+                        </div>
+                        <div className="text-white/80 text-sm mb-2">
+                          {!balanceLoading && !loadingTokens && (
+                            `${tokenBalances.find(t => t.isNative)?.balance || '0.00'} ETH`
+                          )}
+                        </div>
+                        <div className="text-white/60 text-xs">
+                          {currentUser?.evmSmartAccounts?.length && (
+                            <span className="inline-flex items-center gap-1">
+                              <Shield className="h-3 w-3" />
+                              Smart Account
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  ) : tokenBalances.length > 0 ? (
-                    <div className="space-y-3">
-                      {tokenBalances.map((token, index) => (
-                        <div key={token.symbol} className="p-4 bg-gradient-to-br from-sage-50 to-cream-50 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${token.isNative ? 'bg-blue-100' : 'bg-green-100'
-                                }`}>
-                                <Coins className={`h-5 w-5 ${token.isNative ? 'text-blue-600' : 'text-green-600'
-                                  }`} />
-                              </div>
-                              <div>
-                                <p className="text-lg font-bold text-sage-800">
-                                  {token.formatted}
-                                </p>
-                                <p className="text-sm text-gray-600">{token.name}</p>
-                              </div>
+
+                    {/* Quick Actions - Responsive */}
+                    <div className="flex justify-center lg:justify-end gap-4">
+                      <button
+                        onClick={() => setShowReceiveModal(true)}
+                        className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-colors"
+                      >
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                          <ArrowDownLeft className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-medium">Receive</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowSendForm(true)}
+                        className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-colors"
+                      >
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                          <ArrowUpRight className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-medium">Send</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Messages */}
+                {error && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-red-800 text-sm font-medium">Transaction Failed</p>
+                        <p className="text-red-600 text-xs mt-1">{error}</p>
+                      </div>
+                      <button
+                        onClick={() => setError(null)}
+                        className="text-red-400 hover:text-red-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {transactionStatus === 'success' && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-green-800 text-sm font-medium">Transaction Sent!</p>
+                        <p className="text-green-600 text-xs mt-1">Your transaction has been submitted successfully</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Assets Section - Responsive */}
+                <div className="bg-white rounded-2xl shadow-sm border border-primary-100 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900">Assets</h2>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-gray-600">Base Network</span>
+                    </div>
+                  </div>
+
+                  {/* Token List - Responsive grid */}
+                  <div className="space-y-2">
+                    {balanceLoading || loadingTokens ? (
+                      <div className="text-center py-12">
+                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+                        <div className="text-gray-600 font-medium">Loading assets...</div>
+                        <div className="text-gray-500 text-sm mt-1">Fetching your portfolio</div>
+                      </div>
+                    ) : tokenBalances.length > 0 ? (
+                      tokenBalances.map((token) => (
+                        <div
+                          key={token.symbol}
+                          className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer border border-gray-100 hover:border-primary-200"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-12 h-12 rounded-full flex items-center justify-center font-semibold text-sm",
+                              token.isNative
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-primary-100 text-primary-700"
+                            )}>
+                              {token.symbol.slice(0, 2)}
                             </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500">
-                                {token.isNative ? 'Native Token' : 'ERC-20'}
-                              </p>
+                            <div>
+                              <div className="font-semibold text-gray-900">{token.symbol}</div>
+                              <div className="text-sm text-gray-500">{token.name}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold text-gray-900">{token.balance}</div>
+                            <div className="text-sm text-gray-500">
+                              ${token.usdValue ? token.usdValue.toFixed(2) : '0.00'}
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center p-6 bg-gradient-to-br from-sage-50 to-cream-50 rounded-lg">
-                      <Coins className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                      <div className="text-gray-600">No tokens found</div>
-                      <p className="text-sm text-gray-500 mt-1">Your tokens will appear here</p>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex items-center gap-2"
-                      onClick={() => setShowReceiveModal(true)}
-                    >
-                      <ArrowDownLeft className="h-4 w-4" />
-                      Receive
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex items-center gap-2"
-                      onClick={() => setShowSendForm(true)}
-                    >
-                      <ArrowUpRight className="h-4 w-4" />
-                      Send
-                    </Button>
+                      ))
+                    ) : (
+                      <div className="text-center py-16">
+                        <Coins className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <div className="text-gray-600 font-medium text-lg">No assets found</div>
+                        <p className="text-sm text-gray-500 mt-2">Your tokens will appear here once you receive them</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Send Transaction Form */}
-            {showSendForm && (
-              <Card className="border-sage-200">
-                <CardHeader>
-                  <CardTitle>Send ETH</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Transaction Method Selection */}
-                  {currentUser?.evmSmartAccounts?.length && (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="useSmartAccount"
-                        checked={useSmartAccount}
-                        onChange={(e) => setUseSmartAccount(e.target.checked)}
-                        className="rounded"
-                      />
-                      <Label htmlFor="useSmartAccount" className="text-sm">
-                        Use gasless transaction (recommended)
-                      </Label>
+              {/* Desktop Sidebar */}
+              <div className="hidden lg:block">
+                <div className="bg-white rounded-2xl shadow-sm border border-primary-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Details</h3>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-sm font-medium text-gray-600">Account Type</span>
+                      <span className={cn(
+                        "text-sm font-semibold px-2 py-1 rounded-lg",
+                        currentUser?.evmSmartAccounts?.length
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                      )}>
+                        {currentUser?.evmSmartAccounts?.length ? 'Smart Wallet' : 'Standard'}
+                      </span>
                     </div>
-                  )}
 
-                  <div>
-                    <Label htmlFor="recipient">Send to</Label>
-                    <Input
-                      id="recipient"
-                      placeholder="Enter wallet address (0x...)"
-                      value={sendForm.to}
-                      onChange={(e) => setSendForm(prev => ({ ...prev, to: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="amount">Amount</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.001"
-                        placeholder="0.00"
-                        value={sendForm.amount}
-                        onChange={(e) => setSendForm(prev => ({ ...prev, amount: e.target.value }))}
-                        className="flex-1"
-                      />
-                      <select
-                        value={sendForm.asset}
-                        onChange={(e) => setSendForm(prev => ({ ...prev, asset: e.target.value }))}
-                        className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[80px]"
-                      >
-                        {tokenBalances.map((token) => (
-                          <option key={token.symbol} value={token.symbol}>
-                            {token.symbol}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Transaction Status */}
-                  {transactionStatus === 'sending' && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-sm font-medium text-gray-600">Network</span>
                       <div className="flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
-                        <span className="text-sm text-blue-800">
-                          Sending transaction...
-                        </span>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-gray-700">Base</span>
                       </div>
                     </div>
-                  )}
 
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleSendTransaction}
-                      disabled={transactionStatus === 'sending' || !sendForm.to || !sendForm.amount}
-                      className="flex-1 bg-sage-600 hover:bg-sage-700"
-                    >
-                      {transactionStatus === 'sending' ? 'Sending...' : `Send ${useSmartAccount ? '(Gasless)' : ''}`}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowSendForm(false)
-                        setSendForm({ to: '', amount: '', asset: 'ETH' })
-                        setTransactionStatus(null)
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Receive Modal */}
-            {showReceiveModal && (
-              <Card className="border-sage-200">
-                <CardHeader>
-                  <CardTitle>Receive ETH</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-4">
-                      Share this address to receive ETH and tokens
-                    </p>
-                    <div className="p-4 bg-gray-50 rounded-lg break-all font-mono text-sm">
-                      {address}
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-sm font-medium text-gray-600">Gas Fees</span>
+                      <span className={cn(
+                        "text-sm font-semibold px-2 py-1 rounded-lg",
+                        currentUser?.evmSmartAccounts?.length
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-700"
+                      )}>
+                        {currentUser?.evmSmartAccounts?.length ? 'Free' : 'Standard'}
+                      </span>
                     </div>
-                    <div className="flex gap-2 mt-4">
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h4>
+                    <div className="space-y-2">
                       <Button
-                        onClick={() => copyToClipboard(address || '')}
-                        className="flex-1 bg-sage-600 hover:bg-sage-700"
+                        onClick={() => setShowSendForm(true)}
+                        className="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-xl"
                       >
-                        {copied ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy Address
-                          </>
-                        )}
+                        <ArrowUpRight className="h-4 w-4 mr-2" />
+                        Send Tokens
                       </Button>
                       <Button
+                        onClick={() => setShowReceiveModal(true)}
                         variant="outline"
-                        onClick={() => setShowReceiveModal(false)}
+                        className="w-full border-primary-200 hover:bg-primary-50 text-primary-700 rounded-xl"
                       >
-                        Close
+                        <ArrowDownLeft className="h-4 w-4 mr-2" />
+                        Receive Tokens
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Account Info */}
-            <Card className="border-sage-200">
-              <CardHeader>
-                <CardTitle className="text-lg">Account Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Account Type</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-green-600">
-                      {currentUser?.evmSmartAccounts?.length ? 'Smart Wallet' : 'Standard'}
-                    </span>
-                    {currentUser?.evmSmartAccounts?.length && (
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                    )}
-                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Network</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span className="text-sm font-semibold">Base</span>
-                  </div>
-                </div>
+            {/* Modern Send Transaction Modal */}
+            <SendTransactionModal
+              isOpen={showSendForm}
+              onClose={() => {
+                setShowSendForm(false)
+                setTransactionStatus(null)
+                setError(null)
+              }}
+              tokenBalances={tokenBalances}
+              onSendTransaction={handleSendTransaction}
+              transactionStatus={transactionStatus}
+              error={error}
+              useSmartAccount={useSmartAccount}
+              onToggleSmartAccount={setUseSmartAccount}
+              hasSmartAccount={!!currentUser?.evmSmartAccounts?.length}
+            />
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Gas Fees</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-green-600">
-                      {currentUser?.evmSmartAccounts?.length ? 'Free' : 'Standard'}
-                    </span>
-                    {currentUser?.evmSmartAccounts?.length && (
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Help & Support */}
-            <Card className="border-sage-200">
-              <CardHeader>
-                <CardTitle className="text-lg">Help & Support</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-gray-600">
-                  Need help with your wallet? Check out these resources:
-                </p>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-sm"
-                  onClick={() => window.open('https://help.coinbase.com/en/wallet', '_blank')}
-                >
-                  Help Center
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-sm"
-                  onClick={() => window.open('https://help.coinbase.com/en/wallet/getting-started/recovery-phrase', '_blank')}
-                >
-                  Recovery Guide
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Modern Receive Modal */}
+            <ReceiveModal
+              isOpen={showReceiveModal}
+              onClose={() => setShowReceiveModal(false)}
+              address={address}
+              onCopyAddress={copyToClipboard}
+              copied={copied}
+            />
           </div>
         </div>
       </div>
+      <Navigation />
     </div>
   )
 }
