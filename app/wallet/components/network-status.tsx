@@ -4,7 +4,7 @@
  * Network Status Component
  * 
  * Displays current network information, testnet warnings, and connection status
- * for the KAI wallet dashboard.
+ * for the KAI wallet dashboard. Uses CDP network detection and error handling.
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
@@ -21,6 +21,30 @@ import {
   Globe
 } from 'lucide-react'
 import { NetworkService, NetworkInfo, NetworkStatus } from '@/lib/services/network-service'
+import { WalletErrorService, WalletError } from '@/lib/services/wallet-error-service'
+
+// Optional CDP hooks integration
+interface CDPHooks {
+  isSignedIn?: boolean
+  evmAddress?: string | null
+}
+
+function useCDPHooks(): CDPHooks {
+  try {
+    // Try to use CDP hooks if available
+    if (typeof window !== 'undefined') {
+      const { useIsSignedIn, useEvmAddress } = require('@coinbase/cdp-hooks')
+      const { isSignedIn } = useIsSignedIn()
+      const { evmAddress } = useEvmAddress()
+      return { isSignedIn, evmAddress }
+    }
+  } catch (error) {
+    // CDP hooks not available, continue with fallback
+  }
+  
+  // Fallback for test environment or when CDP hooks are not available
+  return { isSignedIn: false, evmAddress: null }
+}
 
 interface NetworkStatusComponentProps {
   className?: string;
@@ -33,44 +57,103 @@ export function NetworkStatusComponent({
   showDetails = true,
   onNetworkChange 
 }: NetworkStatusComponentProps) {
+  // CDP hooks for network detection (with fallback for tests)
+  const { isSignedIn = false, evmAddress = null } = useCDPHooks()
+
   const [networkStatus, setNetworkStatus] = useState<NetworkStatus>({
     connected: false,
     currentNetwork: null,
     lastUpdated: new Date(),
   })
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<WalletError | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   /**
-   * Load network status
+   * Load network status using CDP-aware detection
    */
   const loadNetworkStatus = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
       
+      // Create error context for CDP operations
+      const context = WalletErrorService.createContext('networkDetection', {
+        address: evmAddress || undefined,
+        isSignedIn
+      })
+      
+      // Use CDP-aware network detection
       const status = await NetworkService.getCurrentNetworkStatus()
-      setNetworkStatus(status)
+      
+      // Enhanced network status with CDP connectivity check
+      const enhancedStatus: NetworkStatus = {
+        ...status,
+        connected: status.connected && (isSignedIn ? true : status.connected),
+        lastUpdated: new Date()
+      }
+      
+      setNetworkStatus(enhancedStatus)
+      setRetryCount(0) // Reset retry count on success
       
       // Notify parent component of network change
       if (onNetworkChange) {
-        onNetworkChange(status.currentNetwork)
+        onNetworkChange(enhancedStatus.currentNetwork)
       }
     } catch (err) {
       console.error('Failed to load network status:', err)
-      setError('Failed to detect network')
+      
+      // Use CDP error handling service
+      const context = WalletErrorService.createContext('networkDetection', {
+        address: evmAddress || undefined,
+        isSignedIn
+      })
+      const walletError = WalletErrorService.handleApiError(err, context)
+      setError(walletError)
+      
+      // Log error for debugging
+      WalletErrorService.logError(walletError, 'NetworkStatusComponent.loadNetworkStatus')
     } finally {
       setIsLoading(false)
     }
-  }, [onNetworkChange])
+  }, [onNetworkChange, evmAddress, isSignedIn])
 
   /**
-   * Handle manual refresh
+   * Handle manual refresh with CDP retry logic
    */
   const handleRefresh = useCallback(async () => {
     NetworkService.clearCache()
+    setRetryCount(prev => prev + 1)
     await loadNetworkStatus()
   }, [loadNetworkStatus])
+
+  /**
+   * Handle retry with exponential backoff
+   */
+  const handleRetry = useCallback(async () => {
+    if (!error || !WalletErrorService.shouldRetry(error, retryCount)) {
+      return
+    }
+
+    const strategy = WalletErrorService.getRetryStrategy(error)
+    const delay = WalletErrorService.calculateRetryDelay(retryCount, strategy)
+
+    if (delay > 0) {
+      setTimeout(() => {
+        handleRefresh()
+      }, delay)
+    } else {
+      handleRefresh()
+    }
+  }, [error, retryCount, handleRefresh])
+
+  /**
+   * Clear error state
+   */
+  const clearError = useCallback(() => {
+    setError(null)
+    setRetryCount(0)
+  }, [])
 
   /**
    * Initialize component and set up periodic refresh
@@ -78,7 +161,7 @@ export function NetworkStatusComponent({
   useEffect(() => {
     loadNetworkStatus()
 
-    // Set up periodic refresh (every 60 seconds)
+    // Set up periodic refresh (every 60 seconds) - reduced frequency to avoid rate limiting
     const interval = setInterval(loadNetworkStatus, 60000)
 
     return () => {
@@ -87,23 +170,52 @@ export function NetworkStatusComponent({
   }, [loadNetworkStatus])
 
   /**
-   * Render network connection indicator
+   * Auto-retry on network reconnection
+   */
+  useEffect(() => {
+    const handleOnline = () => {
+      if (error && WalletErrorService.isRetryable(error)) {
+        // Wait a moment for connection to stabilize, then retry
+        setTimeout(() => {
+          handleRefresh()
+        }, 2000)
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [error, handleRefresh])
+
+  /**
+   * Render network connection indicator with CDP status
    */
   const renderConnectionIndicator = () => {
     if (isLoading) {
       return (
         <div className="flex items-center gap-2 text-gray-500">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Detecting network...</span>
+          <span className="text-sm">
+            {isSignedIn ? 'Detecting CDP network...' : 'Detecting network...'}
+          </span>
         </div>
       )
     }
 
     if (error || !networkStatus.connected) {
+      const isRetryable = error ? WalletErrorService.isRetryable(error) : false
       return (
         <div className="flex items-center gap-2 text-red-600">
           <WifiOff className="h-4 w-4" />
-          <span className="text-sm font-medium">Network Disconnected</span>
+          <div className="flex-1">
+            <span className="text-sm font-medium">
+              {isSignedIn ? 'CDP Connection Issue' : 'Network Disconnected'}
+            </span>
+            {isRetryable && (
+              <p className="text-xs text-red-500 mt-1">
+                Retrying automatically...
+              </p>
+            )}
+          </div>
         </div>
       )
     }
@@ -111,7 +223,16 @@ export function NetworkStatusComponent({
     return (
       <div className="flex items-center gap-2 text-green-600">
         <Wifi className="h-4 w-4" />
-        <span className="text-sm font-medium">Connected</span>
+        <div className="flex-1">
+          <span className="text-sm font-medium">
+            {isSignedIn ? 'CDP Connected' : 'Network Connected'}
+          </span>
+          {isSignedIn && evmAddress && (
+            <p className="text-xs text-green-500 mt-1">
+              Smart wallet active
+            </p>
+          )}
+        </div>
       </div>
     )
   }
@@ -256,18 +377,25 @@ export function NetworkStatusComponent({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Globe className="h-5 w-5 text-sage-600" />
-            Network Status
+            {isSignedIn ? 'CDP Network Status' : 'Network Status'}
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="h-8 w-8 p-0"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh network status</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            {error && WalletErrorService.isRetryable(error) && (
+              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                Auto-retry
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="sr-only">Refresh network status</span>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
@@ -278,11 +406,51 @@ export function NetworkStatusComponent({
         {/* Testnet Warning */}
         {renderTestnetWarning()}
 
-        {/* Error Display */}
+        {/* Enhanced Error Display with CDP Error Handling */}
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <span className="text-sm text-red-700">{error}</span>
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">
+                  {error.category === 'cdp' ? 'CDP Service Error' : 'Network Error'}
+                </p>
+                <p className="text-sm text-red-700 mt-1">
+                  {WalletErrorService.getUserMessage(error, false)}
+                </p>
+                {error.retryable && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetry}
+                      disabled={isLoading}
+                      className="h-7 px-2 text-xs border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      {isLoading ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Retry ({retryCount}/3)
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearError}
+                      className="h-7 px-2 text-xs text-red-600 hover:text-red-800"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

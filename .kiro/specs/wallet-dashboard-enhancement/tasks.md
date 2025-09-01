@@ -20,13 +20,7 @@
   - Write tests for portfolio total integration
   - _Requirements: 1.1, 1.2, 1.5, 1.6_
 
-- [ ] 6. Enhance Token List with Real Data
-  - Replace hardcoded ETH/USDC list with dynamic token detection
-  - Display all detected tokens with balances, USD values, and logos
-  - Add loading states for individual tokens while data is being fetched
-  - Implement error handling for tokens that fail to load
-  - Create responsive token list layout for mobile devices
-  - Write tests for enhanced token list functionality
+- [
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
 - [ ] 7. Integrate Custom Token Management

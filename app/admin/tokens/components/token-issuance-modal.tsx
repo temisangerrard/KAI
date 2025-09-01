@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Coins, AlertTriangle, CheckCircle } from 'lucide-react';
 import { UserSelector } from './user-selector';
+import { useAuth } from '@/app/auth/auth-context';
 
 interface TokenIssuanceModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ interface IssuanceFormData {
 }
 
 export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser }: TokenIssuanceModalProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<IssuanceFormData>({
     userId: preselectedUser?.userId || '',
     userEmail: preselectedUser?.userEmail || '',
@@ -61,34 +63,69 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
     setError('');
     setSuccess('');
 
+    console.log('Form submission started with data:', formData);
+
     const amount = typeof formData.amount === 'string' ? parseInt(formData.amount) : formData.amount;
 
-    if (!formData.userId || !amount || !formData.reason) {
-      setError('Please fill in all required fields');
+    // Detailed validation with specific error messages
+    if (!formData.userId) {
+      setError('Please select a user to receive tokens');
+      return;
+    }
+
+    if (!amount || isNaN(amount)) {
+      setError('Please enter a valid token amount');
       return;
     }
 
     if (amount <= 0) {
-      setError('Amount must be greater than 0');
+      setError('Token amount must be greater than 0');
+      return;
+    }
+
+    if (!formData.reason || formData.reason.trim() === '') {
+      setError('Please provide a reason for token issuance');
       return;
     }
 
     try {
       setLoading(true);
       
+      // Use same logic as useAdminAuth hook: user.id || user.address
+      const userId = user?.id || user?.address;
+      
+      console.log('Admin user authentication check:', { user, userId });
+      
+      if (!userId) {
+        setError('Admin authentication failed. Please refresh the page and try again.');
+        return;
+      }
+      
       const requestData = {
         ...formData,
         amount: amount,
-        // Admin info will be determined server-side from the authenticated user
-        adminId: null, // Server will set this from auth context
-        adminName: null // Server will set this from auth context
+        adminId: userId,
+        adminName: user.displayName || user.email || 'Admin User',
+        requiresApproval: false // Admin issuance is always immediate
       };
 
-      console.log('Sending token issuance request:', requestData);
+      console.log('🚀 Sending token issuance request:', {
+        targetUser: {
+          userId: formData.userId,
+          email: formData.userEmail,
+          displayName: formData.userDisplayName
+        },
+        requestData,
+        headers: { 'x-user-id': userId },
+        adminUser: user
+      });
       
       const response = await fetch('/api/admin/tokens/issue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': userId
+        },
         body: JSON.stringify(requestData)
       });
 
@@ -96,13 +133,17 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
       console.log('Token issuance response:', { status: response.status, data });
 
       if (response.ok) {
-        setSuccess(data.message || 'Tokens issued successfully');
+        const successMessage = `Successfully issued ${amount} tokens to ${formData.userDisplayName || formData.userEmail}`;
+        setSuccess(successMessage);
+        console.log('✅ Token issuance successful:', data);
         setTimeout(() => {
           onSuccess();
           handleClose();
         }, 2000);
       } else {
-        setError(data.error || 'Failed to issue tokens');
+        const errorMessage = data.message || data.error || 'Failed to issue tokens';
+        setError(errorMessage);
+        console.error('❌ Token issuance failed:', { status: response.status, data });
       }
     } catch (error) {
       console.error('Error issuing tokens:', error);
@@ -127,6 +168,7 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
   };
 
   const handleUserSelect = (userId: string, userEmail: string, displayName: string) => {
+    console.log('User selected for token issuance:', { userId, userEmail, displayName });
     setFormData(prev => ({
       ...prev,
       userId,
@@ -234,21 +276,18 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
             <div>
-              <Label htmlFor="requiresApproval" className="text-sm font-medium">
-                Requires Approval
+              <Label htmlFor="requiresApproval" className="text-sm font-medium text-green-800">
+                Admin Token Issuance
               </Label>
-              <p className="text-xs text-gray-500">
-                If enabled, another admin must approve this issuance
+              <p className="text-xs text-green-700">
+                As an admin, your token issuance will be processed immediately without requiring additional approval
               </p>
             </div>
-            <Switch
-              id="requiresApproval"
-              checked={formData.requiresApproval}
-              onCheckedChange={(checked) => setFormData({ ...formData, requiresApproval: checked })}
-              disabled={loading}
-            />
+            <div className="text-sm font-medium text-green-800">
+              ✅ Immediate Processing
+            </div>
           </div>
 
           {formData.amount && formData.userId && (
@@ -258,7 +297,7 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
                 <p><strong>User:</strong> {formData.userDisplayName || formData.userEmail || 'Not specified'}</p>
                 <p><strong>Email:</strong> {formData.userEmail}</p>
                 <p><strong>Amount:</strong> {(typeof formData.amount === 'string' ? parseInt(formData.amount) : formData.amount)?.toLocaleString()} tokens</p>
-                <p><strong>Processing:</strong> {formData.requiresApproval ? 'Requires approval' : 'Immediate'}</p>
+                <p><strong>Processing:</strong> Immediate (Admin Issuance)</p>
               </div>
             </div>
           )}
@@ -277,7 +316,7 @@ export function TokenIssuanceModal({ isOpen, onClose, onSuccess, preselectedUser
               className="bg-kai-600 hover:bg-kai-700"
               disabled={loading}
             >
-              {loading ? 'Processing...' : (formData.requiresApproval ? 'Submit for Approval' : 'Issue Tokens')}
+              {loading ? 'Processing...' : 'Issue Tokens'}
             </Button>
           </div>
         </form>
