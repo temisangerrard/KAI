@@ -187,13 +187,13 @@ export default function CreatorResolutionPage() {
   }, [id])
 
   const loadMarket = async () => {
-    const response = await fetch(`/ api / markets / ${ id } `)
+    const response = await fetch(`/api/markets/${id}`)
     const marketData = await response.json()
     setMarket(marketData)
     
     // Check if user is market creator
     if (marketData.createdBy !== user?.id) {
-      router.push(`/ markets / ${ id } `) // Redirect non-creators
+      router.push(`/markets/${id}`) // Redirect non-creators
     }
   }
 
@@ -207,18 +207,18 @@ export default function CreatorResolutionPage() {
       formData.append('evidenceDescription', evidenceDescription)
       formData.append('evidenceFile', evidenceFile)
 
-      const response = await fetch(`/ api / markets / ${ id }/submit-resolution`, {
-method: 'POST',
-    body: formData
+      const response = await fetch(`/api/markets/${id}/submit-resolution`, {
+        method: 'POST',
+        body: formData
       })
 
-if (response.ok) {
-    alert('Resolution submitted for admin review!')
-    router.push(`/markets/${id}`)
-} else {
-    const error = await response.json()
-    alert(`Error: ${error.message}`)
-}
+      if (response.ok) {
+        alert('Resolution submitted for admin review!')
+        router.push(`/markets/${id}`)
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.message}`)
+      }
     } catch (error) {
     alert('Failed to submit resolution')
 } finally {
