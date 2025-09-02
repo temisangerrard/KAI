@@ -27,11 +27,6 @@ export class WalletUidMappingService {
     firebaseUid: string,
     email: string
   ): Promise<WalletUidMapping> {
-    // Check if Firebase is initialized
-    if (!db) {
-      throw new Error('Firebase database not initialized')
-    }
-
     const mapping: WalletUidMapping = {
       walletAddress,
       firebaseUid,
@@ -52,12 +47,6 @@ export class WalletUidMappingService {
    */
   static async getFirebaseUid(walletAddress: string): Promise<string | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
-
       const mappingDoc = await getDoc(doc(db, this.COLLECTION, walletAddress))
       
       if (mappingDoc.exists()) {
@@ -86,12 +75,6 @@ export class WalletUidMappingService {
    */
   static async findFirebaseUidByEmail(email: string): Promise<string | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
-
       // First check if we already have a mapping for this email
       const mappingsRef = collection(db, this.COLLECTION)
       const emailQuery = query(mappingsRef, where('email', '==', email))
@@ -158,12 +141,6 @@ export class WalletUidMappingService {
    */
   static async getMapping(walletAddress: string): Promise<WalletUidMapping | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
-
       const mappingDoc = await getDoc(doc(db, this.COLLECTION, walletAddress))
       return mappingDoc.exists() ? mappingDoc.data() as WalletUidMapping : null
     } catch (error) {
