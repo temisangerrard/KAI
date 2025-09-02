@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { HelpCircle, X, ChevronDown, ChevronUp } from "lucide-react"
 
 interface ContextualHelpProps {
-  context: "dashboard" | "wallet" | "profile" | "trending" | "social" | "create"
+  context: "dashboard" | "profile" | "trending" | "social" | "create" | "wallet"
 }
 
 export function ContextualHelp({ context }: ContextualHelpProps) {
@@ -28,13 +28,13 @@ export function ContextualHelp({ context }: ContextualHelpProps) {
         },
         {
           question: "How do I earn more tokens?",
-          answer: "You can earn tokens by making correct predictions or by purchasing them in your wallet."
+          answer: "You can earn tokens by making correct predictions on markets."
         }
       ]
     },
-    wallet: {
-      title: "Wallet Help",
-      description: "Manage your tokens and view your transaction history.",
+    profile: {
+      title: "Profile Help",
+      description: "Manage your account and view your activity.",
       faqs: [
         {
           question: "How do I buy more tokens?",
@@ -83,6 +83,32 @@ export function ContextualHelp({ context }: ContextualHelpProps) {
         {
           question: "How do I create a market?",
           answer: "Fill out the market creation form with your question, options, and end date."
+        }
+      ]
+    },
+    wallet: {
+      title: "Smart Wallet Help",
+      description: "Manage your gasless Web3 wallet and transactions.",
+      faqs: [
+        {
+          question: "What is a smart wallet?",
+          answer: "A smart wallet is a Web3 account that enables gasless transactions and enhanced security features. You can use it without paying gas fees for most operations."
+        },
+        {
+          question: "How do I copy my wallet address?",
+          answer: "Click the copy button next to your wallet address to copy it to your clipboard. You can share this address to receive funds."
+        },
+        {
+          question: "Are my transactions really gasless?",
+          answer: "Yes! Your smart wallet account has sponsored transactions enabled, meaning you don't need to pay gas fees for most operations on the platform."
+        },
+        {
+          question: "How do I view my transaction history?",
+          answer: "Your recent transactions are displayed on the wallet page. You can see timestamps, amounts, and transaction types for all your wallet activity."
+        },
+        {
+          question: "Is my wallet secure?",
+          answer: "Yes, your smart wallet uses advanced security features including email-based recovery and enhanced protection against common Web3 vulnerabilities."
         }
       ]
     }

@@ -33,6 +33,14 @@ export interface UserProfile {
   totalPredictions: number
   correctPredictions: number
   streak: number
+  bio?: string
+  location?: string
+  // Smart account fields
+  smartAccountAddress?: string
+  walletAddress?: string
+  creationMethod?: 'email' | 'wallet'
+  hasSmartAccount?: boolean
+  isSmartAccount?: boolean
 }
 
 // Auth service class
@@ -224,6 +232,55 @@ export class FirebaseAuthService {
     }
   }
 
+  // Get user profile by wallet address (for CDP integration)
+  static async getUserProfileByAddress(address: string): Promise<UserProfile | null> {
+    try {
+      console.log('Fetching user profile for wallet address:', address)
+      const userDoc = await getDoc(doc(db, "users", address))
+      if (userDoc.exists()) {
+        console.log('User profile found:', userDoc.data())
+        return userDoc.data() as UserProfile
+      }
+      console.log('User profile not found for address:', address)
+      return null
+    } catch (error) {
+      console.warn("Error fetching user profile by address:", error.message)
+      return null
+    }
+  }
+
+  // Create user profile from CDP data (for new CDP users)
+  static async createUserProfileFromCDP(address: string, email: string, displayName?: string): Promise<UserProfile> {
+    try {
+      const userProfile: UserProfile = {
+        uid: address, // Use wallet address as UID for consistency
+        email: email,
+        displayName: displayName || email.split('@')[0],
+        photoURL: undefined,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        tokenBalance: 2500, // Starting tokens
+        level: 1,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        streak: 0,
+        // CDP-specific fields
+        walletAddress: address,
+        creationMethod: 'email',
+        hasSmartAccount: true,
+        isSmartAccount: true
+      }
+
+      console.log('Creating CDP user profile in Firestore:', userProfile)
+      await setDoc(doc(db, "users", address), userProfile)
+      console.log('CDP user profile created successfully')
+      return userProfile
+    } catch (error) {
+      console.error('Error creating CDP user profile:', error)
+      throw error
+    }
+  }
+
   // Create a default user profile for offline mode
   static createDefaultProfile(uid: string): UserProfile {
     const currentUser = auth.currentUser
@@ -246,6 +303,16 @@ export class FirebaseAuthService {
   static async updateUserProfile(uid: string, updates: Partial<UserProfile>) {
     try {
       await updateDoc(doc(db, "users", uid), updates)
+      return { error: null }
+    } catch (error) {
+      return { error: error as AuthError }
+    }
+  }
+
+  // Update user profile by wallet address (for CDP integration)
+  static async updateUserProfileByAddress(address: string, updates: Partial<UserProfile>) {
+    try {
+      await updateDoc(doc(db, "users", address), updates)
       return { error: null }
     } catch (error) {
       return { error: error as AuthError }

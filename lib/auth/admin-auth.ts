@@ -9,22 +9,17 @@ export class AdminAuthService {
    * Check if user is admin based on Firestore admin_users collection
    */
   static async checkUserIsAdmin(userId: string): Promise<boolean> {
-    try {
-      const { doc, getDoc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/db/database');
-      
-      // Check admin_users collection
-      const adminDoc = await getDoc(doc(db, 'admin_users', userId));
-      if (adminDoc.exists()) {
-        const adminData = adminDoc.data();
-        return adminData?.isActive === true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
+    const { doc, getDoc } = await import('firebase/firestore');
+    const { db } = await import('@/lib/db/database');
+    
+    // Check admin_users collection
+    const adminDoc = await getDoc(doc(db, 'admin_users', userId));
+    if (adminDoc.exists()) {
+      const adminData = adminDoc.data();
+      return adminData?.isActive === true;
     }
+    
+    return false;
   }
 
   /**
@@ -55,6 +50,48 @@ export class AdminAuthService {
     } catch (error) {
       console.error('Error setting admin status:', error);
       return false;
+    }
+  }
+
+  /**
+   * Verify admin authentication for API routes
+   * Returns consistent error structure for admin endpoints
+   */
+  static async verifyAdminAuth(request: NextRequest): Promise<{ isAdmin: boolean; error?: string; userId?: string }> {
+    try {
+      // Get user ID from request headers (using same logic as useAdminAuth: user.id || user.address)
+      const userId = request.headers.get('x-user-id');
+      
+      if (!userId) {
+        console.log('❌ Admin auth failed: No user ID provided in request headers');
+        return { 
+          isAdmin: false, 
+          error: 'Authentication required. Please ensure you are logged in.' 
+        };
+      }
+
+      console.log(`🔍 Verifying admin status for user: ${userId}`);
+
+      // Use the same AdminAuthService.checkUserIsAdmin method as the admin interface
+      const isAdmin = await AdminAuthService.checkUserIsAdmin(userId);
+      
+      if (isAdmin) {
+        console.log(`✅ Admin verification successful for ${userId}`);
+        return { isAdmin: true, userId };
+      } else {
+        console.log(`❌ Admin verification failed for ${userId}: User is not an admin`);
+        return { 
+          isAdmin: false, 
+          error: 'Access denied. Admin privileges required.' 
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ Error during admin authentication:', error);
+      return { 
+        isAdmin: false, 
+        error: 'Authentication service temporarily unavailable. Please try again.' 
+      };
     }
   }
 }

@@ -1,13 +1,14 @@
 /**
  * Authentication Service for KAI Platform
- * Uses Firebase Auth for authentication and Firestore for user profiles
+ * Uses CDP for authentication and Firestore for user profiles
  */
 
-import { FirebaseAuthService, UserProfile, AUTH_ERROR_CODES } from './firebase-auth'
-import { User } from 'firebase/auth'
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { db } from "@/lib/db/database"
 
 export interface AuthUser {
-  id: string
+  id: string // Firebase UID (for compatibility with existing services)
+  address: string // Wallet address (for CDP integration)
   email: string
   displayName: string
   profileImage?: string
@@ -22,6 +23,7 @@ export interface AuthUser {
   bio?: string
   location?: string
   joinDate?: string
+  isInitialized: boolean // CDP initialization status
   stats?: {
     predictionsCount: number
     marketsCreated: number
@@ -47,267 +49,313 @@ export interface AuthResponse {
   user: AuthUser
 }
 
-// Convert Firebase User + UserProfile to AuthUser
-function convertToAuthUser(firebaseUser: User, profile: UserProfile): AuthUser {
-  return {
-    id: firebaseUser.uid,
-    email: firebaseUser.email || profile.email,
-    displayName: firebaseUser.displayName || profile.displayName,
-    profileImage: firebaseUser.photoURL || profile.photoURL,
-    tokenBalance: profile.tokenBalance,
-    hasCompletedOnboarding: true, // Set based on your onboarding logic
-    level: profile.level,
-    totalPredictions: profile.totalPredictions,
-    correctPredictions: profile.correctPredictions,
-    streak: profile.streak,
-    createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-    updatedAt: profile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-    bio: profile.bio,
-    location: profile.location,
-    joinDate: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-    stats: {
-      predictionsCount: profile.totalPredictions,
-      marketsCreated: 0, // This would need to be calculated from actual data
-      winRate: profile.totalPredictions > 0 ? (profile.correctPredictions / profile.totalPredictions) * 100 : 0,
-      tokensEarned: 0, // This would need to be calculated from transaction history
-    },
-    predictions: [], // This would need to be fetched separately
-    marketsCreated: [], // This would need to be fetched separately
-  }
+// User profile interface for Firestore
+interface UserProfile {
+  address: string // Wallet address (document ID)
+  email: string
+  displayName: string
+  photoURL?: string
+  createdAt: any
+  lastLoginAt: any
+  tokenBalance: number
+  level: number
+  totalPredictions: number
+  correctPredictions: number
+  streak: number
+  bio?: string
+  location?: string
 }
 
 class AuthService {
   /**
-   * Register a new user
+   * Get user by wallet address (for CDP integration)
+   * Uses wallet-to-UID mapping to maintain compatibility with existing data structure
+   */
+  async getUserByAddress(address: string): Promise<AuthUser | null> {
+    try {
+      // Validate address parameter
+      if (!address || typeof address !== 'string') {
+        console.error('Invalid address provided to getUserByAddress:', address)
+        return null
+      }
+
+      // Get Firebase UID from wallet address mapping
+      const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+      const firebaseUid = await WalletUidMappingService.getFirebaseUid(address)
+      
+      if (!firebaseUid) {
+        console.log('No Firebase UID mapping found for wallet address:', address)
+        return null
+      }
+
+      // Get user profile from Firestore using Firebase UID (existing structure)
+      const userRef = doc(db, 'users', firebaseUid)
+      const userSnap = await getDoc(userRef)
+      
+      if (!userSnap.exists()) {
+        console.log('No user profile found for Firebase UID:', firebaseUid)
+        return null
+      }
+
+      const profile = userSnap.data() as UserProfile
+
+      // Convert profile to AuthUser format, including wallet address
+      return {
+        id: firebaseUid, // Keep Firebase UID as primary ID
+        address: address, // Add wallet address for CDP compatibility
+        email: profile.email,
+        displayName: profile.displayName,
+        profileImage: profile.photoURL,
+        tokenBalance: profile.tokenBalance,
+        hasCompletedOnboarding: true,
+        level: profile.level,
+        totalPredictions: profile.totalPredictions,
+        correctPredictions: profile.correctPredictions,
+        streak: profile.streak,
+        createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: profile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        bio: profile.bio,
+        location: profile.location,
+        joinDate: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        isInitialized: true,
+        stats: {
+          predictionsCount: profile.totalPredictions,
+          marketsCreated: 0,
+          winRate: profile.totalPredictions > 0 ? (profile.correctPredictions / profile.totalPredictions) * 100 : 0,
+          tokensEarned: 0,
+        },
+        predictions: [],
+        marketsCreated: [],
+      }
+    } catch (error) {
+      console.error('Error getting user by address:', error)
+      return null
+    }
+  }
+
+  /**
+   * Create user from CDP data (for new CDP users)
+   * Uses wallet-to-UID mapping to maintain compatibility with existing data structure
+   */
+  async createUserFromCDP(address: string, email: string, displayName?: string): Promise<AuthUser> {
+    try {
+      // Validate parameters
+      if (!address || typeof address !== 'string') {
+        throw new Error('Invalid address provided to createUserFromCDP')
+      }
+      if (!email || typeof email !== 'string') {
+        throw new Error('Invalid email provided to createUserFromCDP')
+      }
+
+      // Get or create wallet-to-UID mapping
+      const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+      const { firebaseUid, isNewMapping } = await WalletUidMappingService.getOrCreateMapping(address, email)
+      
+      console.log('🔗 Wallet-to-UID mapping:', { address, firebaseUid, isNewMapping })
+
+      // Check if user profile already exists
+      const existingUser = await this.getUserByAddress(address)
+      if (existingUser) {
+        console.log('✅ User profile already exists, returning existing user')
+        return existingUser
+      }
+
+      // Create user profile in Firestore using Firebase UID as document ID (existing structure)
+      const userRef = doc(db, 'users', firebaseUid)
+      const profileData: UserProfile = {
+        address: address, // Store wallet address in profile
+        email: email,
+        displayName: displayName || email.split('@')[0],
+        photoURL: undefined,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        tokenBalance: 2500, // Starting tokens
+        level: 1,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        streak: 0,
+        bio: undefined,
+        location: undefined,
+      }
+
+      await setDoc(userRef, profileData)
+      console.log('✅ Created user profile with Firebase UID:', firebaseUid)
+      
+      // Convert to AuthUser format
+      return {
+        id: firebaseUid, // Firebase UID for compatibility
+        address: address, // Wallet address for CDP
+        email: email,
+        displayName: displayName || email.split('@')[0],
+        profileImage: undefined,
+        tokenBalance: 2500, // Starting tokens
+        hasCompletedOnboarding: true,
+        level: 1,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        streak: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        bio: undefined,
+        location: undefined,
+        joinDate: new Date().toISOString(),
+        isInitialized: true,
+        stats: {
+          predictionsCount: 0,
+          marketsCreated: 0,
+          winRate: 0,
+          tokensEarned: 0,
+        },
+        predictions: [],
+        marketsCreated: [],
+      }
+    } catch (error) {
+      console.error('Error creating user from CDP:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register a new user (CDP handles this automatically)
    */
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
-    const { user: firebaseUser, error } = await FirebaseAuthService.signUp(
-      credentials.email,
-      credentials.password,
-      credentials.displayName
-    )
-
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
-
-    if (!firebaseUser) {
-      throw new Error('Registration failed')
-    }
-
-    // Get the created user profile
-    const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!profile) {
-      throw new Error('Failed to create user profile')
-    }
-
-    return {
-      user: convertToAuthUser(firebaseUser, profile)
-    }
+    // CDP handles registration automatically when user signs in
+    // This method is kept for backward compatibility but doesn't do anything
+    throw new Error('Registration is handled automatically by CDP')
   }
 
   /**
-   * Login user
+   * Login user (CDP handles this automatically)
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const { user: firebaseUser, error } = await FirebaseAuthService.signIn(
-      credentials.email,
-      credentials.password
-    )
-
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
-
-    if (!firebaseUser) {
-      throw new Error('Login failed')
-    }
-
-    // Get user profile
-    const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!profile) {
-      throw new Error('User profile not found')
-    }
-
-    return {
-      user: convertToAuthUser(firebaseUser, profile)
-    }
+    // CDP handles login automatically when user signs in
+    // This method is kept for backward compatibility but doesn't do anything
+    throw new Error('Login is handled automatically by CDP')
   }
 
   /**
-   * Login with Google
+   * Login with Google (not supported with CDP)
    */
   async loginWithGoogle(): Promise<AuthResponse> {
-    const { user: firebaseUser, error } = await FirebaseAuthService.signInWithGoogle()
-
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
-
-    if (!firebaseUser) {
-      throw new Error('Google login failed')
-    }
-
-    const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!profile) {
-      throw new Error('User profile not found')
-    }
-
-    return {
-      user: convertToAuthUser(firebaseUser, profile)
-    }
+    throw new Error('Google login not supported with CDP')
   }
 
   /**
-   * Login with Twitter
+   * Login with Twitter (not supported with CDP)
    */
   async loginWithTwitter(): Promise<AuthResponse> {
-    const { user: firebaseUser, error } = await FirebaseAuthService.signInWithTwitter()
-
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
-
-    if (!firebaseUser) {
-      throw new Error('Twitter login failed')
-    }
-
-    const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!profile) {
-      throw new Error('User profile not found')
-    }
-
-    return {
-      user: convertToAuthUser(firebaseUser, profile)
-    }
+    throw new Error('Twitter login not supported with CDP')
   }
 
   /**
-   * Logout user
+   * Logout user (handled by CDP context)
    */
   async logout(): Promise<void> {
-    const { error } = await FirebaseAuthService.signOut()
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
+    // Logout is handled by the CDP context
+    console.log('Logout handled by CDP context')
   }
 
   /**
-   * Get current authenticated user
+   * Get current authenticated user (handled by CDP context)
    */
   async getCurrentUser(): Promise<AuthUser | null> {
-    const firebaseUser = FirebaseAuthService.getCurrentUser()
-    
-    if (!firebaseUser) {
-      return null
-    }
-
-    const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!profile) {
-      return null
-    }
-
-    return convertToAuthUser(firebaseUser, profile)
+    // Current user is handled by the CDP context
+    return null
   }
 
   /**
-   * Update user profile
+   * Update user profile by wallet address (for CDP integration)
    */
-  async updateProfile(updates: Partial<AuthUser>): Promise<AuthUser> {
-    const firebaseUser = FirebaseAuthService.getCurrentUser()
-    
-    if (!firebaseUser) {
-      throw new Error('User not authenticated')
-    }
+  async updateProfileByAddress(address: string, updates: Partial<AuthUser>): Promise<AuthUser> {
+    try {
+      // Convert AuthUser updates to UserProfile updates
+      const profileUpdates: any = {
+        lastLoginAt: serverTimestamp()
+      }
+      
+      if (updates.displayName !== undefined) {
+        profileUpdates.displayName = updates.displayName
+      }
+      if (updates.tokenBalance !== undefined) {
+        profileUpdates.tokenBalance = updates.tokenBalance
+      }
+      if (updates.level !== undefined) {
+        profileUpdates.level = updates.level
+      }
+      if (updates.totalPredictions !== undefined) {
+        profileUpdates.totalPredictions = updates.totalPredictions
+      }
+      if (updates.correctPredictions !== undefined) {
+        profileUpdates.correctPredictions = updates.correctPredictions
+      }
+      if (updates.streak !== undefined) {
+        profileUpdates.streak = updates.streak
+      }
+      if (updates.bio !== undefined) {
+        profileUpdates.bio = updates.bio
+      }
+      if (updates.location !== undefined) {
+        profileUpdates.location = updates.location
+      }
 
-    // Convert AuthUser updates to UserProfile updates
-    const profileUpdates: Partial<UserProfile> = {}
-    
-    if (updates.displayName !== undefined) {
-      profileUpdates.displayName = updates.displayName
-    }
-    if (updates.tokenBalance !== undefined) {
-      profileUpdates.tokenBalance = updates.tokenBalance
-    }
-    if (updates.level !== undefined) {
-      profileUpdates.level = updates.level
-    }
-    if (updates.totalPredictions !== undefined) {
-      profileUpdates.totalPredictions = updates.totalPredictions
-    }
-    if (updates.correctPredictions !== undefined) {
-      profileUpdates.correctPredictions = updates.correctPredictions
-    }
-    if (updates.streak !== undefined) {
-      profileUpdates.streak = updates.streak
-    }
+      // Update user profile in Firestore
+      const userRef = doc(db, 'users', address)
+      await updateDoc(userRef, profileUpdates)
 
-    const { error } = await FirebaseAuthService.updateUserProfile(firebaseUser.uid, profileUpdates)
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
+      // Get updated profile
+      const userSnap = await getDoc(userRef)
+      if (!userSnap.exists()) {
+        throw new Error('Failed to fetch updated profile')
+      }
 
-    // Get updated profile
-    const updatedProfile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-    if (!updatedProfile) {
-      throw new Error('Failed to fetch updated profile')
-    }
+      const updatedProfile = userSnap.data() as UserProfile
 
-    return convertToAuthUser(firebaseUser, updatedProfile)
+      return {
+        address: address,
+        email: updatedProfile.email,
+        displayName: updatedProfile.displayName,
+        profileImage: updatedProfile.photoURL,
+        tokenBalance: updatedProfile.tokenBalance,
+        hasCompletedOnboarding: true,
+        level: updatedProfile.level,
+        totalPredictions: updatedProfile.totalPredictions,
+        correctPredictions: updatedProfile.correctPredictions,
+        streak: updatedProfile.streak,
+        createdAt: updatedProfile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: updatedProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        bio: updatedProfile.bio,
+        location: updatedProfile.location,
+        joinDate: updatedProfile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        isInitialized: true,
+        stats: {
+          predictionsCount: updatedProfile.totalPredictions,
+          marketsCreated: 0,
+          winRate: updatedProfile.totalPredictions > 0 ? (updatedProfile.correctPredictions / updatedProfile.totalPredictions) * 100 : 0,
+          tokensEarned: 0,
+        },
+        predictions: [],
+        marketsCreated: [],
+      }
+    } catch (error) {
+      console.error('Error updating profile by address:', error)
+      throw error
+    }
   }
 
   /**
-   * Reset password
+   * Reset password (not supported with CDP)
    */
   async resetPassword(email: string): Promise<void> {
-    const { error } = await FirebaseAuthService.resetPassword(email)
-    if (error) {
-      throw new Error(this.getErrorMessage(error.code))
-    }
+    throw new Error('Password reset not supported with CDP')
   }
 
   /**
-   * Set up auth state listener
+   * Set up auth state listener (handled by CDP context)
    */
   onAuthStateChanged(callback: (user: AuthUser | null) => void) {
-    return FirebaseAuthService.onAuthStateChanged(async (firebaseUser) => {
-      if (firebaseUser) {
-        const profile = await FirebaseAuthService.getUserProfile(firebaseUser.uid)
-        if (profile) {
-          callback(convertToAuthUser(firebaseUser, profile))
-        } else {
-          callback(null)
-        }
-      } else {
-        callback(null)
-      }
-    })
-  }
-
-  /**
-   * Convert Firebase error codes to user-friendly messages
-   */
-  private getErrorMessage(errorCode: string): string {
-    switch (errorCode) {
-      case AUTH_ERROR_CODES.EMAIL_ALREADY_IN_USE:
-        return 'An account with this email already exists'
-      case AUTH_ERROR_CODES.WEAK_PASSWORD:
-        return 'Password should be at least 6 characters'
-      case AUTH_ERROR_CODES.INVALID_EMAIL:
-        return 'Please enter a valid email address'
-      case AUTH_ERROR_CODES.USER_NOT_FOUND:
-        return 'No account found with this email'
-      case AUTH_ERROR_CODES.WRONG_PASSWORD:
-        return 'Incorrect password'
-      case AUTH_ERROR_CODES.TOO_MANY_REQUESTS:
-        return 'Too many failed attempts. Please try again later'
-      case AUTH_ERROR_CODES.POPUP_CLOSED:
-        return 'Sign-in popup was closed'
-      case AUTH_ERROR_CODES.CANCELLED:
-        return 'Sign-in was cancelled'
-      default:
-        return 'An error occurred. Please try again'
-    }
+    // Auth state changes are handled by the CDP context
+    console.log('Auth state changes handled by CDP context')
+    return () => {} // Return empty unsubscribe function
   }
 }
 

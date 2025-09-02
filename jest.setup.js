@@ -5,6 +5,11 @@ global.fetch = jest.fn()
 global.Request = jest.fn()
 global.Response = jest.fn()
 
+// Polyfill TextEncoder/TextDecoder for viem compatibility
+const { TextEncoder, TextDecoder } = require('util')
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -98,3 +103,4 @@ jest.mock('firebase/analytics', () => ({
   getAnalytics: jest.fn(() => ({})),
   logEvent: jest.fn(),
 }))
+

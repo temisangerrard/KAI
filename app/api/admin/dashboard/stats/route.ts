@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AdminDashboardService } from '@/lib/services/admin-dashboard-service';
+import { isBuildTime, createBuildSafeResponse, safeImport } from '@/lib/utils/build-safe-imports';
 
 export async function GET(request: NextRequest) {
+  // Prevent execution during build time
+  if (isBuildTime()) {
+    return NextResponse.json(createBuildSafeResponse());
+  }
   try {
     console.log('📊 Fetching dashboard stats with Firebase Auth users...');
 

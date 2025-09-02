@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AdminCommitmentService } from '@/lib/services/admin-commitment-service';
 import { CommitmentAnalytics, MarketAnalytics, DailyCommitmentData } from '@/lib/types/token';
+
+// Lazy import to prevent Firebase initialization during build
+let AdminCommitmentService: any;
 
 // TODO: Add admin authentication middleware
 async function verifyAdminAuth(request: NextRequest) {
@@ -27,6 +29,33 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
   try {
+    // Prevent execution during build time
+    const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL && !process.env.RUNTIME;
+    if (isBuildTime) {
+      return NextResponse.json({ 
+        analytics: null,
+        marketAnalytics: null,
+        trends: [],
+        realTimeStats: {
+          activeConnections: 0,
+          updatesPerMinute: 0,
+          lastUpdate: new Date().toISOString()
+        },
+        performance: {
+          queryTime: Date.now() - startTime,
+          cacheHit: false,
+          cacheHitRate: 0,
+          dataAge: 0
+        }
+      });
+    }
+
+    // Lazy load the service to prevent Firebase initialization during build
+    if (!AdminCommitmentService) {
+      const { AdminCommitmentService: Service } = await import('@/lib/services/admin-commitment-service');
+      AdminCommitmentService = Service;
+    }
+
     const isAdmin = await verifyAdminAuth(request);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

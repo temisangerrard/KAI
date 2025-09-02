@@ -2,17 +2,18 @@
 
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { 
-  Menu, 
-  X, 
-  Plus, 
-  Settings, 
-  HelpCircle, 
+import {
+  Menu,
+  X,
+  Plus,
+  Settings,
   LogOut,
   Sparkles,
   Home,
+  User,
   Wallet,
-  User
+  Shield,
+  ArrowUpRight
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "../auth/auth-context"
@@ -70,12 +71,12 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
       onClick: () => handleNavigation("/markets"),
       primary: true
     },
-
     {
       icon: Wallet,
-      label: "Wallet",
-      description: "Manage tokens",
-      onClick: () => handleNavigation("/wallet")
+      label: "Smart Wallet",
+      description: "Gasless transactions",
+      onClick: () => handleNavigation("/wallet"),
+      wallet: true
     },
     {
       icon: User,
@@ -89,6 +90,20 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
       description: "Share your prediction",
       onClick: () => handleNavigation("/markets/create"),
       primary: false
+    },
+    {
+      icon: Shield,
+      label: "Wallet Settings",
+      description: "Manage your wallet",
+      onClick: () => handleNavigation("/wallet#settings"),
+      wallet: true
+    },
+    {
+      icon: ArrowUpRight,
+      label: "Transaction History",
+      description: "View your activity",
+      onClick: () => handleNavigation("/wallet#transactions"),
+      wallet: true
     },
     {
       icon: Settings,
@@ -159,7 +174,7 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
               <X className="h-5 w-5" />
             </Button>
           </div>
-          
+
           {/* User Info */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -194,7 +209,8 @@ export function HamburgerMenu({ isOpen, onToggle, onClose }: HamburgerMenuProps)
               >
                 <div className={`
                   w-10 h-10 rounded-lg flex items-center justify-center
-                  ${item.primary ? "bg-kai-500 text-white" : 
+                  ${item.primary ? "bg-kai-500 text-white" :
+                    item.wallet ? "bg-green-100 text-green-600" :
                     item.danger ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-600"}
                 `}>
                   <Icon className="w-5 h-5" />

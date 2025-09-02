@@ -21,6 +21,7 @@ export default function LandingPage() {
   // Redirect authenticated users to markets page
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
+      console.log('Redirecting authenticated user to markets page')
       router.push("/markets")
     }
   }, [isLoading, isAuthenticated, router])

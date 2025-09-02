@@ -1,0 +1,724 @@
+# KAI Market Resolution System - Implementation Guide
+
+## Overview
+Build a two - tier market resolution system:
+1. ** Public Markets ** - Admin resolved with external evidence(celebrity news, sports, etc.)
+2. ** Personal Markets ** - Creator submits resolution, admin approves(personal outcomes only creator knows)
+
+## Database Schema Changes
+
+### 1. Update Markets Table
+    ```sql
+-- Add resolution type and status tracking
+ALTER TABLE markets 
+ADD COLUMN resolution_type TEXT DEFAULT 'admin_resolved' 
+  CHECK (resolution_type IN ('admin_resolved', 'creator_resolved'));
+
+ADD COLUMN status TEXT DEFAULT 'active' 
+  CHECK (status IN ('active', 'ended', 'pending_creator_resolution', 'pending_admin_review', 'resolved', 'cancelled'));
+
+ADD COLUMN resolution_deadline TIMESTAMP;
+```
+
+### 2. Create Resolution Tables
+    ```sql
+-- Creator resolution submissions (for personal markets)
+CREATE TABLE creator_resolution_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  market_id UUID REFERENCES markets(id),
+  submitted_by UUID REFERENCES users(id),
+  winning_option_id UUID REFERENCES market_options(id),
+  evidence_description TEXT NOT NULL,
+  evidence_image_url TEXT,
+  submitted_at TIMESTAMP DEFAULT NOW(),
+  
+  -- Admin review fields
+  review_status TEXT DEFAULT 'pending' 
+    CHECK (review_status IN ('pending', 'approved', 'rejected', 'needs_more_info')),
+  reviewed_by UUID REFERENCES users(id),
+  reviewed_at TIMESTAMP,
+  admin_notes TEXT,
+  rejection_reason TEXT
+);
+
+-- Final market resolutions (for both types)
+CREATE TABLE market_resolutions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  market_id UUID REFERENCES markets(id),
+  winning_option_id UUID REFERENCES market_options(id),
+  resolution_type TEXT NOT NULL, -- 'admin_direct' or 'creator_approved'
+  resolved_by UUID REFERENCES users(id), -- Admin who resolved/approved
+  resolved_at TIMESTAMP DEFAULT NOW(),
+  evidence_description TEXT NOT NULL,
+  evidence_urls TEXT[], -- Array of proof URLs
+  total_payout INTEGER NOT NULL,
+  winner_count INTEGER NOT NULL,
+  status TEXT DEFAULT 'completed' 
+    CHECK (status IN ('completed', 'disputed', 'cancelled'))
+);
+
+-- Individual user payouts
+CREATE TABLE resolution_payouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  resolution_id UUID REFERENCES market_resolutions(id),
+  user_id UUID REFERENCES users(id),
+  market_id UUID REFERENCES markets(id),
+  option_id UUID REFERENCES market_options(id),
+  tokens_staked INTEGER NOT NULL,
+  payout_amount INTEGER NOT NULL,
+  profit INTEGER NOT NULL,
+  processed_at TIMESTAMP DEFAULT NOW(),
+  payment_type TEXT DEFAULT 'credits' -- 'credits' or 'tokens'
+);
+```
+
+### 3. Update User Bets Table
+    ```sql
+-- Ensure we track what users need for payouts
+ALTER TABLE user_bets 
+ADD COLUMN tokens_committed INTEGER NOT NULL DEFAULT 0;
+
+-- Migrate existing data if needed
+UPDATE user_bets SET tokens_committed = amount WHERE tokens_committed = 0;
+```
+
+## Market Creation Updates
+
+### 1. Add Resolution Type Selection
+In`app/markets/create/market-creation-form.tsx`, add this after category selection:
+
+```jsx
+<div className="space-y-2">
+  <label className="text-sm font-medium text-gray-700">Market Type</label>
+  <div className="space-y-3">
+    <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+      <input
+        type="radio"
+        name="resolutionType"
+        value="admin_resolved"
+        checked={resolutionType === 'admin_resolved'}
+        onChange={(e) => setResolutionType(e.target.value)}
+        className="mt-1 text-kai-600"
+      />
+      <div className="ml-3">
+        <div className="font-medium">🌍 Public Market</div>
+        <div className="text-sm text-gray-600">
+          Outcome can be verified publicly (news, social media, official announcements)
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          Examples: "Will Drake release album by Dec 31?" • "Will Taylor win Grammy?"
+        </div>
+      </div>
+    </label>
+
+    <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+      <input
+        type="radio"
+        name="resolutionType"
+        value="creator_resolved"
+        checked={resolutionType === 'creator_resolved'}
+        onChange={(e) => setResolutionType(e.target.value)}
+        className="mt-1 text-kai-600"
+      />
+      <div className="ml-3">
+        <div className="font-medium">👤 Personal Market</div>
+        <div className="text-sm text-gray-600">
+          Only you can verify the outcome (private events, personal goals)
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          Examples: "Will I get the job?" • "Will my ex text me back?" • "Will I hit my goal?"
+        </div>
+      </div>
+    </label>
+  </div>
+</div>
+
+{resolutionType === 'creator_resolved' && (
+  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <h4 className="font-medium text-blue-800 mb-2">📋 Personal Market Requirements:</h4>
+    <ul className="text-sm text-blue-700 space-y-1">
+      <li>• You must submit resolution within 48 hours after market ends</li>
+      <li>• Provide detailed explanation and photo/screenshot evidence</li>
+      <li>• Admin will review and approve/reject your resolution</li>
+      <li>• False or incomplete resolutions will be rejected</li>
+    </ul>
+  </div>
+)}
+```
+
+### 2. Update Market Creation API
+In`app/api/markets/route.ts`, save the resolution type:
+
+```typescript
+const market = await createMarket({
+  // ... existing fields
+  resolutionType: body.resolutionType || 'admin_resolved'
+})
+```
+
+## Creator Resolution Interface
+
+### 1. Create Resolution Submission Page
+New file: `app/markets/[id]/resolve/page.tsx`
+
+    ```jsx
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/app/auth/auth-context"
+
+export default function CreatorResolutionPage() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const router = useRouter()
+  
+  const [market, setMarket] = useState(null)
+  const [selectedOption, setSelectedOption] = useState("")
+  const [evidenceDescription, setEvidenceDescription] = useState("")
+  const [evidenceFile, setEvidenceFile] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    loadMarket()
+  }, [id])
+
+  const loadMarket = async () => {
+    const response = await fetch(`/ api / markets / ${ id } `)
+    const marketData = await response.json()
+    setMarket(marketData)
+    
+    // Check if user is market creator
+    if (marketData.createdBy !== user?.id) {
+      router.push(`/ markets / ${ id } `) // Redirect non-creators
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!selectedOption || !evidenceDescription || !evidenceFile) return
+
+    setIsSubmitting(true)
+    try {
+      const formData = new FormData()
+      formData.append('winningOptionId', selectedOption)
+      formData.append('evidenceDescription', evidenceDescription)
+      formData.append('evidenceFile', evidenceFile)
+
+      const response = await fetch(`/ api / markets / ${ id }/submit-resolution`, {
+method: 'POST',
+    body: formData
+      })
+
+if (response.ok) {
+    alert('Resolution submitted for admin review!')
+    router.push(`/markets/${id}`)
+} else {
+    const error = await response.json()
+    alert(`Error: ${error.message}`)
+}
+    } catch (error) {
+    alert('Failed to submit resolution')
+} finally {
+    setIsSubmitting(false)
+}
+  }
+
+if (!market) return <div>Loading...</div>
+
+return (
+    <div className="max-w-2xl mx-auto p-4">
+        <Card>
+            <CardHeader>
+                <CardTitle>Resolve Your Market</CardTitle>
+                <div className="text-sm text-gray-600">
+                    "{market.title}"
+                </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h3 className="font-medium text-yellow-800">⏰ Resolution Required</h3>
+                    <p className="text-sm text-yellow-700 mt-1">
+                        Your market ended. Submit your resolution within 48 hours or it will be cancelled.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 className="font-medium mb-3">What actually happened?</h4>
+                    <div className="space-y-2">
+                        {market.options.map(option => (
+                            <label key={option.id} className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input
+                                    type="radio"
+                                    name="outcome"
+                                    value={option.id}
+                                    checked={selectedOption === option.id}
+                                    onChange={(e) => setSelectedOption(e.target.value)}
+                                    className="mt-1"
+                                />
+                                <div className="ml-3">
+                                    <div className="font-medium">{option.name}</div>
+                                    <div className="text-sm text-gray-600">
+                                        {option.totalTokensStaked} tokens • {option.participantCount || 0} backers
+                                    </div>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium mb-2">
+                        Evidence Description (Required)
+                    </label>
+                    <Textarea
+                        placeholder="Explain exactly what happened. Be detailed so the admin can verify your claim. Include dates, times, and specific details."
+                        value={evidenceDescription}
+                        onChange={(e) => setEvidenceDescription(e.target.value)}
+                        className="min-h-[120px]"
+                        required
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium mb-2">
+                        Upload Evidence (Required)
+                    </label>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEvidenceFile(e.target.files[0])}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-kai-50 file:text-kai-700 hover:file:bg-kai-100"
+                        required
+                    />
+                    <p className="text-xs text-gray-600 mt-1">
+                        Upload screenshot, photo, or document that proves your resolution is correct
+                    </p>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h5 className="font-medium text-red-800 mb-2">⚠️ Important Reminders</h5>
+                    <ul className="text-sm text-red-700 space-y-1">
+                        <li>• Your evidence will be reviewed by KAI admins</li>
+                        <li>• {market.participants} people are waiting for this resolution</li>
+                        <li>• False or incomplete submissions will be rejected</li>
+                        <li>• Rejected markets may be cancelled with refunds</li>
+                    </ul>
+                </div>
+
+                <Button
+                    onClick={handleSubmit}
+                    disabled={!selectedOption || !evidenceDescription || !evidenceFile || isSubmitting}
+                    className="w-full bg-gradient-to-r from-kai-600 to-gold-600"
+                >
+                    {isSubmitting ? 'Submitting...' : 'Submit for Admin Review'}
+                </Button>
+            </CardContent>
+        </Card>
+    </div>
+)
+}
+```
+
+### 2. Add Resolution Status to Market Detail View
+In `app / markets / [id] / market - detail - view.tsx`, add resolution status display:
+
+```jsx
+// Add after market header, before options
+{
+    market.status === 'pending_creator_resolution' && user?.id === market.createdBy && (
+        <Card className="mb-6 border-yellow-300 bg-yellow-50">
+            <CardContent className="p-4 text-center">
+                <h3 className="font-semibold text-yellow-800 mb-2">⏰ Resolution Required</h3>
+                <p className="text-yellow-700 mb-4">
+                    Your market has ended. Submit your resolution now or it will be cancelled.
+                </p>
+                <Button
+                    onClick={() => router.push(`/markets/${market.id}/resolve`)}
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                >
+                    Resolve Market Now
+                </Button>
+            </CardContent>
+        </Card>
+    )
+}
+
+{
+    market.status === 'pending_admin_review' && (
+        <Card className="mb-6 border-blue-300 bg-blue-50">
+            <CardContent className="p-4 text-center">
+                <h3 className="font-semibold text-blue-800 mb-2">👀 Under Admin Review</h3>
+                <p className="text-blue-700">
+                    Market creator has submitted their resolution. Admin is reviewing the evidence.
+                </p>
+            </CardContent>
+        </Card>
+    )
+}
+```
+
+## Admin Dashboard
+
+### 1. Create Admin Resolution Queue Page
+New file: `app / admin / resolutions / page.tsx`
+
+```jsx
+"use client"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+export default function AdminResolutionQueue() {
+    const [pendingSubmissions, setPendingSubmissions] = useState([])
+    const [pendingPublicMarkets, setPendingPublicMarkets] = useState([])
+
+    useEffect(() => {
+        loadPendingResolutions()
+    }, [])
+
+    const loadPendingResolutions = async () => {
+        const [submissions, publicMarkets] = await Promise.all([
+            fetch('/api/admin/resolutions/pending-submissions').then(r => r.json()),
+            fetch('/api/admin/resolutions/pending-public').then(r => r.json())
+        ])
+        setPendingSubmissions(submissions)
+        setPendingPublicMarkets(publicMarkets)
+    }
+
+    const handleApproveSubmission = async (submissionId) => {
+        const response = await fetch(`/api/admin/resolutions/${submissionId}/approve`, {
+            method: 'POST'
+        })
+        if (response.ok) {
+            alert('Resolution approved and payouts processed!')
+            loadPendingResolutions()
+        }
+    }
+
+    const handleRejectSubmission = async (submissionId) => {
+        const reason = prompt('Why are you rejecting this resolution?')
+        if (!reason) return
+
+        const response = await fetch(`/api/admin/resolutions/${submissionId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        })
+        if (response.ok) {
+            alert('Resolution rejected')
+            loadPendingResolutions()
+        }
+    }
+
+    return (
+        <div className="max-w-6xl mx-auto p-6">
+            <h1 className="text-2xl font-bold mb-6">Resolution Queue</h1>
+
+            <Tabs defaultValue="creator-submissions">
+                <TabsList>
+                    <TabsTrigger value="creator-submissions">
+                        Creator Submissions ({pendingSubmissions.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="public-markets">
+                        Public Markets ({pendingPublicMarkets.length})
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="creator-submissions" className="space-y-4">
+                    {pendingSubmissions.map(submission => (
+                        <Card key={submission.id}>
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-lg">"{submission.market.title}"</CardTitle>
+                                        <p className="text-sm text-gray-600">
+                                            By {submission.creator.name} • Submitted {new Date(submission.submittedAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Badge>{submission.market.totalTokens} tokens</Badge>
+                                        <Badge variant="outline">{submission.market.participants} people</Badge>
+                                    </div>
+                                </div>
+                            </CardHeader>
+
+                            <CardContent>
+                                <div className="mb-4">
+                                    <h4 className="font-medium">Creator Claims: "{submission.winningOption.name}"</h4>
+                                </div>
+
+                                <div className="mb-4">
+                                    <h5 className="font-medium mb-2">Evidence:</h5>
+                                    <p className="text-gray-700 mb-3">"{submission.evidenceDescription}"</p>
+                                    {submission.evidenceImageUrl && (
+                                        <img
+                                            src={submission.evidenceImageUrl}
+                                            alt="Evidence"
+                                            className="max-w-md rounded border"
+                                        />
+                                    )}
+                                </div>
+
+                                <div className="mb-4 p-3 bg-gray-50 rounded">
+                                    <h5 className="font-medium mb-2">If Approved:</h5>
+                                    <p>• {submission.winnerCount} users will receive payouts</p>
+                                    <p>• Total distributed: {submission.market.totalTokens} tokens</p>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <Button
+                                        onClick={() => handleApproveSubmission(submission.id)}
+                                        className="bg-green-600 hover:bg-green-700"
+                                    >
+                                        ✅ Approve & Process Payouts
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => handleRejectSubmission(submission.id)}
+                                    >
+                                        ❌ Reject Resolution
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </TabsContent>
+
+                <TabsContent value="public-markets">
+                    <p className="text-gray-600 mb-4">
+                        Public markets that have ended and need admin resolution with external evidence.
+                    </p>
+                    {/* Similar structure but for direct admin resolution of public markets */}
+                </TabsContent>
+            </Tabs>
+        </div>
+    )
+}
+```
+
+## API Endpoints
+
+### 1. Creator Resolution Submission
+New file: `app / api / markets / [id] / submit - resolution / route.ts`
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const formData = await request.formData()
+        const marketId = params.id
+        const winningOptionId = formData.get('winningOptionId') as string
+        const evidenceDescription = formData.get('evidenceDescription') as string
+        const evidenceFile = formData.get('evidenceFile') as File
+
+        // Upload evidence file and get URL
+        const evidenceImageUrl = await uploadFile(evidenceFile) // Implement your file upload
+
+        // Save submission to database
+        const submission = await db.creator_resolution_submissions.create({
+            data: {
+                marketId,
+                submittedBy: getCurrentUserId(), // Implement your auth
+                winningOptionId,
+                evidenceDescription,
+                evidenceImageUrl,
+                reviewStatus: 'pending'
+            }
+        })
+
+        // Update market status
+        await db.markets.update({
+            where: { id: marketId },
+            data: { status: 'pending_admin_review' }
+        })
+
+        return NextResponse.json({ success: true, submissionId: submission.id })
+
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}
+```
+
+### 2. Admin Approval Endpoints
+New file: `app / api / admin / resolutions / [id] / approve / route.ts`
+
+```typescript
+export async function POST(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const submissionId = params.id
+
+        // Get submission details
+        const submission = await db.creator_resolution_submissions.findUnique({
+            where: { id: submissionId },
+            include: { market: { include: { options: true } } }
+        })
+
+        // Create final resolution record
+        const resolution = await db.market_resolutions.create({
+            data: {
+                marketId: submission.marketId,
+                winningOptionId: submission.winningOptionId,
+                resolutionType: 'creator_approved',
+                resolvedBy: getCurrentAdminId(),
+                evidenceDescription: submission.evidenceDescription,
+                evidenceUrls: [submission.evidenceImageUrl],
+                totalPayout: submission.market.totalTokens,
+                winnerCount: await getWinnerCount(submission.marketId, submission.winningOptionId)
+            }
+        })
+
+        // Process payouts
+        await processPayouts(resolution)
+
+        // Update submission and market status
+        await Promise.all([
+            db.creator_resolution_submissions.update({
+                where: { id: submissionId },
+                data: {
+                    reviewStatus: 'approved',
+                    reviewedBy: getCurrentAdminId(),
+                    reviewedAt: new Date()
+                }
+            }),
+            db.markets.update({
+                where: { id: submission.marketId },
+                data: { status: 'resolved' }
+            })
+        ])
+
+        return NextResponse.json({ success: true, resolutionId: resolution.id })
+
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}
+```
+
+## Payout Logic
+
+### Create Payout Processing Function
+New file: `lib / services / payout - service.ts`
+
+```typescript
+export async function processPayouts(resolution: MarketResolution) {
+    // Get all users who bet on the winning option
+    const winningBets = await db.user_bets.findMany({
+        where: {
+            marketId: resolution.marketId,
+            optionId: resolution.winningOptionId
+        },
+        include: { user: true }
+    })
+
+    // Calculate total winning tokens
+    const totalWinnerTokens = winningBets.reduce((sum, bet) => sum + bet.tokensCommitted, 0)
+
+    // Process each winner's payout
+    for (const bet of winningBets) {
+        const userShare = bet.tokensCommitted / totalWinnerTokens
+        const payout = Math.floor(userShare * resolution.totalPayout)
+        const profit = payout - bet.tokensCommitted
+
+        // Add tokens to user balance
+        await db.users.update({
+            where: { id: bet.userId },
+            data: {
+                tokenBalance: { increment: payout }
+            }
+        })
+
+        // Record payout
+        await db.resolution_payouts.create({
+            data: {
+                resolutionId: resolution.id,
+                userId: bet.userId,
+                marketId: resolution.marketId,
+                optionId: bet.optionId,
+                tokensStaked: bet.tokensCommitted,
+                payoutAmount: payout,
+                profit,
+                paymentType: 'credits'
+            }
+        })
+    }
+}
+```
+
+## Background Jobs
+
+### Auto-Cancel Overdue Markets
+Add to your cron job system:
+
+```typescript
+// runs every hour
+export async function handleOverdueMarkets() {
+    // Cancel markets where creator hasn't submitted (48hr deadline)
+    const overdueMarkets = await db.markets.findMany({
+        where: {
+            status: 'pending_creator_resolution',
+            resolutionDeadline: { lt: new Date() }
+        }
+    })
+
+    for (const market of overdueMarkets) {
+        await cancelMarketAndRefund(market.id, 'Creator failed to submit resolution within 48 hours')
+    }
+}
+
+async function cancelMarketAndRefund(marketId: string, reason: string) {
+    // Refund all participants
+    const allBets = await db.user_bets.findMany({
+        where: { marketId }
+    })
+
+    for (const bet of allBets) {
+        await db.users.update({
+            where: { id: bet.userId },
+            data: { tokenBalance: { increment: bet.tokensCommitted } }
+        })
+    }
+
+    // Update market status
+    await db.markets.update({
+        where: { id: marketId },
+        data: { status: 'cancelled' }
+    })
+}
+```
+
+## Testing Checklist
+
+- [ ] Creator can submit resolution with evidence
+- [ ] Admin can approve/reject submissions  
+- [ ] Payouts calculated correctly (winners split total pool proportionally)
+- [ ] Overdue markets auto-cancel after 48 hours
+- [ ] Only market creators can submit resolutions for their markets
+- [ ] Admin queue shows pending submissions with all needed info
+- [ ] File upload works for evidence images
+- [ ] Email/push notifications sent at each step
+
+## Phase 2 Enhancements (Later)
+
+After this works well, you can add:
+- Dispute system for approved resolutions
+- Creator reputation scores
+- Auto-approval for highly trusted creators
+- Integration with external APIs for some public markets
+- Multi-admin approval for high-stakes markets
+
+Start with this strict approval system to build trust, then gradually automate as the platform grows.

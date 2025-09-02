@@ -14,8 +14,8 @@ export function Navigation() {
   // Update active tab based on current pathname
   useEffect(() => {
     if (pathname === "/markets") setActiveTab("markets")
-    else if (pathname === "/wallet") setActiveTab("wallet")
     else if (pathname === "/profile") setActiveTab("profile")
+    else if (pathname === "/wallet") setActiveTab("wallet")
   }, [pathname])
 
   const navItems = [
