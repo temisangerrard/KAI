@@ -86,6 +86,77 @@ jest.mock('@/lib/services/token-balance-service', () => ({
 jest.mock('firebase/firestore', () => ({ ... }))
 ```
 
+## Admin API Authentication Patterns
+
+### Admin Interface Access
+If you're an admin user accessing the admin interface (`/admin/*`), all admin API routes work without requiring explicit authentication headers. The admin interface handles authentication at the UI level.
+
+### Two Types of Admin Routes
+
+#### 1. Protected Admin Routes (Require x-user-id Header)
+Routes that modify data or perform sensitive operations:
+- `/api/admin/tokens/issue` - Token issuance
+- `/api/admin/users/sync` (POST) - User data modification
+
+**Pattern:**
+```typescript
+import { AdminAuthService } from '@/lib/auth/admin-auth';
+
+export async function POST(request: NextRequest) {
+  const authResult = await AdminAuthService.verifyAdminAuth(request);
+  if (!authResult.isAdmin) {
+    return NextResponse.json({ 
+      error: 'Unauthorized', 
+      message: authResult.error 
+    }, { status: 401 });
+  }
+  // ... protected logic
+}
+```
+
+**When x-user-id Header is Required:**
+- Only when calling these routes directly (outside admin interface)
+- Token issuance modal sends `x-user-id: user.id || user.address`
+
+#### 2. Public Admin Stats Routes (No Authentication)
+Routes that only fetch statistics or read-only data:
+- `/api/admin/tokens/stats` - Token statistics
+- `/api/admin/dashboard/stats` - Dashboard statistics
+- `/api/admin/users/auth-list` - User list for admin interface
+
+**Pattern:**
+```typescript
+import { AdminDashboardService } from '@/lib/services/admin-dashboard-service';
+
+export async function GET(request: NextRequest) {
+  try {
+    // No authentication required - accessible to admin interface
+    const stats = await AdminDashboardService.getStats();
+    return NextResponse.json(stats);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+  }
+}
+```
+
+**Build-Time Safety:**
+Stats routes that use Firebase should include build-time checks:
+```typescript
+import { isBuildTime, createBuildSafeResponse } from '@/lib/utils/build-safe-imports';
+
+export async function GET(request: NextRequest) {
+  if (isBuildTime()) {
+    return NextResponse.json(createBuildSafeResponse());
+  }
+  // ... Firebase operations
+}
+```
+
+### Common Issues
+- **401 "No user ID provided"**: Route expects `x-user-id` header but request doesn't include it
+- **Missing service import**: Ensure `AdminDashboardService` is imported for stats routes
+- **Build failures**: Stats routes need build-time safety checks for Firebase calls
+
 ## Build Configuration
 - Images are unoptimized for static export compatibility
 - ESLint and TypeScript errors are ignored during builds for rapid development
