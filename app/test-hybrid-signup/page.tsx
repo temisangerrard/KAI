@@ -10,7 +10,25 @@
 import React, { useState, useEffect } from "react";
 import { useIsSignedIn, useIsInitialized, useEvmAddress, useCurrentUser } from "@coinbase/cdp-hooks";
 import { AuthButton } from "@coinbase/cdp-react/components/AuthButton";
-import { UserService, type UserProfile } from "@/lib/services/user-service";
+import { doc, setDoc, getDoc, query, collection, where, getDocs, limit } from "firebase/firestore";
+import { db } from "@/lib/db/database";
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  walletAddress: string;
+  createdAt: Date;
+  lastLoginAt: Date;
+  tokenBalance: number;
+  level: number;
+  totalPredictions: number;
+  correctPredictions: number;
+  streak: number;
+  creationMethod: 'email';
+  hasSmartAccount: boolean;
+  isSmartAccount: boolean;
+}
 
 // UserProfile interface is now imported from UserService
 
@@ -25,7 +43,31 @@ export default function TestHybridSignupPage() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // User creation is now handled by UserService via API
+  const createUserProfile = async (email: string, walletAddress: string, displayName?: string): Promise<UserProfile> => {
+    // Generate a new Firebase document ID
+    const newUserRef = doc(collection(db, 'users'));
+    const newUserId = newUserRef.id;
+    
+    const userProfile: UserProfile = {
+      uid: newUserId,
+      email,
+      displayName: displayName || email.split('@')[0],
+      walletAddress,
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+      tokenBalance: 2500, // Starting tokens
+      level: 1,
+      totalPredictions: 0,
+      correctPredictions: 0,
+      streak: 0,
+      creationMethod: 'email',
+      hasSmartAccount: true,
+      isSmartAccount: true
+    };
+
+    await setDoc(newUserRef, userProfile);
+    return userProfile;
+  };
 
   // Handle user profile creation when user signs in
   useEffect(() => {
@@ -42,18 +84,35 @@ export default function TestHybridSignupPage() {
     setError(null);
 
     try {
-      // Create or update user via server-side API
-      const result = await UserService.createUser(
-        evmAddress,
-        currentUser.email,
-        currentUser.displayName
+      // Check if user with this email already exists
+      const emailQuery = query(
+        collection(db, 'users'),
+        where('email', '==', currentUser.email),
+        limit(1)
       );
-      
-      if (result.success && result.user) {
-        setUserProfile(result.user);
-        setSuccess(result.message || `Account ready! Wallet: ${evmAddress}`);
+      const emailSnapshot = await getDocs(emailQuery);
+
+      if (!emailSnapshot.empty) {
+        // User exists - update login time
+        const existingUserDoc = emailSnapshot.docs[0];
+        const existingData = existingUserDoc.data() as UserProfile;
+        
+        await setDoc(doc(db, 'users', existingUserDoc.id), {
+          ...existingData,
+          lastLoginAt: new Date()
+        });
+        
+        setUserProfile({ ...existingData, lastLoginAt: new Date() });
+        setSuccess(`Welcome back! Wallet: ${evmAddress}`);
       } else {
-        throw new Error(result.error || 'Failed to create user');
+        // Create new user
+        const newProfile = await createUserProfile(
+          currentUser.email,
+          evmAddress,
+          currentUser.displayName
+        );
+        setUserProfile(newProfile);
+        setSuccess(`Account created successfully! Wallet: ${evmAddress}`);
       }
     } catch (err) {
       console.error("User profile creation failed:", err);
