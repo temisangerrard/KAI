@@ -19,31 +19,18 @@ let app: any = null;
 let db: any = null;
 let analytics: any = null;
 
-// Check if we're in build mode or if Firebase config is missing
+// Check if we're in build mode
 const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL && !process.env.RUNTIME;
-const hasFirebaseConfig = firebaseConfig.apiKey && firebaseConfig.projectId;
 
-if (!isBuildTime && hasFirebaseConfig) {
-  try {
-    // Initialize Firebase
-    app = initializeApp(firebaseConfig);
-    
-    // Initialize Firebase services
-    db = getFirestore(app);
-    
-    // Initialize Analytics (only in browser)
-    analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
-    
-    console.log('✅ Firebase initialized successfully');
-  } catch (error) {
-    console.error('❌ Firebase initialization failed:', error);
-    // Set to null to prevent further errors
-    app = null;
-    db = null;
-    analytics = null;
-  }
-} else {
-  console.log('⚠️ Firebase not initialized:', { isBuildTime, hasFirebaseConfig });
+if (!isBuildTime) {
+  // Initialize Firebase
+  app = initializeApp(firebaseConfig);
+  
+  // Initialize Firebase services
+  db = getFirestore(app);
+  
+  // Initialize Analytics (only in browser)
+  analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 }
 
 export { app, db, analytics };
