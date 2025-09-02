@@ -14,14 +14,26 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase only when not in build mode
+let app: any = null;
+let db: any = null;
+let analytics: any = null;
 
-// Initialize Firebase services
-export const db = getFirestore(app)
+// Check if we're in build mode
+const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL && !process.env.RUNTIME;
 
-// Initialize Analytics (only in browser)
-export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null
+if (!isBuildTime) {
+  // Initialize Firebase
+  app = initializeApp(firebaseConfig);
+  
+  // Initialize Firebase services
+  db = getFirestore(app);
+  
+  // Initialize Analytics (only in browser)
+  analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+}
+
+export { app, db, analytics };
 
 // Enable offline persistence for Firestore (optional)
 if (typeof window !== 'undefined') {
@@ -32,8 +44,6 @@ if (typeof window !== 'undefined') {
     })
   })
 }
-
-export { app }
 
 // Database functions
 import {
@@ -74,6 +84,12 @@ export interface Market {
 // Get all markets with improved error handling
 export async function getAllMarkets(): Promise<Market[]> {
   try {
+    // Return empty array if database is not initialized (build time)
+    if (!db) {
+      console.log('Database not initialized, returning empty markets array');
+      return [];
+    }
+    
     const marketsRef = collection(db, 'markets')
 
     // Add timeout to prevent hanging requests
@@ -138,6 +154,10 @@ export async function getAllMarkets(): Promise<Market[]> {
 // Create a new market
 export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Market> {
   try {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+    
     const marketsRef = collection(db, 'markets')
 
     // Clean the market data to remove undefined values
@@ -174,6 +194,11 @@ export async function createMarketRecord(market: Omit<Market, 'id'>): Promise<Ma
 // Get market by ID with improved error handling
 export async function getMarketById(id: string): Promise<Market | null> {
   try {
+    if (!db) {
+      console.log(`Database not initialized, cannot fetch market ${id}`);
+      return null;
+    }
+    
     const marketRef = doc(db, 'markets', id)
 
     // Add timeout to prevent hanging requests
@@ -225,6 +250,10 @@ export async function getMarketById(id: string): Promise<Market | null> {
 // Update market
 export async function updateMarket(id: string, updates: Partial<Omit<Market, 'id'>>): Promise<Market | null> {
   try {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+    
     const marketRef = doc(db, 'markets', id)
     await updateDoc(marketRef, {
       ...updates,

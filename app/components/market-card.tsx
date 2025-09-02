@@ -3,8 +3,9 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Heart, Share2 } from "lucide-react"
+import { Heart } from "lucide-react"
 import { Market } from "@/lib/types/database"
+import { ShareButton } from "./share-button"
 
 interface MarketCardProps {
   market: Market
@@ -108,9 +109,7 @@ export function MarketCard({ market, onBackOpinion }: MarketCardProps) {
           >
             Support Your Opinion
           </Button>
-          <Button variant="outline" size="icon" className="rounded-full border-kai-200">
-            <Share2 className="w-4 h-4 text-kai-500" />
-          </Button>
+          <ShareButton market={market} />
         </div>
       </CardContent>
     </Card>

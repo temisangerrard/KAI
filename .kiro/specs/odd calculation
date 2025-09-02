@@ -1,0 +1,187 @@
+# KAI Prediction Platform - Odds Calculation Fix
+
+## Problem Summary
+The current odds calculation is incorrect. We're using participant counts instead of actual token amounts, which doesn't match how prediction markets work (like Polymarket).
+
+## Current Issue
+- Using `option.participantCount` to calculate percentages
+- Shows "participants" instead of actual token distribution
+- Odds don't reflect the real money/tokens at stake
+
+## Correct Approach (Simple Sports Betting Model)
+
+### 1. Data Structure Changes
+
+Update the market option interface to track token amounts properly:
+
+```typescript
+interface MarketOption {
+  id: string
+  name: string
+  totalTokensStaked: number  // THIS is what drives everything
+  color: string
+  // Remove: participantCount (we don't need this for odds)
+}
+```
+
+### 2. Percentage Calculation (Current Predictions)
+
+**Replace this logic:**
+```typescript
+// WRONG - based on participants
+const percentage = (option.participantCount / market.totalParticipants) * 100
+```
+
+**With this logic:**
+```typescript
+// CORRECT - based on actual tokens staked
+const totalTokensInMarket = market.options.reduce((sum, opt) => sum + opt.totalTokensStaked, 0)
+const percentage = totalTokensInMarket > 0 
+  ? (option.totalTokensStaked / totalTokensInMarket) * 100 
+  : (100 / market.options.length) // Equal split if no tokens yet
+```
+
+### 3. Odds Calculation
+
+**For display purposes (like "3.4x odds"):**
+```typescript
+function calculateOdds(option: MarketOption, totalTokensInMarket: number): number {
+  if (totalTokensInMarket === 0 || option.totalTokensStaked === 0) {
+    return market.options.length // Default odds (e.g., 2.0x for binary market)
+  }
+  
+  const probability = option.totalTokensStaked / totalTokensInMarket
+  return Math.round((1 / probability) * 100) / 100 // Round to 2 decimal places
+}
+```
+
+### 4. Potential Winnings Calculation
+
+When user wants to bet X tokens on an option:
+
+```typescript
+function calculatePotentialWinnings(
+  userStake: number, 
+  option: MarketOption, 
+  totalTokensInMarket: number
+): {
+  potentialPayout: number
+  profit: number
+  odds: number
+} {
+  // After user's bet, what will the total pools be?
+  const newTotalTokens = totalTokensInMarket + userStake
+  const newOptionTokens = option.totalTokensStaked + userStake
+  
+  // If this option wins, user gets their share of the ENTIRE pool
+  const userShare = userStake / newOptionTokens
+  const potentialPayout = userShare * newTotalTokens
+  const profit = potentialPayout - userStake
+  const odds = potentialPayout / userStake
+  
+  return {
+    potentialPayout: Math.floor(potentialPayout),
+    profit: Math.floor(profit),
+    odds: Math.round(odds * 100) / 100
+  }
+}
+```
+
+### 5. Display Updates Needed
+
+**Market Detail View:**
+- Change "X participants" to "X tokens committed" 
+- Show percentage based on token distribution, not participant count
+- Display odds like "2.3x" next to each option
+
+**Example Display:**
+```
+Drake is done: 30% chance (500 tokens committed) - 3.4x odds
+Drake will recover: 70% chance (1,200 tokens committed) - 1.4x odds
+```
+
+**Commitment Modal:**
+- Show: "If you bet 100 tokens and this wins, you'll get ~142 tokens back"
+- Show: "Your profit would be ~42 tokens (1.4x odds)"
+
+### 6. Database Schema Updates
+
+Make sure you're storing the right data:
+
+```sql
+-- Market options should track actual token amounts
+ALTER TABLE market_options 
+ADD COLUMN total_tokens_staked INTEGER DEFAULT 0;
+
+-- User bets should store the amount
+ALTER TABLE user_bets 
+ADD COLUMN tokens_committed INTEGER NOT NULL;
+
+-- Update existing data if needed
+UPDATE market_options 
+SET total_tokens_staked = (
+  SELECT COALESCE(SUM(tokens_committed), 0) 
+  FROM user_bets 
+  WHERE option_id = market_options.id
+);
+```
+
+### 7. Key Files to Update
+
+1. **`lib/utils/market-utils.ts`** - Fix odds calculation functions
+2. **`app/markets/[id]/market-detail-view.tsx`** - Update display logic
+3. **`app/components/prediction-commitment.tsx`** - Fix winnings calculation
+4. **`app/markets/[id]/market-statistics.tsx`** - Use token amounts, not participant counts
+
+### 8. Example Implementation
+
+**In market-detail-view.tsx:**
+
+```typescript
+// Calculate current odds for each option
+const totalTokensInMarket = market.options.reduce((sum, opt) => sum + opt.totalTokensStaked, 0)
+
+market.options.map(option => {
+  const percentage = totalTokensInMarket > 0 
+    ? Math.round((option.totalTokensStaked / totalTokensInMarket) * 100)
+    : 50 // Default 50% for binary market with no bets
+
+  const odds = totalTokensInMarket > 0 && option.totalTokensStaked > 0
+    ? Math.round((totalTokensInMarket / option.totalTokensStaked) * 100) / 100
+    : 2.0 // Default 2x odds
+
+  return (
+    <div>
+      <h4>{option.name}</h4>
+      <div>{percentage}% chance ({option.totalTokensStaked.toLocaleString()} tokens)</div>
+      <div>{odds}x odds</div>
+      <Button>Back This</Button>
+    </div>
+  )
+})
+```
+
+## Testing Checklist
+
+- [ ] Market with no bets shows equal percentages (50%/50% for binary)
+- [ ] Market percentages add up to 100%
+- [ ] Higher token amounts = higher percentage = lower odds
+- [ ] Potential winnings calculation makes sense
+- [ ] Display shows "X tokens committed" not "X participants"
+- [ ] Odds display as "2.3x" format
+
+## Real Example Test
+
+Create a test market:
+- Option A: 300 tokens → 30% → 3.33x odds
+- Option B: 700 tokens → 70% → 1.43x odds
+- Total: 1,000 tokens
+
+If someone bets 100 tokens on Option A and it wins:
+- Total pool becomes 1,100 tokens
+- Option A pool becomes 400 tokens  
+- User gets (100/400) × 1,100 = 275 tokens
+- User profit = 275 - 100 = 175 tokens
+- User odds = 2.75x
+
+This should match the displayed odds reasonably well!

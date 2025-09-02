@@ -21,12 +21,14 @@ import {
   Wifi,
   WifiOff,
   CheckCircle,
-  XCircle
+  XCircle,
+  Share2
 } from 'lucide-react'
 import { useAuth } from '@/app/auth/auth-context'
 import { TokenBalanceService } from '@/lib/services/token-balance-service'
 import { calculatePayout, previewOddsImpact, formatOdds, formatTokenAmount } from '@/lib/utils/market-utils'
 import { Market } from '@/lib/types'
+import { ShareButton } from './share-button'
 
 interface PredictionCommitmentProps {
   predictionId: string
@@ -668,10 +670,36 @@ export function PredictionCommitment({
         {/* Success Display */}
         {commitmentSuccess && (
           <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              Commitment successful! Your tokens have been committed to this prediction.
-            </AlertDescription>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <AlertDescription className="text-green-800 mb-2">
+                    Commitment successful! Your tokens have been committed to this prediction.
+                  </AlertDescription>
+                  <div className="flex items-center gap-2">
+                    <ShareButton
+                      commitment={{
+                        prediction: {
+                          id: `${user?.uid}-${predictionId}-${Date.now()}`,
+                          userId: user?.uid || '',
+                          marketId: predictionId,
+                          optionId: optionId,
+                          tokensStaked: tokensToCommit,
+                          createdAt: new Date() as any
+                        },
+                        market: market,
+                        optionText: position
+                      }}
+                      variant="button"
+                      size="sm"
+                      className="bg-kai-600 hover:bg-kai-700 text-white text-xs px-3 py-1 h-7"
+                    />
+                    <span className="text-xs text-green-700">Share your prediction!</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Alert>
         )}
 
