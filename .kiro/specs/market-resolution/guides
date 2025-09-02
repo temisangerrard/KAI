@@ -208,17 +208,17 @@ export default function CreatorResolutionPage() {
       formData.append('evidenceFile', evidenceFile)
 
       const response = await fetch(`/api/markets/${id}/submit-resolution`, {
-        method: 'POST',
-        body: formData
+method: 'POST',
+    body: formData
       })
 
-      if (response.ok) {
-        alert('Resolution submitted for admin review!')
-        router.push(`/markets/${id}`)
-      } else {
-        const error = await response.json()
-        alert(`Error: ${error.message}`)
-      }
+if (response.ok) {
+    alert('Resolution submitted for admin review!')
+    router.push(`/markets/${id}`)
+} else {
+    const error = await response.json()
+    alert(`Error: ${error.message}`)
+}
     } catch (error) {
     alert('Failed to submit resolution')
 } finally {

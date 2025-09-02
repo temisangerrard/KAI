@@ -8,55 +8,24 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { useIsSignedIn, useIsInitialized, useEvmAddress } from "@coinbase/cdp-hooks";
+import { useIsSignedIn, useIsInitialized, useEvmAddress, useCurrentUser } from "@coinbase/cdp-hooks";
 import { AuthButton } from "@coinbase/cdp-react/components/AuthButton";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/db/database";
+import { UserService, type UserProfile } from "@/lib/services/user-service";
 
-interface UserProfile {
-  address: string;
-  email: string;
-  displayName?: string;
-  createdAt: Date;
-  lastLoginAt: Date;
-  tokens: {
-    available: number;
-    committed: number;
-    totalEarned: number;
-    totalSpent: number;
-  };
-}
+// UserProfile interface is now imported from UserService
 
 export default function TestHybridSignupPage() {
   const { isSignedIn } = useIsSignedIn();
   const { isInitialized } = useIsInitialized();
   const { evmAddress } = useEvmAddress();
+  const { currentUser } = useCurrentUser();
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const createUserProfile = async (walletAddress: string): Promise<UserProfile> => {
-    const userProfile: UserProfile = {
-      address: walletAddress,
-      email: `user-${walletAddress.slice(0, 8)}@example.com`, // Placeholder email
-      createdAt: new Date(),
-      lastLoginAt: new Date(),
-      tokens: {
-        available: 100, // Starting tokens for new users
-        committed: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-      },
-    };
-
-    // Store user profile with wallet address as document ID
-    const userRef = doc(db, 'users', walletAddress);
-    await setDoc(userRef, userProfile);
-    
-    return userProfile;
-  };
+  // User creation is now handled by UserService via API
 
   // Handle user profile creation when user signs in
   useEffect(() => {
@@ -67,30 +36,28 @@ export default function TestHybridSignupPage() {
 
   // Handle user profile creation after successful CDP authentication
   const handleCreateUserProfile = async () => {
-    if (!evmAddress) return;
+    if (!evmAddress || !currentUser?.email) return;
 
     setIsCreatingUser(true);
     setError(null);
 
     try {
-      // Check if user already exists
-      const userRef = doc(db, 'users', evmAddress);
-      const userDoc = await getDoc(userRef);
+      // Create or update user via server-side API
+      const result = await UserService.createUser(
+        evmAddress,
+        currentUser.email,
+        currentUser.displayName
+      );
       
-      if (!userDoc.exists()) {
-        // Create new user profile
-        const newProfile = await createUserProfile(evmAddress);
-        setUserProfile(newProfile);
-        setSuccess(`Account created successfully! Wallet: ${evmAddress}`);
+      if (result.success && result.user) {
+        setUserProfile(result.user);
+        setSuccess(result.message || `Account ready! Wallet: ${evmAddress}`);
       } else {
-        // User already exists
-        const existingProfile = { id: userDoc.id, ...userDoc.data() } as UserProfile;
-        setUserProfile(existingProfile);
-        setSuccess(`Welcome back! Wallet: ${evmAddress}`);
+        throw new Error(result.error || 'Failed to create user');
       }
     } catch (err) {
       console.error("User profile creation failed:", err);
-      setError("Failed to create user profile. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to create user profile. Please try again.");
     } finally {
       setIsCreatingUser(false);
     }
@@ -139,7 +106,7 @@ export default function TestHybridSignupPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-sage-50 rounded-md">
                   <span className="font-medium text-sage-700">Email:</span>
-                  <span className="text-sage-800 font-mono">{userProfile?.email || 'Loading...'}</span>
+                  <span className="text-sage-800 font-mono">{userProfile?.email || currentUser?.email || 'Loading...'}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 bg-sage-50 rounded-md">

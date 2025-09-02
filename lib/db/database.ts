@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app"
 import { getFirestore } from "firebase/firestore"
 import { getAnalytics } from "firebase/analytics"
+import { getAuth } from "firebase/auth"
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // Initialize Firebase only when not in build mode
 let app: any = null;
 let db: any = null;
+let auth: any = null;
 let analytics: any = null;
 
 // Check if we're in build mode
@@ -28,12 +30,13 @@ if (!isBuildTime) {
   
   // Initialize Firebase services
   db = getFirestore(app);
+  auth = getAuth(app);
   
   // Initialize Analytics (only in browser)
   analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 }
 
-export { app, db, analytics };
+export { app, db, auth, analytics };
 
 // Enable offline persistence for Firestore (optional)
 if (typeof window !== 'undefined') {
