@@ -81,7 +81,6 @@ class AuthService {
       }
 
       requireFirebase('getUserByAddress')
-
       // Get Firebase UID from wallet address mapping
       const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
       const firebaseUid = await WalletUidMappingService.getFirebaseUid(address)
@@ -153,7 +152,6 @@ class AuthService {
       }
 
       requireFirebase('createUserFromCDP')
-
       // Get or create wallet-to-UID mapping
       const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
       const { firebaseUid, isNewMapping } = await WalletUidMappingService.getOrCreateMapping(address, email)
@@ -277,7 +275,6 @@ class AuthService {
   async updateProfileByAddress(address: string, updates: Partial<AuthUser>): Promise<AuthUser> {
     try {
       requireFirebase('updateProfileByAddress')
-
       // Convert AuthUser updates to UserProfile updates
       const profileUpdates: any = {
         lastLoginAt: serverTimestamp()

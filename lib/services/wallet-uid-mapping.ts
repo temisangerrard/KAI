@@ -29,7 +29,6 @@ export class WalletUidMappingService {
     email: string
   ): Promise<WalletUidMapping> {
     requireFirebase('createMapping')
-
     const mapping: WalletUidMapping = {
       walletAddress,
       firebaseUid,
@@ -90,7 +89,6 @@ export class WalletUidMappingService {
   static async findFirebaseUidByEmail(email: string): Promise<string | null> {
     try {
       requireFirebase('findFirebaseUidByEmail')
-
       // First check if we already have a mapping for this email
       const mappingsRef = safeCollection(this.COLLECTION)
       if (!mappingsRef) return null
