@@ -21,20 +21,56 @@ let db: any = null;
 let auth: any = null;
 let analytics: any = null;
 
-// Check if we're in build mode
-const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL && !process.env.RUNTIME;
+// Check if we're in build mode (more specific check)
+const isBuildTime = typeof window === 'undefined' && 
+                   process.env.NODE_ENV === 'production' && 
+                   !process.env.VERCEL_URL && 
+                   !process.env.RUNTIME &&
+                   !process.env.NEXT_PHASE;
+
+console.log('Firebase initialization check:', {
+  isBuildTime,
+  NODE_ENV: process.env.NODE_ENV,
+  VERCEL_URL: !!process.env.VERCEL_URL,
+  RUNTIME: !!process.env.RUNTIME,
+  hasWindow: typeof window !== 'undefined',
+  hasFirebaseConfig: !!firebaseConfig.projectId
+});
 
 if (!isBuildTime) {
-  // Initialize Firebase
-  app = initializeApp(firebaseConfig);
-  
-  // Initialize Firebase services
-  db = getFirestore(app);
-  auth = getAuth(app);
-  
-  // Initialize Analytics (only in browser)
-  analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+  try {
+    console.log('🔥 Initializing Firebase client...');
+    
+    // Initialize Firebase
+    app = initializeApp(firebaseConfig);
+    
+    // Initialize Firebase services
+    db = getFirestore(app);
+    auth = getAuth(app);
+    
+    // Initialize Analytics (only in browser)
+    analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+    
+    console.log('✅ Firebase client initialized successfully');
+  } catch (error) {
+    console.error('❌ Firebase client initialization failed:', error);
+  }
+} else {
+  console.log('⏭️ Skipping Firebase initialization (build time)');
 }
+
+// Add initialization check functions
+export const isFirebaseInitialized = () => {
+  const initialized = !!(app && db);
+  if (!initialized) {
+    console.warn('Firebase not initialized:', {
+      hasApp: !!app,
+      hasDb: !!db,
+      hasAuth: !!auth
+    });
+  }
+  return initialized;
+};
 
 export { app, db, auth, analytics };
 

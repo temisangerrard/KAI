@@ -11,7 +11,7 @@ import React, { useState, useEffect } from "react";
 import { useIsSignedIn, useIsInitialized, useEvmAddress, useCurrentUser } from "@coinbase/cdp-hooks";
 import { AuthButton } from "@coinbase/cdp-react/components/AuthButton";
 import { doc, setDoc, getDoc, query, collection, where, getDocs, limit } from "firebase/firestore";
-import { db } from "@/lib/db/database";
+import { db, isFirebaseInitialized } from "@/lib/db/database";
 
 interface UserProfile {
   uid: string;
@@ -79,6 +79,12 @@ export default function TestHybridSignupPage() {
   // Handle user profile creation after successful CDP authentication
   const handleCreateUserProfile = async () => {
     if (!evmAddress || !currentUser?.email) return;
+
+    // Check if Firebase is initialized
+    if (!isFirebaseInitialized()) {
+      setError("Firebase database not initialized. Please refresh the page.");
+      return;
+    }
 
     setIsCreatingUser(true);
     setError(null);
