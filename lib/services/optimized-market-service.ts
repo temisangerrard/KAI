@@ -32,6 +32,7 @@ import {
   TransactionType,
   COLLECTIONS
 } from '@/lib/types/market-database'
+import { calculateOdds, MarketOdds } from '@/lib/utils/market-utils'
 
 export interface CommitmentRequest {
   userId: string
@@ -46,15 +47,6 @@ export interface CommitmentResult {
   updatedBalance?: UserBalance
   updatedMarket?: Market
   error?: string
-}
-
-export interface MarketOdds {
-  [optionId: string]: {
-    odds: number
-    percentage: number
-    totalTokens: number
-    participantCount: number
-  }
 }
 
 /**
@@ -114,7 +106,7 @@ export class OptimizedMarketService {
     }
     
     const market = { id: marketDoc.id, ...marketDoc.data() } as Market
-    const odds = this.calculateOdds(market)
+    const odds = calculateOdds(market)
     
     return {
       ...market,
@@ -200,7 +192,7 @@ export class OptimizedMarketService {
         }
         
         // Calculate current odds before commitment
-        const currentOdds = this.calculateOdds(market)
+        const currentOdds = calculateOdds(market)
         const oddsAtCommitment = currentOdds[optionId]?.odds || 1.0
         const potentialPayout = tokensToCommit * oddsAtCommitment
         
@@ -325,46 +317,6 @@ export class OptimizedMarketService {
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       }
     }
-  }
-  
-  /**
-   * Calculate real-time odds for all market options
-   */
-  static calculateOdds(market: Market): MarketOdds {
-    const odds: MarketOdds = {}
-    const totalTokens = market.stats.totalTokensCommitted
-    
-    if (totalTokens === 0) {
-      // Equal odds when no commitments
-      const equalOdds = market.options.length
-      market.options.forEach(option => {
-        odds[option.id] = {
-          odds: equalOdds,
-          percentage: 100 / market.options.length,
-          totalTokens: 0,
-          participantCount: 0
-        }
-      })
-      return odds
-    }
-    
-    market.options.forEach(option => {
-      const optionTokens = market.stats.tokenDistribution[option.id] || 0
-      const percentage = (optionTokens / totalTokens) * 100
-      
-      // Calculate odds using implied probability
-      // Odds = Total Pool / Option Tokens
-      const impliedOdds = optionTokens > 0 ? totalTokens / optionTokens : market.options.length
-      
-      odds[option.id] = {
-        odds: Math.round(impliedOdds * 100) / 100, // Round to 2 decimal places
-        percentage: Math.round(percentage * 100) / 100,
-        totalTokens: optionTokens,
-        participantCount: market.stats.participantDistribution[option.id] || 0
-      }
-    })
-    
-    return odds
   }
   
   /**

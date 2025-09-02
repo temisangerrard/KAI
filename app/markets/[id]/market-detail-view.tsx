@@ -255,25 +255,8 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
       console.log('Available odds:', currentOdds)
       console.log('Option IDs in market:', market.options.map(opt => opt.id))
       
-      // Try to find odds for this option, with fallback
-      let optionOdds = 2.0 // Default fallback
-      if (currentOdds && typeof currentOdds === 'object') {
-        if (currentOdds[optionId]) {
-          optionOdds = currentOdds[optionId]
-        } else {
-          // If exact match not found, try to find by index
-          const selectedOption = market.options.find(opt => opt.id === optionId)
-          if (selectedOption) {
-            const optionIndex = market.options.indexOf(selectedOption)
-            const oddsKeys = Object.keys(currentOdds)
-            if (oddsKeys[optionIndex]) {
-              optionOdds = currentOdds[oddsKeys[optionIndex]]
-              console.log(`Using odds from index ${optionIndex}: ${optionOdds}`)
-            }
-          }
-        }
-      }
-      
+      const optionOdds = currentOdds[optionId]?.odds ?? 2.0
+
       const potentialWinnings = Math.floor(tokensToCommit * optionOdds)
       
       console.log('Using odds:', optionOdds, 'for potential winnings:', potentialWinnings)
@@ -586,35 +569,20 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
                   // Debug: log what we're looking for vs what's available
                   console.log('Looking for option ID:', option.id)
                   console.log('Available odds keys:', Object.keys(currentOdds))
-                  
-                  // Try to find odds for this option, with fallback
-                  let optionOdds = 2.0 // Default fallback
-                  if (currentOdds && typeof currentOdds === 'object') {
-                    if (currentOdds[option.id]) {
-                      optionOdds = currentOdds[option.id]
-                    } else {
-                      // If exact match not found, try to find by index or other means
-                      const oddsKeys = Object.keys(currentOdds)
-                      const optionIndex = market.options.indexOf(option)
-                      if (oddsKeys[optionIndex]) {
-                        optionOdds = currentOdds[oddsKeys[optionIndex]]
-                        console.log(`Using odds from index ${optionIndex}: ${optionOdds}`)
-                      }
-                    }
+
+                  const oddsData = currentOdds[option.id] || {
+                    odds: 2.0,
+                    percentage: 0,
+                    totalTokens: option.tokens || 0,
+                    participantCount: option.participantCount || 0
                   }
 
-                  // Use actual token data from the option
-                  const actualTokens = option.tokens || 0
-                  const actualPercentage = option.percentage || 0
+                  const optionOdds = oddsData.odds
+                  const actualTokens = oddsData.totalTokens
+                  const winChance = Math.round(oddsData.percentage)
 
-                  // Check if we have valid option data
-                  const hasValidOptionData = actualTokens > 0 || actualPercentage > 0
-                  const marketHasData = market.totalTokens > 0 && market.participants > 0
-                  
-                  // Calculate win chance based on token distribution (not odds)
-                  const winChance = market.totalTokens > 0 
-                    ? Math.round((actualTokens / market.totalTokens) * 100) 
-                    : 0
+                  const hasValidOptionData = actualTokens > 0 || winChance > 0
+                  const marketHasData = Object.values(currentOdds).some(o => o.totalTokens > 0)
 
                   return (
                     <Card key={option.id} className="border-2 hover:border-kai-200 transition-colors">

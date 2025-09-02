@@ -5,8 +5,33 @@ import { Market, MarketOption } from '@/lib/types'
  * Designed to work with the Market interface supporting multiple prediction options
  */
 
+export interface MarketOddsOption {
+  odds: number
+  percentage: number
+  totalTokens: number
+  participantCount: number
+}
+
 export interface MarketOdds {
-  [optionId: string]: number
+  [optionId: string]: MarketOddsOption
+}
+
+interface MarketForOddsOption {
+  id: string
+  totalTokens?: number
+  tokens?: number
+  participantCount?: number
+}
+
+interface MarketForOdds {
+  options: MarketForOddsOption[]
+  totalTokensStaked?: number
+  totalTokens?: number
+  stats?: {
+    totalTokensCommitted?: number
+    tokenDistribution?: { [optionId: string]: number }
+    participantDistribution?: { [optionId: string]: number }
+  }
 }
 
 export interface MarketStats {
@@ -28,31 +53,56 @@ export interface PayoutCalculation {
  * Calculate odds for all options in a market based on token commitments
  * Returns odds in decimal format (e.g., 2.5 means 2.5:1 odds)
  */
-export function calculateOdds(market: Market): MarketOdds {
+export function calculateOdds(market: MarketForOdds): MarketOdds {
   const odds: MarketOdds = {}
-  
-  // Handle edge case: no tokens committed yet
-  const totalTokens = market.totalTokensStaked || market.totalTokens || 0
+
+  const totalTokens =
+    market.stats?.totalTokensCommitted ??
+    market.totalTokensStaked ??
+    market.totalTokens ??
+    0
+
   if (totalTokens === 0 || market.options.length === 0) {
-    // Return equal odds for all options
-    const defaultOdds = market.options.length > 0 ? market.options.length : 2
+    const equalOdds = market.options.length > 0 ? market.options.length : 2
+    const percentage = market.options.length > 0 ? 100 / market.options.length : 0
     market.options.forEach(option => {
-      odds[option.id] = defaultOdds
+      const optionTokens = option.totalTokens || option.tokens || 0
+      const participants = option.participantCount || 0
+      odds[option.id] = {
+        odds: equalOdds,
+        percentage,
+        totalTokens: optionTokens,
+        participantCount: participants
+      }
     })
     return odds
   }
 
-  // Calculate odds based on token distribution
   market.options.forEach(option => {
-    const optionTokens = option.totalTokens || option.tokens || 0
+    const optionTokens =
+      market.stats?.tokenDistribution?.[option.id] ??
+      option.totalTokens ??
+      option.tokens ??
+      0
+    const participants =
+      market.stats?.participantDistribution?.[option.id] ??
+      option.participantCount ??
+      0
+
+    const percentage = (optionTokens / totalTokens) * 100
+    let finalOdds: number
     if (optionTokens === 0) {
-      // No tokens on this option - very high odds
-      odds[option.id] = Math.min(999, totalTokens / 1)
+      finalOdds = Math.min(999, totalTokens / 1)
     } else {
-      // Standard odds calculation: total pool / option tokens
       const calculatedOdds = totalTokens / optionTokens
-      // Ensure minimum odds of 1.01 (slight profit) and maximum of 999
-      odds[option.id] = Math.max(1.01, Math.min(calculatedOdds, 999))
+      finalOdds = Math.max(1.01, Math.min(calculatedOdds, 999))
+    }
+
+    odds[option.id] = {
+      odds: Math.round(finalOdds * 100) / 100,
+      percentage: Math.round(percentage * 100) / 100,
+      totalTokens: optionTokens,
+      participantCount: participants
     }
   })
 
@@ -72,7 +122,7 @@ export function calculatePayout(
   }
 
   const odds = calculateOdds(market)
-  const optionOdds = odds[optionId] || 2.0
+  const optionOdds = odds[optionId]?.odds || 2.0
 
   // Calculate gross payout (what user gets if they win)
   const grossPayout = Math.floor(tokensToCommit * optionOdds)
@@ -203,9 +253,11 @@ export function previewOddsImpact(
   const projectedOdds = calculateOdds(simulatedMarket)
 
   // Calculate impact level based on odds change
-  const oddsChange = Math.abs(currentOdds[optionId] - projectedOdds[optionId])
-  const percentageChange = currentOdds[optionId] > 0 
-    ? (oddsChange / currentOdds[optionId]) * 100 
+  const current = currentOdds[optionId]?.odds || 0
+  const projected = projectedOdds[optionId]?.odds || 0
+  const oddsChange = Math.abs(current - projected)
+  const percentageChange = current > 0
+    ? (oddsChange / current) * 100
     : 0
 
   let impactLevel: 'minimal' | 'moderate' | 'significant'
