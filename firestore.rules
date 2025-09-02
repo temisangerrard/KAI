@@ -33,15 +33,10 @@ service cloud.firestore {
              data.committedAt is timestamp;
     }
     
-    // Users collection
+    // Users collection - temporarily more permissive for debugging
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow update, delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      // Allow user creation without authentication (for CDP signup)
-      // Only allow if document contains required fields for new user
-      allow create: if request.resource.data.keys().hasAll(['email', 'walletAddress', 'createdAt']) &&
-                   request.resource.data.email is string &&
-                   request.resource.data.walletAddress is string;
+      // Allow all operations without authentication for now (TEMPORARY)
+      allow read, write: if true;
     }
     
     // User balances collection
@@ -87,9 +82,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
-    // Markets collection
+    // Markets collection - temporarily more permissive for debugging
     match /markets/{marketId} {
-      allow read: if isAuthenticated();
+      allow read: if true; // Allow reading without authentication
       allow write: if isAdmin();
     }
     
