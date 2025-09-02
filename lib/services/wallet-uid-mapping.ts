@@ -7,6 +7,7 @@
 
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/db/database"
+import { safeCollection, safeDoc, requireFirebase } from "@/lib/utils/firebase-safe"
 
 export interface WalletUidMapping {
   walletAddress: string    // CDP wallet address
@@ -27,10 +28,7 @@ export class WalletUidMappingService {
     firebaseUid: string,
     email: string
   ): Promise<WalletUidMapping> {
-    // Check if Firebase is initialized
-    if (!db) {
-      throw new Error('Firebase database not initialized')
-    }
+    requireFirebase('createMapping')
 
     const mapping: WalletUidMapping = {
       walletAddress,
@@ -41,7 +39,10 @@ export class WalletUidMappingService {
     }
 
     // Store mapping with wallet address as document ID for fast lookup
-    await setDoc(doc(db, this.COLLECTION, walletAddress), mapping)
+    const docRef = safeDoc(this.COLLECTION, walletAddress)
+    if (!docRef) throw new Error('Failed to create document reference')
+    
+    await setDoc(docRef, mapping)
     
     console.log('✅ Created wallet-to-UID mapping:', { walletAddress, firebaseUid, email })
     return mapping
@@ -52,22 +53,24 @@ export class WalletUidMappingService {
    */
   static async getFirebaseUid(walletAddress: string): Promise<string | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
+      requireFirebase('getFirebaseUid')
 
-      const mappingDoc = await getDoc(doc(db, this.COLLECTION, walletAddress))
+      const docRef = safeDoc(this.COLLECTION, walletAddress)
+      if (!docRef) return null
+      
+      const mappingDoc = await getDoc(docRef)
       
       if (mappingDoc.exists()) {
         const mapping = mappingDoc.data() as WalletUidMapping
         
         // Update last used timestamp
-        await setDoc(doc(db, this.COLLECTION, walletAddress), {
-          ...mapping,
-          lastUsed: new Date()
-        })
+        const updateDocRef = safeDoc(this.COLLECTION, walletAddress)
+        if (updateDocRef) {
+          await setDoc(updateDocRef, {
+            ...mapping,
+            lastUsed: new Date()
+          })
+        }
         
         console.log('✅ Found Firebase UID for wallet:', { walletAddress, firebaseUid: mapping.firebaseUid })
         return mapping.firebaseUid
@@ -86,14 +89,12 @@ export class WalletUidMappingService {
    */
   static async findFirebaseUidByEmail(email: string): Promise<string | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
+      requireFirebase('findFirebaseUidByEmail')
 
       // First check if we already have a mapping for this email
-      const mappingsRef = collection(db, this.COLLECTION)
+      const mappingsRef = safeCollection(this.COLLECTION)
+      if (!mappingsRef) return null
+      
       const emailQuery = query(mappingsRef, where('email', '==', email))
       const emailSnapshot = await getDocs(emailQuery)
       
@@ -104,7 +105,9 @@ export class WalletUidMappingService {
       }
 
       // If no mapping exists, look in the users collection for existing Firebase user
-      const usersRef = collection(db, 'users')
+      const usersRef = safeCollection('users')
+      if (!usersRef) return null
+      
       const userQuery = query(usersRef, where('email', '==', email))
       const userSnapshot = await getDocs(userQuery)
       
@@ -158,13 +161,12 @@ export class WalletUidMappingService {
    */
   static async getMapping(walletAddress: string): Promise<WalletUidMapping | null> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
+      requireFirebase('getMapping')
 
-      const mappingDoc = await getDoc(doc(db, this.COLLECTION, walletAddress))
+      const docRef = safeDoc(this.COLLECTION, walletAddress)
+      if (!docRef) return null
+      
+      const mappingDoc = await getDoc(docRef)
       return mappingDoc.exists() ? mappingDoc.data() as WalletUidMapping : null
     } catch (error) {
       console.error('Error getting mapping:', error)

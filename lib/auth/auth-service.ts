@@ -5,6 +5,7 @@
 
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/db/database"
+import { safeDoc, requireFirebase } from "@/lib/utils/firebase-safe"
 
 export interface AuthUser {
   id: string // Firebase UID (for compatibility with existing services)
@@ -79,11 +80,7 @@ class AuthService {
         return null
       }
 
-      // Check if Firebase is initialized
-      if (!db) {
-        console.error('Firebase database not initialized')
-        return null
-      }
+      requireFirebase('getUserByAddress')
 
       // Get Firebase UID from wallet address mapping
       const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
@@ -95,7 +92,9 @@ class AuthService {
       }
 
       // Get user profile from Firestore using Firebase UID (existing structure)
-      const userRef = doc(db, 'users', firebaseUid)
+      const userRef = safeDoc('users', firebaseUid)
+      if (!userRef) return null
+      
       const userSnap = await getDoc(userRef)
       
       if (!userSnap.exists()) {
@@ -153,10 +152,7 @@ class AuthService {
         throw new Error('Invalid email provided to createUserFromCDP')
       }
 
-      // Check if Firebase is initialized
-      if (!db) {
-        throw new Error('Firebase database not initialized')
-      }
+      requireFirebase('createUserFromCDP')
 
       // Get or create wallet-to-UID mapping
       const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
@@ -172,7 +168,8 @@ class AuthService {
       }
 
       // Create user profile in Firestore using Firebase UID as document ID (existing structure)
-      const userRef = doc(db, 'users', firebaseUid)
+      const userRef = safeDoc('users', firebaseUid)
+      if (!userRef) throw new Error('Failed to create user document reference')
       const profileData: UserProfile = {
         address: address, // Store wallet address in profile
         email: email,
@@ -279,10 +276,7 @@ class AuthService {
    */
   async updateProfileByAddress(address: string, updates: Partial<AuthUser>): Promise<AuthUser> {
     try {
-      // Check if Firebase is initialized
-      if (!db) {
-        throw new Error('Firebase database not initialized')
-      }
+      requireFirebase('updateProfileByAddress')
 
       // Convert AuthUser updates to UserProfile updates
       const profileUpdates: any = {
@@ -315,7 +309,9 @@ class AuthService {
       }
 
       // Update user profile in Firestore
-      const userRef = doc(db, 'users', address)
+      const userRef = safeDoc('users', address)
+      if (!userRef) throw new Error('Failed to create user document reference')
+      
       await updateDoc(userRef, profileUpdates)
 
       // Get updated profile
