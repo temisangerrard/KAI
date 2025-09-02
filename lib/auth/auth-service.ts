@@ -79,6 +79,12 @@ class AuthService {
         return null
       }
 
+      // Check if Firebase is initialized
+      if (!db) {
+        console.error('Firebase database not initialized')
+        return null
+      }
+
       // Get Firebase UID from wallet address mapping
       const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
       const firebaseUid = await WalletUidMappingService.getFirebaseUid(address)
@@ -145,6 +151,11 @@ class AuthService {
       }
       if (!email || typeof email !== 'string') {
         throw new Error('Invalid email provided to createUserFromCDP')
+      }
+
+      // Check if Firebase is initialized
+      if (!db) {
+        throw new Error('Firebase database not initialized')
       }
 
       // Get or create wallet-to-UID mapping
@@ -268,6 +279,11 @@ class AuthService {
    */
   async updateProfileByAddress(address: string, updates: Partial<AuthUser>): Promise<AuthUser> {
     try {
+      // Check if Firebase is initialized
+      if (!db) {
+        throw new Error('Firebase database not initialized')
+      }
+
       // Convert AuthUser updates to UserProfile updates
       const profileUpdates: any = {
         lastLoginAt: serverTimestamp()
