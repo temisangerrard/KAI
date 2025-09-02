@@ -12,7 +12,6 @@ interface MarketStatisticsProps {
 
 export function MarketStatistics({ market }: MarketStatisticsProps) {
   // Use the same data source as the working market detail view
-  const totalTokens = market.totalTokens || 0
   const participantCount = market.participants || 0
 
   // Convert current Market interface to the one expected by market-utils (same as main component)
@@ -60,30 +59,16 @@ export function MarketStatistics({ market }: MarketStatisticsProps) {
           <h4 className="font-medium text-gray-800 mb-3">Token Distribution</h4>
           <div className="space-y-2">
             {market.options.map((option, index) => {
-              const optionTokens = option.tokens || 0
-
-              // Calculate percentage based on actual token distribution
-              const percentage = totalTokens > 0 ? Math.round((optionTokens / totalTokens) * 100) : 0
-
-              // Get odds from the same calculation as main component
-              let optionOdds = 2.0 // Default fallback
-              if (currentOdds && typeof currentOdds === 'object') {
-                if (currentOdds[option.id] && typeof currentOdds[option.id] === 'number') {
-                  optionOdds = currentOdds[option.id]
-                } else {
-                  // If exact match not found, try to find by index
-                  const oddsKeys = Object.keys(currentOdds)
-                  const optionIndex = market.options.indexOf(option)
-                  if (oddsKeys[optionIndex] && typeof currentOdds[oddsKeys[optionIndex]] === 'number') {
-                    optionOdds = currentOdds[oddsKeys[optionIndex]]
-                  }
-                }
+              const oddsData = currentOdds[option.id] || {
+                odds: 2.0,
+                percentage: 0,
+                totalTokens: 0,
+                participantCount: 0
               }
 
-              // Ensure optionOdds is always a valid number
-              if (typeof optionOdds !== 'number' || isNaN(optionOdds)) {
-                optionOdds = 2.0
-              }
+              const optionTokens = oddsData.totalTokens
+              const percentage = Math.round(oddsData.percentage)
+              const optionOdds = oddsData.odds
 
               const colors = ['text-green-600', 'text-red-600', 'text-blue-600', 'text-yellow-600']
               const colorClass = colors[index % colors.length]
@@ -96,7 +81,7 @@ export function MarketStatistics({ market }: MarketStatisticsProps) {
                       {optionTokens} tokens ({percentage}%)
                     </div>
                     <div className="text-xs text-gray-500">
-                      {(typeof optionOdds === 'number' && !isNaN(optionOdds) ? optionOdds : 2.0).toFixed(1)}x odds
+                      {optionOdds.toFixed(1)}x odds
                     </div>
                   </div>
                 </div>

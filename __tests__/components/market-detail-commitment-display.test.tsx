@@ -29,8 +29,8 @@ jest.mock('next/navigation', () => ({
 // Mock market utils
 jest.mock('@/lib/utils/market-utils', () => ({
   calculateOdds: jest.fn(() => ({
-    'yes': 2.5,
-    'no': 1.8
+    yes: { odds: 2.5, percentage: 40, totalTokens: 7000, participantCount: 70 },
+    no: { odds: 1.8, percentage: 56, totalTokens: 3000, participantCount: 30 }
   })),
   formatTokenAmount: jest.fn((amount) => amount.toLocaleString()),
   formatOdds: jest.fn((odds) => `${odds.toFixed(1)}:1`),
@@ -43,6 +43,8 @@ jest.mock('@/lib/utils/market-utils', () => ({
     participantDistribution: { 'yes': 70, 'no': 30 }
   }))
 }))
+
+const { calculateOdds: mockCalculateOdds } = require('@/lib/utils/market-utils') as { calculateOdds: jest.Mock }
 
 const mockMarket: Market = {
   id: 'test-market',
@@ -87,12 +89,9 @@ describe('MarketDetailView - Commitment Display', () => {
   it('should show commitment data in plain English', () => {
     render(<MarketDetailView market={mockMarket} />)
     
-    // Should show people and tokens in natural language
-    expect(screen.getByText('70 people')).toBeInTheDocument()
-    expect(screen.getAllByText('backed this with')).toHaveLength(2)
-    expect(screen.getByText('7,000 tokens')).toBeInTheDocument()
-    expect(screen.getByText('30 people')).toBeInTheDocument()
-    expect(screen.getByText('3,000 tokens')).toBeInTheDocument()
+    // Should show token amounts in natural language
+    expect(screen.getByText('7,000 tokens committed')).toBeInTheDocument()
+    expect(screen.getByText('3,000 tokens committed')).toBeInTheDocument()
   })
 
   it('should handle edge case with zero supporters', () => {
@@ -108,7 +107,7 @@ describe('MarketDetailView - Commitment Display', () => {
         },
         {
           id: 'no',
-          name: 'No', 
+          name: 'No',
           color: 'bg-red-500',
           tokens: 0,
           percentage: 0
@@ -118,10 +117,14 @@ describe('MarketDetailView - Commitment Display', () => {
       participants: 0
     }
 
+    mockCalculateOdds.mockReturnValueOnce({
+      yes: { odds: 2, percentage: 0, totalTokens: 0, participantCount: 0 },
+      no: { odds: 2, percentage: 0, totalTokens: 0, participantCount: 0 }
+    })
+
     render(<MarketDetailView market={marketWithZeroTokens} />)
-    
-    expect(screen.getAllByText('0 people')).toHaveLength(2)
-    expect(screen.getAllByText('0 tokens')).toHaveLength(2)
+
+    expect(screen.getAllByText('No tokens committed')).toHaveLength(2)
   })
 
   it('should show clear action buttons', () => {

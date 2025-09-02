@@ -43,8 +43,8 @@ describe('Market Detail View Odds Calculation', () => {
     const currentOdds = calculateOdds(mockMarket)
 
     // Test that odds are calculated correctly
-    expect(currentOdds.option1).toBeCloseTo(1.67, 2) // 1000/600 ≈ 1.67
-    expect(currentOdds.option2).toBe(2.5) // 1000/400 = 2.5
+    expect(currentOdds.option1.odds).toBeCloseTo(1.67, 2) // 1000/600 ≈ 1.67
+    expect(currentOdds.option2.odds).toBe(2.5) // 1000/400 = 2.5
 
     // Test win chance calculation (what the component displays)
     // This should be based on token distribution, not odds
@@ -92,8 +92,8 @@ describe('Market Detail View Odds Calculation', () => {
     const currentOdds = calculateOdds(emptyMarket)
 
     // Should return equal odds for empty market
-    expect(currentOdds.option1).toBe(2)
-    expect(currentOdds.option2).toBe(2)
+    expect(currentOdds.option1.odds).toBe(2)
+    expect(currentOdds.option2.odds).toBe(2)
 
     // Win chances should be 0 for empty market
     const option1WinChance = emptyMarket.totalTokensStaked > 0 
@@ -147,9 +147,9 @@ describe('Market Detail View Odds Calculation', () => {
     const currentOdds = calculateOdds(threeOptionMarket)
 
     // Test odds calculation
-    expect(currentOdds.option1).toBe(2.0)  // 1500/750 = 2.0
-    expect(currentOdds.option2).toBeCloseTo(3.33, 2) // 1500/450 ≈ 3.33
-    expect(currentOdds.option3).toBe(5.0)  // 1500/300 = 5.0
+    expect(currentOdds.option1.odds).toBe(2.0)  // 1500/750 = 2.0
+    expect(currentOdds.option2.odds).toBeCloseTo(3.33, 2) // 1500/450 ≈ 3.33
+    expect(currentOdds.option3.odds).toBe(5.0)  // 1500/300 = 5.0
 
     // Test win chance calculation
     const option1WinChance = Math.round((750 / 1500) * 100) // 50%

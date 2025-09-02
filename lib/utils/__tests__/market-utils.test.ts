@@ -46,8 +46,8 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBe(2) // Equal odds for 2 options
-      expect(odds.option2).toBe(2)
+      expect(odds.option1.odds).toBe(2) // Equal odds for 2 options
+      expect(odds.option2.odds).toBe(2)
     })
 
     it('should calculate correct odds for balanced market', () => {
@@ -58,8 +58,8 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBe(2.0) // 200 total / 100 = 2.0
-      expect(odds.option2).toBe(2.0)
+      expect(odds.option1.odds).toBe(2.0) // 200 total / 100 = 2.0
+      expect(odds.option2.odds).toBe(2.0)
     })
 
     it('should calculate correct odds for unbalanced market', () => {
@@ -70,8 +70,8 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBeCloseTo(1.33, 2) // 200/150 = 1.33
-      expect(odds.option2).toBe(4.0) // 200/50 = 4.0
+      expect(odds.option1.odds).toBeCloseTo(1.33, 2) // 200/150 = 1.33
+      expect(odds.option2.odds).toBe(4.0) // 200/50 = 4.0
     })
 
     it('should handle three-option market', () => {
@@ -83,9 +83,9 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBe(3.0) // 300/100 = 3.0
-      expect(odds.option2).toBe(3.0)
-      expect(odds.option3).toBe(3.0)
+      expect(odds.option1.odds).toBe(3.0) // 300/100 = 3.0
+      expect(odds.option2.odds).toBe(3.0)
+      expect(odds.option3.odds).toBe(3.0)
     })
 
     it('should handle option with zero tokens', () => {
@@ -96,8 +96,8 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBe(1.01) // 100/100 = 1.0, but clamped to 1.01
-      expect(odds.option2).toBe(100) // High odds for zero tokens
+      expect(odds.option1.odds).toBe(1.01) // 100/100 = 1.0, but clamped to 1.01
+      expect(odds.option2.odds).toBe(100) // High odds for zero tokens
     })
 
     it('should cap odds at reasonable limits', () => {
@@ -108,8 +108,8 @@ describe('Market Utils', () => {
       
       const odds = calculateOdds(market)
       
-      expect(odds.option1).toBeGreaterThanOrEqual(1.01)
-      expect(odds.option2).toBeLessThanOrEqual(999)
+      expect(odds.option1.odds).toBeGreaterThanOrEqual(1.01)
+      expect(odds.option2.odds).toBeLessThanOrEqual(999)
     })
   })
 
@@ -268,8 +268,8 @@ describe('Market Utils', () => {
       const preview = previewOddsImpact(10, 'option1', market)
       
       expect(preview.impactLevel).toBe('minimal')
-      expect(preview.currentOdds.option1).toBe(2.0)
-      expect(preview.projectedOdds.option1).toBeLessThan(2.0)
+      expect(preview.currentOdds.option1.odds).toBe(2.0)
+      expect(preview.projectedOdds.option1.odds).toBeLessThan(2.0)
     })
 
     it('should show significant impact for large commitment', () => {
@@ -281,8 +281,8 @@ describe('Market Utils', () => {
       const preview = previewOddsImpact(100, 'option1', market)
       
       expect(preview.impactLevel).toBe('significant')
-      expect(preview.currentOdds.option1).toBe(2.0)
-      expect(preview.projectedOdds.option1).toBeCloseTo(1.5, 1) // 300/200 = 1.5
+      expect(preview.currentOdds.option1.odds).toBe(2.0)
+      expect(preview.projectedOdds.option1.odds).toBeCloseTo(1.5, 1) // 300/200 = 1.5
     })
 
     it('should update participant counts correctly', () => {
@@ -294,7 +294,7 @@ describe('Market Utils', () => {
       const preview = previewOddsImpact(50, 'option1', market)
       
       // The function should simulate adding 1 participant and 50 tokens
-      expect(preview.projectedOdds.option1).toBeCloseTo(1.67, 2) // 250/150 ≈ 1.67
+      expect(preview.projectedOdds.option1.odds).toBeCloseTo(1.67, 2) // 250/150 ≈ 1.67
     })
   })
 
