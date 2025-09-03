@@ -35,6 +35,7 @@ interface UserData {
   totalPredictions?: number;
   correctPredictions?: number;
   signupMethod?: string;
+  source?: 'firebase_auth' | 'firestore_only' | 'both'; // Track data source
   balance?: {
     availableTokens: number;
     committedTokens: number;
@@ -174,6 +175,10 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
           <p className="text-sm text-gray-600">
             Showing {filteredUsers.length} of {users.length} users
           </p>
+          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+            <span>Firebase Auth: {users.filter(u => u.source === 'firebase_auth' || u.source === 'both').length}</span>
+            <span>CDP Users: {users.filter(u => u.source === 'firestore_only').length}</span>
+          </div>
           {syncStatus && (
             <div className="flex items-center gap-2 mt-2">
               {syncStatus.needsSync ? (
@@ -260,6 +265,11 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                             Verified
                           </Badge>
                         )}
+                        {user.source === 'firestore_only' && (
+                          <Badge variant="outline" className="text-xs text-blue-600">
+                            CDP User
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-gray-500 font-mono">
                         {user.id.slice(0, 8)}...
@@ -275,13 +285,18 @@ export function UsersList({ onIssueTokens }: UsersListProps) {
                 </TableCell>
                 <TableCell>
                   <Badge 
-                    variant={user.providerData?.[0]?.providerId === 'password' ? 'secondary' : 'outline'}
+                    variant={
+                      user.providerData?.[0]?.providerId === 'password' ? 'secondary' : 
+                      user.providerData?.[0]?.providerId === 'cdp' ? 'default' :
+                      'outline'
+                    }
                     className="text-xs"
                   >
                     {user.providerData?.[0]?.providerId === 'password' ? 'Email' : 
                      user.providerData?.[0]?.providerId === 'google.com' ? 'Google' :
                      user.providerData?.[0]?.providerId === 'twitter.com' ? 'Twitter' :
                      user.providerData?.[0]?.providerId === 'facebook.com' ? 'Facebook' :
+                     user.providerData?.[0]?.providerId === 'cdp' ? 'CDP Wallet' :
                      user.providerData?.[0]?.providerId || 'Unknown'}
                   </Badge>
                 </TableCell>
