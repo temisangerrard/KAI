@@ -649,12 +649,21 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
               <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 mb-6">
                 <CardContent className="p-4 text-center">
                   <p className="text-blue-800 mb-3">Join KAI to support your opinions and earn tokens!</p>
-                  <Button
-                    onClick={() => router.push('/auth/login')}
-                    className="bg-gradient-to-r from-blue-400 to-indigo-400 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full"
-                  >
-                    Sign Up Now
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    <Button
+                      onClick={() => router.push(`/auth?mode=register&returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+                      className="bg-gradient-to-r from-blue-400 to-indigo-400 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full"
+                    >
+                      Sign Up
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/auth?mode=login&returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50 rounded-full"
+                    >
+                      Sign In
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
