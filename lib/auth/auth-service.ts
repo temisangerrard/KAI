@@ -103,13 +103,12 @@ class AuthService {
 
       const profile = userSnap.data() as UserProfile
 
-      // Convert profile to AuthUser format, including wallet address
-      return {
+      // Convert profile to AuthUser format, including wallet address (avoid undefined values)
+      const authUser: any = {
         id: firebaseUid, // Keep Firebase UID as primary ID
         address: address, // Add wallet address for CDP compatibility
         email: profile.email,
         displayName: profile.displayName,
-        profileImage: profile.photoURL,
         tokenBalance: profile.tokenBalance,
         hasCompletedOnboarding: true,
         level: profile.level,
@@ -118,8 +117,6 @@ class AuthService {
         streak: profile.streak,
         createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         updatedAt: profile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        bio: profile.bio,
-        location: profile.location,
         joinDate: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         isInitialized: true,
         stats: {
@@ -131,6 +128,19 @@ class AuthService {
         predictions: [],
         marketsCreated: [],
       }
+      
+      // Only add optional fields if they have values
+      if (profile.photoURL) {
+        authUser.profileImage = profile.photoURL;
+      }
+      if (profile.bio) {
+        authUser.bio = profile.bio;
+      }
+      if (profile.location) {
+        authUser.location = profile.location;
+      }
+      
+      return authUser
     } catch (error) {
       console.error('Error getting user by address:', error)
       return null
@@ -165,14 +175,73 @@ class AuthService {
         return existingUser
       }
 
-      // Create user profile in Firestore using Firebase UID as document ID (existing structure)
+      // Double-check if user profile exists using the Firebase UID directly
+      // This handles cases where the mapping exists but getUserByAddress failed
       const userRef = safeDoc('users', firebaseUid)
-      if (!userRef) throw new Error('Failed to create user document reference')
+      if (userRef) {
+        const userSnap = await getDoc(userRef)
+        if (userSnap.exists()) {
+          console.log('✅ Found existing user profile by Firebase UID, returning existing user')
+          const profile = userSnap.data() as UserProfile
+          
+          // Convert to AuthUser format and return (avoid undefined values)
+          const authUser: any = {
+            id: firebaseUid,
+            address: address,
+            email: profile.email,
+            displayName: profile.displayName,
+            tokenBalance: profile.tokenBalance,
+            hasCompletedOnboarding: true,
+            level: profile.level,
+            totalPredictions: profile.totalPredictions,
+            correctPredictions: profile.correctPredictions,
+            streak: profile.streak,
+            createdAt: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            updatedAt: profile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            joinDate: profile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            isInitialized: true,
+            stats: {
+              predictionsCount: profile.totalPredictions,
+              marketsCreated: 0,
+              winRate: profile.totalPredictions > 0 ? (profile.correctPredictions / profile.totalPredictions) * 100 : 0,
+              tokensEarned: 0,
+            },
+            predictions: [],
+            marketsCreated: [],
+          }
+          
+          // Only add optional fields if they have values
+          if (profile.photoURL) {
+            authUser.profileImage = profile.photoURL;
+          }
+          if (profile.bio) {
+            authUser.bio = profile.bio;
+          }
+          if (profile.location) {
+            authUser.location = profile.location;
+          }
+          
+          return authUser
+        }
+      }
+
+      // Create user profile in Firestore using Firebase UID as document ID (existing structure)
+      console.log('🔧 Creating user profile in Firestore...')
+      console.log('   Firebase UID:', firebaseUid)
+      console.log('   Wallet Address:', address)
+      console.log('   Email:', email)
+      
+      const newUserRef = safeDoc('users', firebaseUid)
+      if (!newUserRef) {
+        const error = 'Failed to create user document reference'
+        console.error('❌', error)
+        throw new Error(error)
+      }
+      
       const profileData: UserProfile = {
         address: address, // Store wallet address in profile
         email: email,
         displayName: displayName || email.split('@')[0],
-        photoURL: undefined,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
         tokenBalance: 2500, // Starting tokens
@@ -180,20 +249,37 @@ class AuthService {
         totalPredictions: 0,
         correctPredictions: 0,
         streak: 0,
-        bio: undefined,
-        location: undefined,
       }
+      
+      // Only add optional fields if they have values (Firestore doesn't allow undefined)
+      // photoURL, bio, and location are omitted if undefined
 
-      await setDoc(userRef, profileData)
+      console.log('🔧 Profile data to be saved:', {
+        address: profileData.address,
+        email: profileData.email,
+        displayName: profileData.displayName,
+        tokenBalance: profileData.tokenBalance
+      })
+
+      await setDoc(newUserRef, profileData)
       console.log('✅ Created user profile with Firebase UID:', firebaseUid)
       
-      // Convert to AuthUser format
-      return {
+      // Verify the user was created successfully
+      const verificationSnap = await getDoc(newUserRef)
+      if (!verificationSnap.exists()) {
+        const error = 'User profile creation verification failed - document does not exist after creation'
+        console.error('❌', error)
+        throw new Error(error)
+      }
+      
+      console.log('✅ User profile creation verified successfully')
+      
+      // Convert to AuthUser format (don't set undefined values)
+      const authUser: any = {
         id: firebaseUid, // Firebase UID for compatibility
         address: address, // Wallet address for CDP
         email: email,
         displayName: displayName || email.split('@')[0],
-        profileImage: undefined,
         tokenBalance: 2500, // Starting tokens
         hasCompletedOnboarding: true,
         level: 1,
@@ -202,8 +288,6 @@ class AuthService {
         streak: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        bio: undefined,
-        location: undefined,
         joinDate: new Date().toISOString(),
         isInitialized: true,
         stats: {
@@ -215,6 +299,9 @@ class AuthService {
         predictions: [],
         marketsCreated: [],
       }
+      
+      // Don't set profileImage, bio, or location if they would be undefined
+      return authUser
     } catch (error) {
       console.error('Error creating user from CDP:', error)
       throw error
@@ -275,6 +362,15 @@ class AuthService {
   async updateProfileByAddress(address: string, updates: Partial<AuthUser>): Promise<AuthUser> {
     try {
       requireFirebase('updateProfileByAddress')
+      
+      // Get Firebase UID from wallet address mapping first
+      const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+      const firebaseUid = await WalletUidMappingService.getFirebaseUid(address)
+      
+      if (!firebaseUid) {
+        throw new Error('No Firebase UID mapping found for wallet address')
+      }
+      
       // Convert AuthUser updates to UserProfile updates
       const profileUpdates: any = {
         lastLoginAt: serverTimestamp()
@@ -305,8 +401,8 @@ class AuthService {
         profileUpdates.location = updates.location
       }
 
-      // Update user profile in Firestore
-      const userRef = safeDoc('users', address)
+      // Update user profile in Firestore using Firebase UID as document ID
+      const userRef = safeDoc('users', firebaseUid)
       if (!userRef) throw new Error('Failed to create user document reference')
       
       await updateDoc(userRef, profileUpdates)
@@ -319,11 +415,11 @@ class AuthService {
 
       const updatedProfile = userSnap.data() as UserProfile
 
-      return {
+      const authUser: any = {
+        id: firebaseUid, // Include the Firebase UID
         address: address,
         email: updatedProfile.email,
         displayName: updatedProfile.displayName,
-        profileImage: updatedProfile.photoURL,
         tokenBalance: updatedProfile.tokenBalance,
         hasCompletedOnboarding: true,
         level: updatedProfile.level,
@@ -332,8 +428,6 @@ class AuthService {
         streak: updatedProfile.streak,
         createdAt: updatedProfile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         updatedAt: updatedProfile.lastLoginAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-        bio: updatedProfile.bio,
-        location: updatedProfile.location,
         joinDate: updatedProfile.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         isInitialized: true,
         stats: {
@@ -345,6 +439,19 @@ class AuthService {
         predictions: [],
         marketsCreated: [],
       }
+      
+      // Only add optional fields if they have values
+      if (updatedProfile.photoURL) {
+        authUser.profileImage = updatedProfile.photoURL;
+      }
+      if (updatedProfile.bio) {
+        authUser.bio = updatedProfile.bio;
+      }
+      if (updatedProfile.location) {
+        authUser.location = updatedProfile.location;
+      }
+      
+      return authUser
     } catch (error) {
       console.error('Error updating profile by address:', error)
       throw error
@@ -365,6 +472,140 @@ class AuthService {
     // Auth state changes are handled by the CDP context
     console.log('Auth state changes handled by CDP context')
     return () => {} // Return empty unsubscribe function
+  }
+
+  /**
+   * Fix a specific orphaned CDP user by wallet address
+   * This is useful for fixing individual users who got stuck
+   */
+  async fixOrphanedCDPUser(walletAddress: string): Promise<boolean> {
+    try {
+      requireFirebase('fixOrphanedCDPUser')
+      
+      console.log(`🔧 Attempting to fix orphaned CDP user: ${walletAddress}`)
+      
+      const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+      const mapping = await WalletUidMappingService.getMapping(walletAddress)
+      
+      if (!mapping) {
+        console.log('❌ No wallet mapping found for address:', walletAddress)
+        return false
+      }
+      
+      // Check if user profile already exists
+      const userRef = safeDoc('users', mapping.firebaseUid)
+      if (!userRef) {
+        console.error('❌ Failed to create user ref for Firebase UID:', mapping.firebaseUid)
+        return false
+      }
+      
+      const userDoc = await getDoc(userRef)
+      if (userDoc.exists()) {
+        console.log('✅ User profile already exists, no fix needed')
+        return true
+      }
+      
+      // Create the missing user profile
+      const profileData: UserProfile = {
+        address: mapping.walletAddress,
+        email: mapping.email,
+        displayName: mapping.email.split('@')[0],
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        tokenBalance: 2500, // Starting tokens
+        level: 1,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        streak: 0,
+      }
+      
+      // Only add optional fields if they have values (Firestore doesn't allow undefined)
+
+      await setDoc(userRef, profileData)
+      console.log(`✅ Successfully fixed orphaned user: ${mapping.email}`)
+      
+      return true
+      
+    } catch (error) {
+      console.error(`❌ Failed to fix orphaned user ${walletAddress}:`, error)
+      return false
+    }
+  }
+
+  /**
+   * Recover orphaned CDP users (mappings without user profiles)
+   * This can be used to fix users who got stuck in the creation process
+   */
+  async recoverOrphanedCDPUsers(): Promise<{ recovered: number; failed: number }> {
+    try {
+      requireFirebase('recoverOrphanedCDPUsers')
+      
+      const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+      const orphanedMappings = await WalletUidMappingService.findOrphanedMappings()
+      
+      console.log(`🔧 Attempting to recover ${orphanedMappings.length} orphaned CDP users`)
+      
+      let recovered = 0
+      let failed = 0
+      
+      for (const mapping of orphanedMappings) {
+        try {
+          console.log(`🔧 Recovering user: ${mapping.email} (${mapping.walletAddress})`)
+          console.log(`   Firebase UID: ${mapping.firebaseUid}`)
+          
+          // Create user profile using the existing mapping
+          const userRef = safeDoc('users', mapping.firebaseUid)
+          if (!userRef) {
+            const errorMsg = `Failed to create user ref for ${mapping.firebaseUid}`
+            console.error(errorMsg)
+            failed++
+            continue
+          }
+          
+          const profileData: UserProfile = {
+            address: mapping.walletAddress,
+            email: mapping.email,
+            displayName: mapping.email.split('@')[0],
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            tokenBalance: 2500, // Starting tokens
+            level: 1,
+            totalPredictions: 0,
+            correctPredictions: 0,
+            streak: 0,
+          }
+          
+          // Only add optional fields if they have values (Firestore doesn't allow undefined)
+
+          console.log(`   Creating user profile with data:`, {
+            address: profileData.address,
+            email: profileData.email,
+            displayName: profileData.displayName,
+            tokenBalance: profileData.tokenBalance
+          })
+
+          await setDoc(userRef, profileData)
+          console.log(`✅ Recovered user profile for ${mapping.email}`)
+          recovered++
+          
+        } catch (error) {
+          console.error(`❌ Failed to recover user ${mapping.email}:`, error)
+          console.error(`   Error details:`, {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          })
+          failed++
+        }
+      }
+      
+      console.log(`🎉 Recovery complete: ${recovered} recovered, ${failed} failed`)
+      return { recovered, failed }
+      
+    } catch (error) {
+      console.error('Error during orphaned user recovery:', error)
+      throw error
+    }
   }
 }
 

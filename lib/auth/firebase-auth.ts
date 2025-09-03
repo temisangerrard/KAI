@@ -164,11 +164,10 @@ export class FirebaseAuthService {
   // Create user profile in Firestore
   static async createUserProfile(user: User, additionalData?: { displayName?: string }) {
     try {
-      const userProfile: UserProfile = {
+      const userProfile: any = {
         uid: user.uid,
         email: user.email || "",
         displayName: additionalData?.displayName || user.displayName || "",
-        photoURL: user.photoURL || undefined,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
         tokenBalance: 2500, // Starting tokens as mentioned in landing page
@@ -176,6 +175,11 @@ export class FirebaseAuthService {
         totalPredictions: 0,
         correctPredictions: 0,
         streak: 0
+      }
+      
+      // Only add photoURL if it has a value (Firestore doesn't allow undefined)
+      if (user.photoURL) {
+        userProfile.photoURL = user.photoURL;
       }
 
       console.log('Creating user profile in Firestore:', userProfile)
@@ -185,11 +189,10 @@ export class FirebaseAuthService {
     } catch (error) {
       console.warn('Firestore unavailable, creating local user profile:', error.message)
       // Return a local profile when Firestore is offline
-      return {
+      const localProfile: any = {
         uid: user.uid,
         email: user.email || "",
         displayName: additionalData?.displayName || user.displayName || "",
-        photoURL: user.photoURL || undefined,
         createdAt: new Date(),
         lastLoginAt: new Date(),
         tokenBalance: 2500,
@@ -198,6 +201,13 @@ export class FirebaseAuthService {
         correctPredictions: 0,
         streak: 0
       }
+      
+      // Only add photoURL if it has a value
+      if (user.photoURL) {
+        localProfile.photoURL = user.photoURL;
+      }
+      
+      return localProfile
     }
   }
 
@@ -252,11 +262,10 @@ export class FirebaseAuthService {
   // Create user profile from CDP data (for new CDP users)
   static async createUserProfileFromCDP(address: string, email: string, displayName?: string): Promise<UserProfile> {
     try {
-      const userProfile: UserProfile = {
+      const userProfile: any = {
         uid: address, // Use wallet address as UID for consistency
         email: email,
         displayName: displayName || email.split('@')[0],
-        photoURL: undefined,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
         tokenBalance: 2500, // Starting tokens
@@ -270,6 +279,8 @@ export class FirebaseAuthService {
         hasSmartAccount: true,
         isSmartAccount: true
       }
+      
+      // Don't add photoURL field at all since it would be undefined
 
       console.log('Creating CDP user profile in Firestore:', userProfile)
       await setDoc(doc(db, "users", address), userProfile)
@@ -284,11 +295,10 @@ export class FirebaseAuthService {
   // Create a default user profile for offline mode
   static createDefaultProfile(uid: string): UserProfile {
     const currentUser = auth.currentUser
-    return {
+    const profile: any = {
       uid,
       email: currentUser?.email || "",
       displayName: currentUser?.displayName || "User",
-      photoURL: currentUser?.photoURL || undefined,
       createdAt: new Date(),
       lastLoginAt: new Date(),
       tokenBalance: 2500,
@@ -297,6 +307,13 @@ export class FirebaseAuthService {
       correctPredictions: 0,
       streak: 0
     }
+    
+    // Only add photoURL if it has a value
+    if (currentUser?.photoURL) {
+      profile.photoURL = currentUser.photoURL;
+    }
+    
+    return profile
   }
 
   // Update user profile

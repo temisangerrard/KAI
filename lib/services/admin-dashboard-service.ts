@@ -83,9 +83,67 @@ export interface AdminTokenStats {
 
 export class AdminDashboardService {
   /**
+   * Fetch users from both Firebase Auth and Firestore users collection
+   * This ensures we get both traditional Firebase users and CDP users
+   */
+  private static async fetchAllUsers(): Promise<{ users: any[] }> {
+    console.log('🔍 Fetching users from Firebase Auth and Firestore...');
+    
+    try {
+      // Fetch Firebase Auth users and Firestore users in parallel
+      const [authUsersResult, firestoreUsersSnapshot] = await Promise.all([
+        this.fetchFirebaseAuthUsers().catch(error => {
+          console.warn('Failed to fetch Firebase Auth users:', error.message);
+          return { users: [] };
+        }),
+        getDocs(collection(db, 'users')).catch(error => {
+          console.warn('Failed to fetch Firestore users:', error.message);
+          return { docs: [] };
+        })
+      ]);
+
+      // Process Firebase Auth users
+      const authUsers = authUsersResult.users;
+      console.log(`📱 Found ${authUsers.length} Firebase Auth users`);
+
+      // Process Firestore users (includes CDP users)
+      const firestoreUsers = firestoreUsersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          email: data.email,
+          displayName: data.displayName,
+          photoURL: data.photoURL,
+          address: data.address, // CDP wallet address if present
+          metadata: {
+            creationTime: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            lastSignInTime: data.lastLoginAt?.toDate?.()?.toISOString() || data.lastLoginAt
+          },
+          isFirestoreUser: true,
+          isCdpUser: !!data.address // Flag CDP users
+        };
+      });
+      console.log(`🗄️ Found ${firestoreUsers.length} Firestore users`);
+
+      // Merge users, avoiding duplicates (Firebase Auth users take precedence)
+      const authUserIds = new Set(authUsers.map(u => u.uid));
+      const uniqueFirestoreUsers = firestoreUsers.filter(u => !authUserIds.has(u.uid));
+      
+      const allUsers = [...authUsers, ...uniqueFirestoreUsers];
+      
+      console.log(`✅ Total unique users: ${allUsers.length} (${authUsers.length} Auth + ${uniqueFirestoreUsers.length} Firestore-only)`);
+      
+      return { users: allUsers };
+    } catch (error) {
+      console.error('❌ Failed to fetch users:', error);
+      throw new Error(`User fetch failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Fetch users from Firebase Auth using dynamic import (server-side only)
    */
-  private static async fetchAuthUsers(): Promise<{ users: any[] }> {
+  private static async fetchFirebaseAuthUsers(): Promise<{ users: any[] }> {
     console.log('🔍 Attempting to fetch users from Firebase Auth...');
     
     try {
@@ -103,7 +161,8 @@ export class AdminDashboardService {
         metadata: {
           creationTime: user.metadata.creationTime,
           lastSignInTime: user.metadata.lastSignInTime
-        }
+        },
+        isFirebaseAuthUser: true
       }));
 
       console.log(`✅ Successfully fetched ${users.length} users from Firebase Auth`);
@@ -112,8 +171,8 @@ export class AdminDashboardService {
       console.error('❌ Failed to fetch from Firebase Admin:', error);
       console.error('Error details:', error.message);
       
-      // Don't fall back - let it fail so we can see the error
-      throw new Error(`Firebase Admin failed: ${error.message}`);
+      // Don't fail completely - return empty array to allow Firestore users to be shown
+      return { users: [] };
     }
   }
 
@@ -131,15 +190,15 @@ export class AdminDashboardService {
     try {
       console.log('🔍 Fetching dashboard statistics from Firestore...');
 
-      // Fetch all required data in parallel - get users from Firebase Auth
+      // Fetch all required data in parallel - get users from both Firebase Auth and Firestore
       const [
-        authUsersResult,
+        allUsersResult,
         balancesSnapshot,
         marketsSnapshot,
         commitmentsSnapshot,
         transactionsSnapshot
       ] = await Promise.all([
-        this.fetchAuthUsers(),
+        this.fetchAllUsers(),
         getDocs(collection(db, 'user_balances')).catch(error => {
           console.warn('Failed to fetch user_balances:', error.message);
           return { docs: [] };
@@ -158,10 +217,10 @@ export class AdminDashboardService {
         })
       ]);
 
-      console.log(`📊 Found ${authUsersResult.users.length} auth users, ${marketsSnapshot.docs.length} markets, ${commitmentsSnapshot.docs.length} commitments`);
+      console.log(`📊 Found ${allUsersResult.users.length} total users, ${marketsSnapshot.docs.length} markets, ${commitmentsSnapshot.docs.length} commitments`);
 
-      // Process users data from Firebase Auth - get ALL authenticated users
-      const users = authUsersResult.users.map(user => ({
+      // Process users data from both Firebase Auth and Firestore - get ALL users
+      const users = allUsersResult.users.map(user => ({
         id: user.uid,
         email: user.email,
         displayName: user.displayName,
@@ -466,14 +525,14 @@ export class AdminDashboardService {
     const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     try {
-      // Fetch all required data including Firebase Auth users
+      // Fetch all required data including all users (Firebase Auth + Firestore)
       const [
-        authUsersResult,
+        allUsersResult,
         balancesSnapshot,
         transactionsSnapshot,
         packagesSnapshot
       ] = await Promise.all([
-        this.fetchAuthUsers(),
+        this.fetchAllUsers(),
         getDocs(collection(db, 'user_balances')),
         getDocs(query(
           collection(db, 'token_transactions'),
@@ -556,7 +615,7 @@ export class AdminDashboardService {
           totalTokens,
           availableTokens,
           committedTokens,
-          totalUsers: authUsersResult.users.length, // Use Firebase Auth user count
+          totalUsers: allUsersResult.users.length, // Use total user count (Auth + Firestore)
           activeUsers
         },
         purchases: {

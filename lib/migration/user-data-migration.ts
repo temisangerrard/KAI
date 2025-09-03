@@ -65,11 +65,10 @@ export async function migrateUserDataToCDP(
     }
     
     // Step 3: Create new user profile with wallet address as ID, preserving existing data
-    const migratedUserData = {
+    const migratedUserData: any = {
       address: walletAddress,
       email: email,
       displayName: displayName || existingUserData?.displayName || email.split('@')[0],
-      photoURL: existingUserData?.photoURL,
       createdAt: existingUserData?.createdAt || new Date(),
       lastLoginAt: new Date(),
       tokenBalance: existingUserData?.tokenBalance || 2500,
@@ -77,10 +76,26 @@ export async function migrateUserDataToCDP(
       totalPredictions: existingUserData?.totalPredictions || 0,
       correctPredictions: existingUserData?.correctPredictions || 0,
       streak: existingUserData?.streak || 0,
-      bio: existingUserData?.bio,
-      location: existingUserData?.location,
-      // Preserve any other existing fields
-      ...existingUserData
+    }
+    
+    // Only add optional fields if they have values (Firestore doesn't allow undefined)
+    if (existingUserData?.photoURL) {
+      migratedUserData.photoURL = existingUserData.photoURL;
+    }
+    if (existingUserData?.bio) {
+      migratedUserData.bio = existingUserData.bio;
+    }
+    if (existingUserData?.location) {
+      migratedUserData.location = existingUserData.location;
+    }
+    
+    // Preserve any other existing fields (but filter out undefined values)
+    if (existingUserData) {
+      Object.keys(existingUserData).forEach(key => {
+        if (existingUserData[key] !== undefined && !migratedUserData.hasOwnProperty(key)) {
+          migratedUserData[key] = existingUserData[key];
+        }
+      });
     }
     
     await setDoc(walletUserRef, migratedUserData)

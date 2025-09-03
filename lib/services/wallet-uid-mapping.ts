@@ -171,4 +171,64 @@ export class WalletUidMappingService {
       return null
     }
   }
+
+  /**
+   * Find orphaned mappings (mappings without corresponding user profiles)
+   * This can help recover from situations where mappings were created but user profiles weren't
+   */
+  static async findOrphanedMappings(): Promise<WalletUidMapping[]> {
+    try {
+      requireFirebase('findOrphanedMappings')
+      
+      // Get all mappings
+      const mappingsRef = safeCollection(this.COLLECTION)
+      if (!mappingsRef) return []
+      
+      const mappingsSnapshot = await getDocs(mappingsRef)
+      const orphanedMappings: WalletUidMapping[] = []
+      
+      // Check each mapping to see if corresponding user exists
+      for (const mappingDoc of mappingsSnapshot.docs) {
+        const mapping = mappingDoc.data() as WalletUidMapping
+        
+        // Check if user profile exists
+        const userRef = safeDoc('users', mapping.firebaseUid)
+        if (!userRef) continue
+        
+        const userDoc = await getDoc(userRef)
+        if (!userDoc.exists()) {
+          console.log('🔍 Found orphaned mapping:', {
+            walletAddress: mapping.walletAddress,
+            firebaseUid: mapping.firebaseUid,
+            email: mapping.email
+          })
+          orphanedMappings.push(mapping)
+        }
+      }
+      
+      console.log(`Found ${orphanedMappings.length} orphaned mappings`)
+      return orphanedMappings
+    } catch (error) {
+      console.error('Error finding orphaned mappings:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get all mappings (for debugging/admin purposes)
+   */
+  static async getAllMappings(): Promise<WalletUidMapping[]> {
+    try {
+      requireFirebase('getAllMappings')
+      
+      const mappingsRef = safeCollection(this.COLLECTION)
+      if (!mappingsRef) return []
+      
+      const mappingsSnapshot = await getDocs(mappingsRef)
+      return mappingsSnapshot.docs.map(doc => doc.data() as WalletUidMapping)
+    } catch (error) {
+      console.error('Error getting all mappings:', error)
+      return []
+    }
+  }
 }

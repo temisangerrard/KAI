@@ -82,11 +82,10 @@ export async function POST(request: NextRequest) {
           
           // Create missing user document
           const { serverTimestamp } = await import('firebase/firestore');
-          const userProfile = {
+          const userProfile: any = {
             uid: authUser.uid,
             email: authUser.email || "",
             displayName: authUser.displayName || "",
-            photoURL: authUser.photoURL || undefined,
             createdAt: serverTimestamp(),
             lastLoginAt: serverTimestamp(),
             tokenBalance: 2500, // Starting tokens
@@ -95,6 +94,11 @@ export async function POST(request: NextRequest) {
             correctPredictions: 0,
             streak: 0
           };
+          
+          // Only add photoURL if it has a value (Firestore doesn't allow undefined)
+          if (authUser.photoURL) {
+            userProfile.photoURL = authUser.photoURL;
+          }
           
           const { setDoc } = await import('firebase/firestore');
           await setDoc(userRef, userProfile);

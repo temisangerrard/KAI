@@ -13,6 +13,8 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateUser: (updates: Partial<AuthUser>) => Promise<void>
   refreshUser: () => Promise<void>
+  recoverOrphanedUsers: () => Promise<{ recovered: number; failed: number }>
+  fixOrphanedUser: (walletAddress: string) => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +26,8 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   updateUser: async () => {},
   refreshUser: async () => {},
+  recoverOrphanedUsers: async () => ({ recovered: 0, failed: 0 }),
+  fixOrphanedUser: async () => false,
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -84,12 +88,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // If no profile exists, create one
           if (!authUser) {
+            console.log('🔧 No user profile found, checking if wallet mapping exists...')
+            
+            // Check if there's a wallet mapping without a user profile (orphaned mapping)
+            const { WalletUidMappingService } = await import('@/lib/services/wallet-uid-mapping')
+            const existingMapping = await WalletUidMappingService.getMapping(addressString)
+            
+            if (existingMapping) {
+              console.log('🔧 Found orphaned wallet mapping, attempting to fix user profile...')
+              try {
+                // Try to fix this specific user
+                const fixed = await authService.fixOrphanedCDPUser(addressString)
+                
+                if (fixed) {
+                  // Try to get the user again after fixing
+                  authUser = await authService.getUserByAddress(addressString)
+                  
+                  if (authUser) {
+                    console.log('✅ Successfully fixed and retrieved user profile')
+                  } else {
+                    console.log('⚠️ Fix completed but user still not found')
+                  }
+                } else {
+                  console.log('⚠️ Failed to fix orphaned user, will create new profile')
+                }
+              } catch (recoveryError) {
+                console.error('❌ Fix attempt failed:', recoveryError)
+                console.log('🔄 Falling back to creating new user profile...')
+              }
+            }
+          }
+          
+          // If still no profile exists after recovery attempt, create one
+          if (!authUser) {
             if (userEmail) {
               console.log('Creating new user profile for CDP user with email:', userEmail)
-              authUser = await authService.createUserFromCDP(addressString, userEmail)
+              
+              // Retry logic for user creation
+              let retryCount = 0;
+              const maxRetries = 3;
+              
+              while (retryCount < maxRetries && !authUser) {
+                try {
+                  authUser = await authService.createUserFromCDP(addressString, userEmail)
+                  console.log('✅ Successfully created user profile for CDP user')
+                  break;
+                } catch (error) {
+                  retryCount++;
+                  console.error(`❌ Failed to create user profile (attempt ${retryCount}/${maxRetries}):`, error)
+                  
+                  if (retryCount < maxRetries) {
+                    console.log('🔄 Retrying user creation...')
+                    // Wait a bit before retrying
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+                  } else {
+                    console.error('💥 All user creation attempts failed')
+                    // Set user to null but don't return - let the user stay signed in with CDP
+                    // They can try refreshing or the system can retry later
+                    setUser(null)
+                    setIsLoading(false)
+                    return
+                  }
+                }
+              }
             } else {
               console.log('⚠️ No email available, cannot create user profile')
-              // For now, we'll wait for email to be available
+              console.log('CDP user will need to sign in again when email is available')
+              // Set user to null but keep them signed in with CDP
+              setUser(null)
               setIsLoading(false)
               return
             }
@@ -99,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('✅ User authenticated successfully:', authUser.email)
             setUser(authUser)
           } else {
-            console.log('❌ Failed to create or retrieve user profile')
+            console.log('❌ Failed to create or retrieve user profile after all attempts')
             setUser(null)
           }
         } else {
@@ -194,6 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // If no profile exists, create one
         if (!authUser && userEmail) {
+          console.log('🔄 No user profile found during refresh, creating new profile...')
           authUser = await authService.createUserFromCDP(addressString, userEmail)
         }
         
@@ -204,6 +271,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('User refresh error:', error)
       setUser(null)
+    }
+  }
+
+  const recoverOrphanedUsers = async () => {
+    try {
+      console.log('🔧 Starting orphaned user recovery...')
+      const result = await authService.recoverOrphanedCDPUsers()
+      console.log('✅ Recovery complete:', result)
+      
+      // Refresh current user after recovery
+      await refreshUser()
+      
+      return result
+    } catch (error) {
+      console.error('❌ Recovery failed:', error)
+      throw error
+    }
+  }
+
+  const fixOrphanedUser = async (walletAddress: string) => {
+    try {
+      console.log('🔧 Fixing orphaned user:', walletAddress)
+      const result = await authService.fixOrphanedCDPUser(walletAddress)
+      console.log('✅ Fix complete:', result)
+      
+      // Refresh current user if this is the current user's address
+      const currentAddress = evmAddress?.evmAddress
+      if (currentAddress && currentAddress.toLowerCase() === walletAddress.toLowerCase()) {
+        await refreshUser()
+      }
+      
+      return result
+    } catch (error) {
+      console.error('❌ Fix failed:', error)
+      throw error
     }
   }
 
@@ -232,6 +334,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updateUser,
     refreshUser,
+    recoverOrphanedUsers,
+    fixOrphanedUser,
   }
 
   return (
