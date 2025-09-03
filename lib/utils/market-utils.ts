@@ -110,7 +110,8 @@ export function calculateOdds(market: MarketForOdds): MarketOdds {
 }
 
 /**
- * Calculate potential payout for a user's commitment
+ * Calculate potential payout for a user's commitment using proper pool mechanics
+ * Accounts for how the user's commitment changes the pool dynamics
  */
 export function calculatePayout(
   tokensToCommit: number, 
@@ -121,16 +122,43 @@ export function calculatePayout(
     return { grossPayout: 0, netProfit: 0, roi: 0 }
   }
 
-  const odds = calculateOdds(market)
-  const optionOdds = odds[optionId]?.odds || 2.0
+  // Find the option the user is betting on
+  const option = market.options.find(opt => opt.id === optionId)
+  if (!option) {
+    // Fallback to old calculation if option not found
+    const odds = calculateOdds(market)
+    const optionOdds = odds[optionId]?.odds || 2.0
+    const grossPayout = Math.floor(tokensToCommit * optionOdds)
+    return {
+      grossPayout,
+      netProfit: grossPayout - tokensToCommit,
+      roi: tokensToCommit > 0 ? ((grossPayout - tokensToCommit) / tokensToCommit) * 100 : 0
+    }
+  }
 
-  // Calculate gross payout (what user gets if they win)
-  const grossPayout = Math.floor(tokensToCommit * optionOdds)
+  // Get total tokens from market stats or fallback to totalTokensStaked
+  const currentTotalTokens = market.stats?.totalTokensCommitted ?? 
+                            market.totalTokensStaked ?? 
+                            market.totalTokens ?? 0
+
+  // Get option tokens from stats or fallback to option.totalTokens
+  const currentOptionTokens = market.stats?.tokenDistribution?.[optionId] ??
+                             option.totalTokens ??
+                             option.tokens ??
+                             0
+
+  // Calculate post-commitment pool state
+  const newTotalTokens = currentTotalTokens + tokensToCommit
+  const newOptionTokens = currentOptionTokens + tokensToCommit
   
-  // Calculate net profit (gross payout minus original commitment)
+  // User's share of the winning option after their commitment
+  const userShare = tokensToCommit / newOptionTokens
+  
+  // If this option wins, user gets their proportional share of the total pool
+  const grossPayout = Math.floor(userShare * newTotalTokens)
+  
+  // Calculate net profit and ROI
   const netProfit = grossPayout - tokensToCommit
-  
-  // Calculate ROI as percentage
   const roi = tokensToCommit > 0 ? (netProfit / tokensToCommit) * 100 : 0
 
   return {

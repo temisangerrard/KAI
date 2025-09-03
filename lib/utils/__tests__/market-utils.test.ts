@@ -124,7 +124,7 @@ describe('Market Utils', () => {
       expect(payout.roi).toBe(0)
     })
 
-    it('should calculate correct payout for balanced market', () => {
+    it('should calculate correct payout using pool mechanics for balanced market', () => {
       const market = createMockMarket([
         { totalTokens: 100 },
         { totalTokens: 100 }
@@ -132,32 +132,83 @@ describe('Market Utils', () => {
       
       const payout = calculatePayout(50, 'option1', market)
       
-      expect(payout.grossPayout).toBe(100) // 50 * 2.0 = 100
-      expect(payout.netProfit).toBe(50)    // 100 - 50 = 50
-      expect(payout.roi).toBe(100)         // (50/50) * 100 = 100%
+      // Pool mechanics: 
+      // New total: 200 + 50 = 250
+      // New option1: 100 + 50 = 150  
+      // User share: 50/150 = 33.33%
+      // Gross payout: 33.33% * 250 = 83.33 (floored to 83)
+      expect(payout.grossPayout).toBe(83)
+      expect(payout.netProfit).toBe(33)    // 83 - 50 = 33
+      expect(payout.roi).toBe(66)          // (33/50) * 100 = 66%
     })
 
-    it('should calculate correct payout for unbalanced market', () => {
+    it('should calculate correct payout using pool mechanics for unbalanced market', () => {
       const market = createMockMarket([
-        { totalTokens: 50 },  // Underdog
-        { totalTokens: 150 }  // Favorite
+        { totalTokens: 50 },  // Underdog option
+        { totalTokens: 150 }  // Favorite option
       ])
       
       const payout = calculatePayout(25, 'option1', market)
       
-      expect(payout.grossPayout).toBe(100) // 25 * 4.0 = 100
-      expect(payout.netProfit).toBe(75)    // 100 - 25 = 75
-      expect(payout.roi).toBe(300)         // (75/25) * 100 = 300%
+      // Pool mechanics:
+      // New total: 200 + 25 = 225
+      // New option1: 50 + 25 = 75
+      // User share: 25/75 = 33.33%
+      // Gross payout: 33.33% * 225 = 75
+      expect(payout.grossPayout).toBe(75)
+      expect(payout.netProfit).toBe(50)    // 75 - 25 = 50
+      expect(payout.roi).toBe(200)         // (50/25) * 100 = 200%
     })
 
-    it('should handle non-existent option', () => {
+    it('should handle extreme odds scenario correctly (screenshot scenario)', () => {
+      const market = createMockMarket([
+        { totalTokens: 1 },   // Very small existing stake (creates 100:1 odds)
+        { totalTokens: 99 }   // Large existing stake on other option
+      ])
+      
+      const payout = calculatePayout(100, 'option1', market)
+      
+      // Pool mechanics for the screenshot scenario:
+      // Current: 100 total tokens, 1 on option1 (100:1 odds)
+      // New total: 100 + 100 = 200
+      // New option1: 1 + 100 = 101
+      // User share: 100/101 = 99.01%
+      // Gross payout: 99.01% * 200 = 198.02 (floored to 198)
+      expect(payout.grossPayout).toBe(198)
+      expect(payout.netProfit).toBe(98)    // 198 - 100 = 98
+      expect(payout.roi).toBe(98)          // (98/100) * 100 = 98%
+      
+      // This is much more realistic than the old calculation:
+      // Old wrong calculation: 100 tokens * 100:1 odds = 10,000 tokens (unrealistic!)
+    })
+
+    it('should handle non-existent option with fallback calculation', () => {
       const market = createMockMarket([{ totalTokens: 100 }])
       
       const payout = calculatePayout(50, 'nonexistent', market)
       
-      expect(payout.grossPayout).toBe(100) // Uses default 2.0 odds
+      // Should fallback to old odds-based calculation
+      expect(payout.grossPayout).toBe(100) // Uses default 2.0 odds: 50 * 2.0 = 100
       expect(payout.netProfit).toBe(50)
       expect(payout.roi).toBe(100)
+    })
+
+    it('should handle empty market correctly', () => {
+      const market = createMockMarket([
+        { totalTokens: 0 },
+        { totalTokens: 0 }
+      ])
+      
+      const payout = calculatePayout(100, 'option1', market)
+      
+      // Pool mechanics with empty market:
+      // New total: 0 + 100 = 100
+      // New option1: 0 + 100 = 100
+      // User share: 100/100 = 100%
+      // Gross payout: 100% * 100 = 100
+      expect(payout.grossPayout).toBe(100)
+      expect(payout.netProfit).toBe(0)     // 100 - 100 = 0
+      expect(payout.roi).toBe(0)           // (0/100) * 100 = 0%
     })
   })
 
