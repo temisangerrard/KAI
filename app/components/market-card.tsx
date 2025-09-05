@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Heart } from "lucide-react"
+import { Heart, CheckCircle, Clock, AlertCircle, Trophy } from "lucide-react"
 import { Market } from "@/lib/types/database"
 import { ShareButton } from "./share-button"
 

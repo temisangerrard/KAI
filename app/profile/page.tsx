@@ -18,6 +18,7 @@ import { useUserActivity } from "@/hooks/use-user-activity"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from 'date-fns'
+import { AnimatedBalance } from "../components/balance-update-indicator"
 
 export default function ProfilePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth()
@@ -557,7 +558,11 @@ export default function ProfilePage() {
                     </div>
                     <div className="bg-white/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold mb-1">
-                        {balanceLoading ? '...' : availableTokens.toLocaleString()}
+                        <AnimatedBalance 
+                          balance={availableTokens}
+                          isLoading={balanceLoading}
+                          className="text-white"
+                        />
                       </div>
                       <div className="text-white/80 text-sm">Available Tokens</div>
                     </div>
