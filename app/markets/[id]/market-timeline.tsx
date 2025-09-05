@@ -68,16 +68,25 @@ export function MarketTimeline({ market }: MarketTimelineProps) {
       }
     ]
 
-    // Add resolution event if market has ended
-    if (market.status === 'resolved') {
+    if (market.resolution?.approvedAt) {
       events.push({
-        id: 'resolved',
-        title: 'Market Resolved',
-        description: 'Outcome determined, rewards distributed',
-        date: endDate,
+        id: 'resolution-approved',
+        title: 'Resolution Approved',
+        description: 'Outcome verified by admins',
+        date: new Date(market.resolution.approvedAt),
         icon: <CheckCircle className="h-4 w-4" />,
         status: 'completed' as const,
         color: 'text-green-600'
+      })
+    } else if (market.pendingResolution?.submittedAt) {
+      events.push({
+        id: 'resolution-submitted',
+        title: 'Resolution Submitted',
+        description: 'Awaiting admin approval',
+        date: new Date(market.pendingResolution.submittedAt),
+        icon: <AlertCircle className="h-4 w-4" />,
+        status: 'active' as const,
+        color: 'text-purple-600'
       })
     } else if (now >= endDate) {
       events.push({
@@ -179,18 +188,16 @@ export function MarketTimeline({ market }: MarketTimelineProps) {
             </span>
           </div>
           <p className="text-sm text-gray-600">
-            {market.status === 'active' && now < endDate && 
-              `Market is currently active. ${Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days remaining to participate.`
-            }
-            {market.status === 'active' && now >= endDate && 
-              "Market has ended and is awaiting resolution."
-            }
-            {market.status === 'resolved' && 
-              "Market has been resolved and rewards have been distributed."
-            }
-            {market.status === 'cancelled' && 
-              "Market was cancelled and tokens have been refunded."
-            }
+            {market.status === 'active' && now < endDate &&
+              `Market is currently active. ${Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days remaining to participate.`}
+            {market.status === 'active' && now >= endDate && !market.pendingResolution && !market.resolution &&
+              "Market has ended and is awaiting resolution."}
+            {market.pendingResolution && !market.resolution &&
+              "Resolution submitted and awaiting admin approval."}
+            {market.resolution &&
+              "Resolution approved. Rewards will be distributed."}
+            {market.status === 'cancelled' &&
+              "Market was cancelled and tokens have been refunded."}
           </p>
         </div>
       </CardContent>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import type { FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,8 @@ import { InsufficientBalanceModal } from "@/app/components/insufficient-balance-
 import { MarketTimeline } from "./market-timeline"
 import { MarketStatistics } from "./market-statistics"
 import { CommentSection } from "./comment-section"
+import { AdminResolutionActions } from "./admin-resolution-actions"
+import { useAdminAuth } from "@/hooks/use-admin-auth"
 
 import { calculateOdds, formatTokenAmount } from "@/lib/utils/market-utils"
 import {
@@ -94,6 +97,11 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
+  const { isAdmin } = useAdminAuth()
+  const [selectedResolution, setSelectedResolution] = useState<string>("")
+  const [isSubmittingResolution, setIsSubmittingResolution] = useState(false)
+  const now = new Date()
+  const canSubmitResolution = !!user && market.status === 'active' && now >= new Date(market.endDate) && !market.pendingResolution
 
   // Auto-repair broken data on component mount
   useEffect(() => {
@@ -463,6 +471,28 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
     }
   }
 
+  const handleSubmitResolution = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!selectedResolution) return
+    setIsSubmittingResolution(true)
+    try {
+      const res = await fetch(`/api/markets/${market.id}/resolution`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ optionId: selectedResolution })
+      })
+      if (res.ok && onMarketUpdate) {
+        await onMarketUpdate()
+      }
+    } catch (err) {
+      console.error('Failed to submit resolution', err)
+    } finally {
+      setIsSubmittingResolution(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-kai-50 to-primary-50">
       <div className="max-w-4xl mx-auto px-4 py-6">
@@ -669,6 +699,40 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
             )}
           </CardContent>
         </Card>
+
+        {canSubmitResolution && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Submit Resolution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmitResolution} className="space-y-4">
+                <div className="space-y-2">
+                  {market.options.map(opt => (
+                    <div key={opt.id} className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id={`res-${opt.id}`}
+                        name="resolution"
+                        value={opt.id}
+                        checked={selectedResolution === opt.id}
+                        onChange={e => setSelectedResolution(e.target.value)}
+                      />
+                      <label htmlFor={`res-${opt.id}`}>{opt.name}</label>
+                    </div>
+                  ))}
+                </div>
+                <Button type="submit" disabled={isSubmittingResolution || !selectedResolution}>
+                  {isSubmittingResolution ? 'Submitting...' : 'Submit Resolution'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {isAdmin && market.pendingResolution && (
+          <AdminResolutionActions market={market} onResolutionApproved={onMarketUpdate} />
+        )}
 
         {/* Market timeline and statistics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

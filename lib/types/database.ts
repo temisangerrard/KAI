@@ -31,6 +31,16 @@ export interface Market {
   resolvedAt?: Timestamp
   imageUrl?: string
   tags: string[]
+  pendingResolution?: {
+    optionId: string
+    submittedBy: string
+    submittedAt: Timestamp
+  }
+  resolution?: {
+    optionId: string
+    approvedBy?: string
+    approvedAt: Timestamp
+  }
   
   // Prediction options
   options: MarketOption[]

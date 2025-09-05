@@ -118,6 +118,16 @@ export interface Market {
   totalTokens: number
   participants: number
   tags?: string[]
+  pendingResolution?: {
+    optionId: string
+    submittedBy: string
+    submittedAt: Date
+  }
+  resolution?: {
+    optionId: string
+    approvedBy?: string
+    approvedAt: Date
+  }
 }
 
 // Get all markets with improved error handling
@@ -166,7 +176,17 @@ export async function getAllMarkets(): Promise<Market[]> {
         status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
         totalTokens: data.totalTokens || data.totalTokensStaked || 0,
         participants: data.participants || data.totalParticipants || 0,
-        tags: data.tags || []
+        tags: data.tags || [],
+        pendingResolution: data.pendingResolution ? {
+          optionId: data.pendingResolution.optionId,
+          submittedBy: data.pendingResolution.submittedBy,
+          submittedAt: data.pendingResolution.submittedAt?.toDate ? data.pendingResolution.submittedAt.toDate() : data.pendingResolution.submittedAt
+        } : undefined,
+        resolution: data.resolution ? {
+          optionId: data.resolution.optionId,
+          approvedBy: data.resolution.approvedBy,
+          approvedAt: data.resolution.approvedAt?.toDate ? data.resolution.approvedAt.toDate() : data.resolution.approvedAt
+        } : undefined
       }
 
       console.log(`Transformed market ${doc.id}:`, {
@@ -273,7 +293,17 @@ export async function getMarketById(id: string): Promise<Market | null> {
       status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
       totalTokens: data.totalTokens || data.totalTokensStaked || 0,
       participants: data.participants || data.totalParticipants || 0,
-      tags: data.tags || []
+      tags: data.tags || [],
+      pendingResolution: data.pendingResolution ? {
+        optionId: data.pendingResolution.optionId,
+        submittedBy: data.pendingResolution.submittedBy,
+        submittedAt: data.pendingResolution.submittedAt?.toDate ? data.pendingResolution.submittedAt.toDate() : data.pendingResolution.submittedAt
+      } : undefined,
+      resolution: data.resolution ? {
+        optionId: data.resolution.optionId,
+        approvedBy: data.resolution.approvedBy,
+        approvedAt: data.resolution.approvedAt?.toDate ? data.resolution.approvedAt.toDate() : data.resolution.approvedAt
+      } : undefined
     } as Market
 
     console.log(`Successfully loaded market ${id} from Firestore`)
