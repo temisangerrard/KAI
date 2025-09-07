@@ -22,7 +22,7 @@ import {
   Activity,
   RefreshCw
 } from 'lucide-react'
-import { ResolutionService, ResolutionLog } from '@/lib/services/resolution-service'
+import { ResolutionLog } from '@/lib/services/resolution-service'
 import { format } from 'date-fns'
 
 interface ResolutionAuditTrailProps {
@@ -75,8 +75,16 @@ export function ResolutionAuditTrail({
       let logs: ResolutionLog[] = []
       
       if (marketId) {
-        // Load logs for specific market
-        logs = await ResolutionService.getResolutionLogs(marketId)
+        // Load logs for specific market via API
+        const response = await fetch(`/api/admin/markets/${marketId}/resolution-logs`);
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          logs = result.logs;
+        } else {
+          console.error('Error loading resolution logs:', result.error || result.message);
+          logs = [];
+        }
       } else {
         // For now, we'll need to implement a method to get all logs
         // This would require a new service method

@@ -17,7 +17,7 @@ export function BalanceUpdateIndicator({
   className 
 }: BalanceUpdateIndicatorProps) {
   const [showUpdate, setShowUpdate] = useState(false)
-  const [balanceChange, setBalanceChange] = useState(0)
+  const [balanceChange, setBalanceChange] = useState<number>(0)
 
   useEffect(() => {
     if (previousBalance !== undefined && currentBalance !== previousBalance) {
@@ -74,14 +74,16 @@ export function AnimatedBalance({
   const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
+    // Only update when the balance prop actually changes
     if (balance !== displayBalance && !isLoading) {
-      setPreviousBalance(displayBalance)
+      const prevBalance = displayBalance
+      setPreviousBalance(prevBalance)
       
-      if (showAnimation && balance > displayBalance) {
+      if (showAnimation && balance > prevBalance) {
         setIsAnimating(true)
         
         // Animate the balance change
-        const difference = balance - displayBalance
+        const difference = balance - prevBalance
         const steps = Math.min(20, Math.max(5, Math.floor(difference / 10)))
         const increment = difference / steps
         let currentStep = 0
@@ -93,7 +95,7 @@ export function AnimatedBalance({
             setIsAnimating(false)
             clearInterval(timer)
           } else {
-            setDisplayBalance(prev => Math.floor(prev + increment))
+            setDisplayBalance(prevBalance + Math.floor(increment * currentStep))
           }
         }, 50)
         
@@ -102,7 +104,12 @@ export function AnimatedBalance({
         setDisplayBalance(balance)
       }
     }
-  }, [balance, displayBalance, isLoading, showAnimation])
+  }, [balance])
+
+  // Initialize displayBalance when component mounts
+  useEffect(() => {
+    setDisplayBalance(balance)
+  }, [])
 
   if (isLoading) {
     return (

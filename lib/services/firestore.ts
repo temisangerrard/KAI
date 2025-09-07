@@ -116,9 +116,115 @@ export class MarketsService {
     return { markets, lastDoc }
   }
 
-  static async updateMarket(id: string, updates: Partial<Market>): Promise<void> {
+  static async updateMarket(id: string, updates: Partial<Market>, adminId?: string): Promise<void> {
+    // Verify admin privileges if adminId is provided (recommended for security)
+    if (adminId) {
+      const { AdminAuthService } = await import('@/lib/auth/admin-auth');
+      const isAdmin = await AdminAuthService.checkUserIsAdmin(adminId);
+      if (!isAdmin) {
+        throw new Error('Admin privileges required for market updates');
+      }
+    }
+    
     const docRef = doc(db, COLLECTIONS.markets, id)
     await updateDoc(docRef, updates)
+  }
+
+  static async deleteMarket(id: string, adminId: string): Promise<void> {
+    // Verify admin privileges (required for deletion)
+    const { AdminAuthService } = await import('@/lib/auth/admin-auth');
+    const isAdmin = await AdminAuthService.checkUserIsAdmin(adminId);
+    if (!isAdmin) {
+      throw new Error('Admin privileges required for market deletion');
+    }
+
+    // Check if market exists
+    const market = await this.getMarket(id);
+    if (!market) {
+      throw new Error('Market not found');
+    }
+
+    console.log(`🗑️ Starting deletion of market ${id} and related data...`);
+
+    try {
+      // Delete related data in batches to avoid Firestore limits
+      await this.deleteMarketRelatedData(id);
+      
+      // Finally delete the market document itself
+      const marketRef = doc(db, COLLECTIONS.markets, id);
+      await deleteDoc(marketRef);
+      
+      console.log(`✅ Successfully deleted market ${id} and all related data`);
+    } catch (error) {
+      console.error(`❌ Error deleting market ${id}:`, error);
+      throw new Error(`Failed to delete market: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private static async deleteMarketRelatedData(marketId: string): Promise<void> {
+    const batchSize = 100; // Stay well under Firestore's 500 operation limit
+    
+    // Delete prediction commitments (using correct collection name)
+    await this.deleteCollectionData('prediction_commitments', 'predictionId', marketId, batchSize);
+    
+    // Delete token transactions related to this market
+    await this.deleteCollectionData('token_transactions', 'predictionId', marketId, batchSize);
+    
+    // Delete user balances that might reference this market (if any)
+    // Note: We don't delete user_balances as they contain overall user balance, not market-specific
+  }
+
+  private static async deleteCollectionData(
+    collectionName: string, 
+    fieldName: string, 
+    fieldValue: string, 
+    batchSize: number
+  ): Promise<void> {
+    let hasMore = true;
+    let deletedCount = 0;
+    
+    while (hasMore) {
+      try {
+        // Query for documents to delete
+        const q = query(
+          collection(db, collectionName),
+          where(fieldName, '==', fieldValue),
+          limit(batchSize)
+        );
+        
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+          hasMore = false;
+          break;
+        }
+        
+        // Create batch for deletion
+        const batch = writeBatch(db);
+        
+        snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        // Commit the batch
+        await batch.commit();
+        
+        deletedCount += snapshot.docs.length;
+        console.log(`🗑️ Deleted ${snapshot.docs.length} documents from ${collectionName} (total: ${deletedCount})`);
+        
+        // If we got fewer documents than the batch size, we're done
+        if (snapshot.docs.length < batchSize) {
+          hasMore = false;
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error deleting from ${collectionName}:`, error);
+        // Continue with deletion even if some batches fail
+        hasMore = false;
+      }
+    }
+    
+    console.log(`✅ Finished deleting from ${collectionName}: ${deletedCount} documents removed`);
   }
 
   static async resolveMarket(id: string, correctOptionId: string): Promise<void> {

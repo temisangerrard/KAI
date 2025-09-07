@@ -156,4 +156,4 @@ Create evidence validation service for URLs, files, and descriptions with strict
   - [x] Update user balance displays to reflect resolution payouts
   - [x] Write integration tests for resolution system with existing components
   - _Requirements: 4.4, 6.5_
-  - _Note: Only basic timeline UI completed, core resolution workflow missing_
+  - _Note: Only basic timeline UI completed, core resolution workflow missing

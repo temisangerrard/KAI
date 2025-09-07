@@ -30,6 +30,7 @@ import {
 } from '@/lib/types/database'
 import { PredictionCommitment } from '@/lib/types/token'
 import { TokenBalanceService } from './token-balance-service'
+import { AdminAuthService } from '@/lib/auth/admin-auth'
 
 // Collection references
 const COLLECTIONS = {
@@ -56,7 +57,8 @@ export enum ResolutionErrorType {
   TOKEN_DISTRIBUTION_FAILED = 'token_distribution_failed',
   DATABASE_TRANSACTION_FAILED = 'database_transaction_failed',
   ROLLBACK_FAILED = 'rollback_failed',
-  VALIDATION_FAILED = 'validation_failed'
+  VALIDATION_FAILED = 'validation_failed',
+  UNAUTHORIZED = 'unauthorized'
 }
 
 export class ResolutionServiceError extends Error {
@@ -88,6 +90,26 @@ export interface ResolutionLog {
  * Handles market resolution, payout calculation, and token distribution
  */
 export class ResolutionService {
+  
+  /**
+   * Verify admin privileges for critical operations
+   */
+  private static async verifyAdminPrivileges(adminId: string): Promise<void> {
+    if (!adminId) {
+      throw new ResolutionServiceError(
+        ResolutionErrorType.UNAUTHORIZED,
+        'User identification required for admin operations'
+      )
+    }
+    
+    const isAdmin = await AdminAuthService.checkUserIsAdmin(adminId)
+    if (!isAdmin) {
+      throw new ResolutionServiceError(
+        ResolutionErrorType.UNAUTHORIZED,
+        'Admin privileges required for this operation'
+      )
+    }
+  }
   
   /**
    * Get markets that are past their end date and need resolution
@@ -338,6 +360,9 @@ export class ResolutionService {
     let resolutionId: string | null = null
     
     try {
+      // Verify admin privileges before any operations
+      await this.verifyAdminPrivileges(adminId)
+      
       // Log resolution start
       await this.logResolutionAction(marketId, 'resolution_started', adminId, {
         winningOptionId,
@@ -637,6 +662,9 @@ export class ResolutionService {
     resolutionId: string,
     adminId: string
   ): Promise<void> {
+    // Verify admin privileges before rollback operations (outside try-catch to allow auth errors to bubble up)
+    await this.verifyAdminPrivileges(adminId)
+    
     try {
       await this.logResolutionAction(marketId, 'rollback_initiated', adminId, {
         resolutionId
@@ -1035,6 +1063,9 @@ export class ResolutionService {
     refundTokens: boolean = true
   ): Promise<{ success: boolean; refundsProcessed: number }> {
     try {
+      // Verify admin privileges before market cancellation
+      await this.verifyAdminPrivileges(adminId)
+      
       await this.logResolutionAction(marketId, 'resolution_started', adminId, {
         action: 'cancel_market',
         reason,

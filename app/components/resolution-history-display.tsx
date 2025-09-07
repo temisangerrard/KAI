@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { CalendarDays, CheckCircle, XCircle, Clock, Eye, ExternalLink } from 'lucide-react'
 import { MarketResolution, Market, Evidence } from '@/lib/types/database'
-import { ResolutionService } from '@/lib/services/resolution-service'
 import { format } from 'date-fns'
 
 interface ResolutionHistoryDisplayProps {
@@ -44,7 +43,9 @@ export function ResolutionHistoryDisplay({
     try {
       setData(prev => ({ ...prev, loading: true, error: null }))
       
-      const resolution = await ResolutionService.getMarketResolution(marketId)
+      // Make API call to get market resolution details
+      const response = await fetch(`/api/markets/${marketId}/resolution`);
+      const resolution = response.ok ? await response.json() : null;
       
       // If no market provided, we could fetch it, but for now we'll work with what we have
       setData(prev => ({

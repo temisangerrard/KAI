@@ -20,7 +20,6 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { Market, Evidence, PayoutPreview } from '@/lib/types/database'
-import { ResolutionService } from '@/lib/services/resolution-service'
 import { useAuth } from '@/app/auth/auth-context'
 import { EvidenceCollectionForm } from './evidence-collection-form'
 import { PayoutPreviewCard } from './payout-preview-card'
@@ -57,12 +56,36 @@ export function MarketResolutionForm({
   const calculatePayoutPreview = async () => {
     try {
       setError(null)
-      const preview = await ResolutionService.calculatePayoutPreview(
-        market.id, 
-        selectedWinner,
-        creatorFeePercentage / 100
-      )
-      setPayoutPreview(preview)
+      
+      if (!user) {
+        setError('Admin authentication required')
+        return
+      }
+
+      // Use the same user ID logic as useAdminAuth hook: user.id || user.address
+      const userId = user.id || user.address;
+      
+      // Make API call to admin payout preview endpoint with proper authentication
+      const response = await fetch(`/api/admin/markets/${market.id}/payout-preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId, // Send user ID in header for admin authentication
+        },
+        body: JSON.stringify({
+          winningOptionId: selectedWinner,
+          creatorFeePercentage: creatorFeePercentage / 100
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPayoutPreview(result.preview)
+      } else {
+        console.error('Error calculating payout preview:', result.error || result.message)
+        setError('Failed to calculate payout preview')
+      }
     } catch (err) {
       console.error('Error calculating payout preview:', err)
       setError('Failed to calculate payout preview')
@@ -115,7 +138,7 @@ export function MarketResolutionForm({
       return
     }
 
-    if (!user?.uid) {
+    if (!user) {
       setError('Admin authentication required')
       return
     }
@@ -124,18 +147,29 @@ export function MarketResolutionForm({
     setError(null)
 
     try {
-      const result = await ResolutionService.resolveMarket(
-        market.id,
-        selectedWinner,
-        evidence,
-        user.uid,
-        creatorFeePercentage / 100
-      )
+      // Use the same user ID logic as useAdminAuth hook: user.id || user.address
+      const userId = user.id || user.address;
+      
+      // Make API call to admin resolution endpoint with proper authentication
+      const response = await fetch(`/api/admin/markets/${market.id}/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId, // Send user ID in header for admin authentication
+        },
+        body: JSON.stringify({
+          winningOptionId: selectedWinner,
+          evidence: evidence,
+          creatorFeePercentage: creatorFeePercentage / 100
+        })
+      });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         onComplete()
       } else {
-        setError('Failed to resolve market')
+        setError(result.message || result.error || 'Failed to resolve market')
       }
     } catch (err) {
       console.error('Error resolving market:', err)

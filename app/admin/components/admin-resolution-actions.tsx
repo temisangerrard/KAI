@@ -14,7 +14,6 @@ import {
   Coins
 } from 'lucide-react'
 import { Market, PayoutPreview } from '@/lib/types/database'
-import { ResolutionService } from '@/lib/services/resolution-service'
 import { MarketResolutionForm } from './market-resolution-form'
 
 interface AdminResolutionActionsProps {

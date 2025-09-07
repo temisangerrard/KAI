@@ -25,7 +25,6 @@ import {
   FileText
 } from 'lucide-react'
 import { Market } from '@/lib/types/database'
-import { ResolutionService } from '@/lib/services/resolution-service'
 import { AdminResolutionActions } from './admin-resolution-actions'
 
 export function MarketResolutionDashboard() {
@@ -81,8 +80,17 @@ export function MarketResolutionDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const markets = await ResolutionService.getPendingResolutionMarkets()
-      setPendingMarkets(markets)
+      
+      // Make API call to admin pending resolution markets endpoint
+      const response = await fetch('/api/admin/markets/pending-resolution');
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPendingMarkets(result.markets)
+      } else {
+        console.error('Error loading pending markets:', result.error || result.message)
+        setError('Failed to load pending markets')
+      }
     } catch (err) {
       console.error('Error loading pending markets:', err)
       setError('Failed to load pending markets')

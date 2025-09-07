@@ -24,17 +24,7 @@ export function usePayoutNotifications() {
   const [isLoading, setIsLoading] = useState(true)
   const [lastNotificationTime, setLastNotificationTime] = useState<Date | null>(null)
 
-  const showPayoutToast = useCallback((notification: PayoutNotification) => {
-    const isWinnerPayout = notification.type === 'winner_payout'
-    
-    toast({
-      title: isWinnerPayout ? "🎉 You Won!" : "💰 Creator Fee Earned!",
-      description: isWinnerPayout 
-        ? `You earned ${notification.amount} tokens${notification.profit ? ` (profit: +${notification.profit})` : ''} from "${notification.marketTitle}"`
-        : `You earned ${notification.amount} tokens as creator fee from "${notification.marketTitle}"`,
-      duration: 8000,
-    })
-  }, [toast])
+
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -51,8 +41,8 @@ export function usePayoutNotifications() {
         setIsLoading(true)
 
         // Set initial timestamp to avoid showing old notifications as new
-        const now = new Date()
-        setLastNotificationTime(now)
+        const initialTimestamp = new Date()
+        setLastNotificationTime(initialTimestamp)
 
         // Listen for winner payouts
         const winnerPayoutsQuery = query(
@@ -70,7 +60,7 @@ export function usePayoutNotifications() {
             snapshot.docs.forEach(doc => {
               const payout = doc.data() as ResolutionPayout
               const timestamp = payout.processedAt.toDate()
-              const isNew = lastNotificationTime ? timestamp > lastNotificationTime : false
+              const isNew = timestamp > initialTimestamp
               
               const notification: PayoutNotification = {
                 id: `winner_${doc.id}`,
@@ -83,9 +73,13 @@ export function usePayoutNotifications() {
               
               newPayouts.push(notification)
               
-              // Show toast for new payouts
-              if (isNew && lastNotificationTime) {
-                showPayoutToast(notification)
+              // Show toast for new payouts - inline to avoid dependency issues
+              if (isNew) {
+                toast({
+                  title: "🎉 You Won!",
+                  description: `You earned ${notification.amount} tokens${notification.profit ? ` (profit: +${notification.profit})` : ''} from "${notification.marketTitle}"`,
+                  duration: 8000,
+                })
               }
             })
 
@@ -115,7 +109,7 @@ export function usePayoutNotifications() {
             snapshot.docs.forEach(doc => {
               const payout = doc.data() as CreatorPayout
               const timestamp = payout.processedAt.toDate()
-              const isNew = lastNotificationTime ? timestamp > lastNotificationTime : false
+              const isNew = timestamp > initialTimestamp
               
               const notification: PayoutNotification = {
                 id: `creator_${doc.id}`,
@@ -127,9 +121,13 @@ export function usePayoutNotifications() {
               
               newPayouts.push(notification)
               
-              // Show toast for new payouts
-              if (isNew && lastNotificationTime) {
-                showPayoutToast(notification)
+              // Show toast for new payouts - inline to avoid dependency issues
+              if (isNew) {
+                toast({
+                  title: "💰 Creator Fee Earned!",
+                  description: `You earned ${notification.amount} tokens as creator fee from "${notification.marketTitle}"`,
+                  duration: 8000,
+                })
               }
             })
 
@@ -157,7 +155,7 @@ export function usePayoutNotifications() {
       if (winnerUnsubscribe) winnerUnsubscribe()
       if (creatorUnsubscribe) creatorUnsubscribe()
     }
-  }, [user?.id, isAuthenticated, lastNotificationTime, showPayoutToast])
+  }, [user?.id, isAuthenticated, toast]) // Only depend on stable values
 
   const markAsRead = useCallback((notificationId: string) => {
     setNotifications(prev => 

@@ -76,8 +76,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Get admin ID from auth result
-    const adminId = authResult.user?.uid || 'unknown-admin';
+    // Get admin ID from auth result (use userId from AdminAuthService.verifyAdminAuth)
+    const adminId = authResult.userId || 'unknown-admin';
 
     // Resolve the market
     const result = await ResolutionService.resolveMarket(
