@@ -114,7 +114,7 @@ export interface Market {
   }>
   startDate: Date
   endDate: Date
-  status: 'active' | 'ended' | 'cancelled'
+  status: 'draft' | 'active' | 'closed' | 'pending_resolution' | 'resolving' | 'resolved' | 'cancelled' | 'ended'
   totalTokens: number
   participants: number
   tags?: string[]
@@ -163,7 +163,7 @@ export async function getAllMarkets(): Promise<Market[]> {
         })),
         startDate: data.startDate?.toDate() || data.createdAt?.toDate() || new Date(),
         endDate: data.endDate?.toDate() || data.endsAt?.toDate() || new Date(),
-        status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
+        status: data.status || 'active',
         totalTokens: data.totalTokens || data.totalTokensStaked || 0,
         participants: data.participants || data.totalParticipants || 0,
         tags: data.tags || []
@@ -270,7 +270,7 @@ export async function getMarketById(id: string): Promise<Market | null> {
       })),
       startDate: data.startDate?.toDate() || data.createdAt?.toDate() || new Date(),
       endDate: data.endDate?.toDate() || data.endsAt?.toDate() || new Date(),
-      status: data.status === 'resolved' ? 'ended' : (data.status || 'active'),
+      status: data.status || 'active',
       totalTokens: data.totalTokens || data.totalTokensStaked || 0,
       participants: data.participants || data.totalParticipants || 0,
       tags: data.tags || []
