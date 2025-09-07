@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [-] 1. Analyze current system and plan backward-compatible migration
+- [x] 1. Analyze current system and plan backward-compatible migration
   - Examine existing PredictionCommitment records in database to understand current structure
   - Audit all dashboard dependencies on AdminCommitmentService and commitment data structure
   - Document current AdminCommitmentService query patterns used by dashboards
@@ -10,7 +10,7 @@
   - Verify existing dashboard analytics calculations and data expectations
   - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2_
 
-- [ ] 2. Create backward-compatible PredictionCommitment interface
+- [-] 2. Create backward-compatible PredictionCommitment interface
   - Add optional `optionId: string` field to existing PredictionCommitment interface
   - Preserve existing `position: 'yes' | 'no'` field for backward compatibility
   - Add `marketId` as alias for `predictionId` to improve clarity while maintaining compatibility

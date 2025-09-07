@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ResolutionService } from '@/lib/services/resolution-service';
+import { SimpleResolutionService } from '@/lib/services/simple-resolution-service';
 import { AdminAuthService } from '@/lib/auth/admin-auth';
 import { Evidence } from '@/lib/types/database';
 
@@ -78,9 +78,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Get admin ID from auth result (use userId from AdminAuthService.verifyAdminAuth)
     const adminId = authResult.userId || 'unknown-admin';
+    
+    console.log('🎯 Starting market resolution:', {
+      marketId: params.id,
+      adminId,
+      winningOptionId,
+      evidenceCount: evidence.length,
+      creatorFeePercentage
+    });
 
-    // Resolve the market
-    const result = await ResolutionService.resolveMarket(
+    // Resolve the market using SimpleResolutionService
+    const result = await SimpleResolutionService.resolveMarket(
       params.id,
       winningOptionId,
       evidence,

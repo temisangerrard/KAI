@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   writeBatch,
   increment,
@@ -35,7 +36,7 @@ import { AdminAuthService } from '@/lib/auth/admin-auth'
 // Collection references
 const COLLECTIONS = {
   markets: 'markets',
-  predictionCommitments: 'predictionCommitments',
+  predictionCommitments: 'prediction_commitments', // Fixed: use underscore like AdminCommitmentService
   marketResolutions: 'marketResolutions',
   resolutionPayouts: 'resolutionPayouts',
   creatorPayouts: 'creatorPayouts',
@@ -95,18 +96,34 @@ export class ResolutionService {
    * Verify admin privileges for critical operations
    */
   private static async verifyAdminPrivileges(adminId: string): Promise<void> {
+    console.log('🔐 Verifying admin privileges for user:', adminId)
+    
     if (!adminId) {
+      console.error('❌ No admin ID provided')
       throw new ResolutionServiceError(
         ResolutionErrorType.UNAUTHORIZED,
         'User identification required for admin operations'
       )
     }
     
-    const isAdmin = await AdminAuthService.checkUserIsAdmin(adminId)
-    if (!isAdmin) {
+    try {
+      const isAdmin = await AdminAuthService.checkUserIsAdmin(adminId)
+      console.log('🔐 Admin check result for', adminId, ':', isAdmin)
+      
+      if (!isAdmin) {
+        console.error('❌ Admin check failed for user:', adminId)
+        throw new ResolutionServiceError(
+          ResolutionErrorType.UNAUTHORIZED,
+          'Admin privileges required for this operation'
+        )
+      }
+      
+      console.log('✅ Admin privileges verified for user:', adminId)
+    } catch (error) {
+      console.error('❌ Error during admin verification:', error)
       throw new ResolutionServiceError(
         ResolutionErrorType.UNAUTHORIZED,
-        'Admin privileges required for this operation'
+        `Admin verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
   }
@@ -211,17 +228,111 @@ export class ResolutionService {
       }
 
       // Get all commitments for this market
-      const allCommitmentsQuery = query(
-        collection(db, COLLECTIONS.predictionCommitments),
-        where('predictionId', '==', marketId),
-        where('status', '==', 'active')
-      )
+      console.log('🔍 Fetching commitments for market:', marketId)
+      console.log('🔍 Using collection:', COLLECTIONS.predictionCommitments)
       
-      const allCommitmentsSnapshot = await getDocs(allCommitmentsQuery)
+      // First, let's see what's actually in the collection
+      console.log('🔍 Checking what exists in prediction_commitments collection...')
+      try {
+        const allDocsQuery = query(collection(db, COLLECTIONS.predictionCommitments), limit(5))
+        const allDocsSnapshot = await getDocs(allDocsQuery)
+        console.log('🔍 Sample documents in collection:', allDocsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data()
+        })))
+      } catch (error) {
+        console.error('❌ Error fetching sample documents:', error)
+      }
+      
+      let allCommitmentsSnapshot
+      try {
+        const allCommitmentsQuery = query(
+          collection(db, COLLECTIONS.predictionCommitments),
+          where('predictionId', '==', marketId),
+          where('status', '==', 'active')
+        )
+        
+        allCommitmentsSnapshot = await getDocs(allCommitmentsQuery)
+        console.log('🔍 Found', allCommitmentsSnapshot.docs.length, 'commitments')
+      } catch (error) {
+        console.error('❌ Error fetching commitments:', error)
+        // Return empty preview if query fails
+        return {
+          totalPool: 0,
+          houseFee: 0,
+          creatorFee: 0,
+          winnerPool: 0,
+          winnerCount: 0,
+          largestPayout: 0,
+          smallestPayout: 0,
+          creatorPayout: {
+            userId: market.createdBy,
+            feeAmount: 0,
+            feePercentage: creatorFeePercentage
+          },
+          payouts: []
+        }
+      }
+      
       const allCommitments = allCommitmentsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as PredictionCommitment[]
+      
+      console.log('🔍 Processed commitments:', allCommitments.map(c => ({
+        id: c.id,
+        userId: c.userId,
+        tokensCommitted: c.tokensCommitted,
+        position: c.position,
+        status: c.status
+      })))
+
+      // If no commitments found, try alternative query with marketId field
+      if (allCommitments.length === 0) {
+        console.log('⚠️ No commitments found with predictionId, trying marketId field...')
+        
+        const altCommitmentsQuery = query(
+          collection(db, COLLECTIONS.predictionCommitments),
+          where('marketId', '==', marketId),
+          where('status', '==', 'active')
+        )
+        
+        const altCommitmentsSnapshot = await getDocs(altCommitmentsQuery)
+        console.log('🔍 Found', altCommitmentsSnapshot.docs.length, 'commitments with marketId field')
+        
+        const altCommitments = altCommitmentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as PredictionCommitment[]
+        
+        if (altCommitments.length > 0) {
+          allCommitments.push(...altCommitments)
+        }
+        console.log('🔍 Total commitments after fallback:', allCommitments.length)
+      }
+
+      // If still no commitments, try without status filter
+      if (allCommitments.length === 0) {
+        console.log('⚠️ No active commitments found, trying without status filter...')
+        
+        const noStatusQuery = query(
+          collection(db, COLLECTIONS.predictionCommitments),
+          where('predictionId', '==', marketId)
+        )
+        
+        const noStatusSnapshot = await getDocs(noStatusQuery)
+        console.log('🔍 Found', noStatusSnapshot.docs.length, 'commitments without status filter')
+        
+        const noStatusCommitments = noStatusSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as PredictionCommitment[]
+        
+        if (noStatusCommitments.length > 0) {
+          allCommitments.push(...noStatusCommitments)
+        }
+        console.log('🔍 Total commitments after no-status fallback:', allCommitments.length)
+      }
 
       // Calculate total market pool
       const totalMarketPool = allCommitments.reduce((sum, commitment) => 
@@ -229,11 +340,22 @@ export class ResolutionService {
       )
 
       // Get winning commitments
+      console.log('🔍 Market options:', market.options)
+      console.log('🔍 Winning option ID:', winningOptionId)
+      
+      // Find the winning option in the market
+      const winningOption = market.options?.find(option => option.id === winningOptionId)
+      console.log('🔍 Winning option:', winningOption)
+      
       let winningPosition: 'yes' | 'no' | null = null
       if (winningOptionId === 'yes') {
         winningPosition = 'yes'
       } else if (winningOptionId === 'no') {
         winningPosition = 'no'
+      } else {
+        // For non-binary markets, we need to handle differently
+        console.log('🔍 Non-binary market detected, using option ID as position')
+        winningPosition = winningOptionId as any
       }
       
       const winningCommitments = winningPosition 

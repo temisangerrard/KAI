@@ -96,13 +96,16 @@ export function AdminResolutionActions({
             <span className="text-sm text-gray-600">{statusInfo.description}</span>
           </div>
           
-          {market.status === 'pending_resolution' && (
+          {(market.status === 'pending_resolution' || 
+            market.status === 'active' || 
+            market.status === 'closed' ||
+            market.status === 'resolving') && (
             <Button 
               onClick={handleStartResolution}
               className="bg-sage-600 hover:bg-sage-700"
             >
               <FileText className="w-4 h-4 mr-2" />
-              Start Resolution
+              {market.status === 'pending_resolution' ? 'Start Resolution' : 'Resolve Market'}
             </Button>
           )}
         </div>
