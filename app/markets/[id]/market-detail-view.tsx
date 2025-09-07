@@ -18,6 +18,7 @@ import { InsufficientBalanceModal } from "@/app/components/insufficient-balance-
 import { MarketTimeline } from "./market-timeline"
 import { MarketStatistics } from "./market-statistics"
 import { CommentSection } from "./comment-section"
+import { UserResolutionForm } from "@/app/components/user-resolution-form"
 
 import { calculateOdds, formatTokenAmount } from "@/lib/utils/market-utils"
 import {
@@ -28,7 +29,8 @@ import {
   Clock,
   Share2,
   Heart,
-
+  CheckCircle,
+  AlertCircle,
   Flame,
   Zap,
   Star,
@@ -93,6 +95,7 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
   const [showCommitmentModal, setShowCommitmentModal] = useState(false)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false)
+  const [showResolutionForm, setShowResolutionForm] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
 
   // Auto-repair broken data on component mount
@@ -130,6 +133,22 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
 
     autoRepairData()
   }, [market.id, market.totalTokens, market.participants, market.options, onMarketUpdate, isRecalculating])
+
+  // Auto-show resolution form for ended markets (first time only)
+  useEffect(() => {
+    const hasEnded = new Date(market.endDate) < new Date()
+    const needsResolution = market.status === 'pending_resolution' || market.status === 'resolving' || market.status === 'resolved'
+    
+    // Show resolution form automatically if market has ended and needs/has resolution
+    if (hasEnded && needsResolution && user) {
+      // Only auto-show once per session (you could use localStorage to persist this)
+      const hasAutoShown = sessionStorage.getItem(`resolution-shown-${market.id}`)
+      if (!hasAutoShown) {
+        setShowResolutionForm(true)
+        sessionStorage.setItem(`resolution-shown-${market.id}`, 'true')
+      }
+    }
+  }, [market.id, market.endDate, market.status, user])
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -691,6 +710,44 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
           </CardContent>
         </Card>
 
+        {/* Resolution Status - Enhanced Implementation */}
+        {(market.status === 'resolved' || market.status === 'pending_resolution' || market.status === 'resolving') && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  {market.status === 'resolved' && (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-green-700 font-medium">Market Resolved</span>
+                    </>
+                  )}
+                  {market.status === 'pending_resolution' && (
+                    <>
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      <span className="text-amber-700 font-medium">Awaiting Resolution</span>
+                    </>
+                  )}
+                  {market.status === 'resolving' && (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <span className="text-blue-700 font-medium">Resolution in Progress</span>
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowResolutionForm(true)}
+                  className="text-primary-600 border-primary-200 hover:bg-primary-50"
+                >
+                  View Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
 
 
         {/* Back Opinion Modal */}
@@ -756,6 +813,18 @@ export function MarketDetailView({ market, onMarketUpdate }: MarketDetailViewPro
             requiredTokens={commitmentData.tokensToCommit}
             predictionTitle={market.title}
           />
+        )}
+
+        {/* User Resolution Form Modal */}
+        {showResolutionForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="w-full max-w-2xl max-h-full overflow-y-auto">
+              <UserResolutionForm
+                market={market}
+                onClose={() => setShowResolutionForm(false)}
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>

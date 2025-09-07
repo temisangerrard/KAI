@@ -206,3 +206,63 @@ export const validateCommitmentWithUser = (data: unknown) => {
 export const validateMarketCommitmentSummary = (data: unknown) => {
   return MarketCommitmentSummarySchema.parse(data);
 };
+
+/**
+ * Zod schema for MarketCreationData validation
+ */
+export const MarketCreationDataSchema = z.object({
+  title: z.string().min(1, 'Market title is required'),
+  description: z.string().min(1, 'Market description is required'),
+  endDate: z.date({
+    required_error: 'End date is required',
+    invalid_type_error: 'End date must be a valid date'
+  }),
+  options: z.array(z.object({
+    id: z.string().min(1, 'Option ID is required'),
+    text: z.string().min(1, 'Option text is required')
+  })).min(1, 'At least one option is required'),
+  category: z.string().optional()
+});
+
+/**
+ * Zod schema for ValidationError
+ */
+export const ValidationErrorSchema = z.object({
+  field: z.string().min(1, 'Field name is required'),
+  message: z.string().min(1, 'Error message is required'),
+  code: z.string().min(1, 'Error code is required')
+});
+
+/**
+ * Zod schema for ValidationWarning
+ */
+export const ValidationWarningSchema = z.object({
+  field: z.string().min(1, 'Field name is required'),
+  message: z.string().min(1, 'Warning message is required'),
+  code: z.string().min(1, 'Warning code is required')
+});
+
+/**
+ * Zod schema for MarketValidationResult
+ */
+export const MarketValidationResultSchema = z.object({
+  isValid: z.boolean(),
+  errors: z.array(ValidationErrorSchema),
+  warnings: z.array(ValidationWarningSchema)
+});
+
+export const validateMarketCreationData = (data: unknown) => {
+  return MarketCreationDataSchema.parse(data);
+};
+
+export const validateValidationError = (data: unknown) => {
+  return ValidationErrorSchema.parse(data);
+};
+
+export const validateValidationWarning = (data: unknown) => {
+  return ValidationWarningSchema.parse(data);
+};
+
+export const validateMarketValidationResult = (data: unknown) => {
+  return MarketValidationResultSchema.parse(data);
+};

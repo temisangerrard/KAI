@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getMarketById, updateMarket } from '@/lib/db/database'
 
@@ -65,5 +65,66 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update market', error)
     return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  console.log(`🗑️ DELETE request for market: ${params.id}`);
+  
+  try {
+    // Verify admin authentication
+    const { AdminAuthService } = await import('@/lib/auth/admin-auth');
+    const authResult = await AdminAuthService.verifyAdminAuth(request);
+    
+    if (!authResult.isAdmin) {
+      console.log(`❌ Admin auth failed for market deletion: ${authResult.error}`);
+      return NextResponse.json({ 
+        error: 'Unauthorized', 
+        message: authResult.error 
+      }, { status: 401 });
+    }
+
+    console.log(`✅ Admin auth successful for user: ${authResult.userId}`);
+
+    // Delete the market using the service
+    const { MarketsService } = await import('@/lib/services/firestore');
+    await MarketsService.deleteMarket(params.id, authResult.userId!);
+    
+    console.log(`✅ Market ${params.id} deleted successfully`);
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Market deleted successfully' 
+    });
+  } catch (error) {
+    console.error(`❌ Failed to delete market ${params.id}:`, error);
+    
+    if (error instanceof Error) {
+      if (error.message === 'Market not found') {
+        return NextResponse.json({ 
+          error: 'Market not found',
+          message: 'The requested market could not be found.' 
+        }, { status: 404 });
+      }
+      if (error.message.includes('Admin privileges required')) {
+        return NextResponse.json({ 
+          error: 'Admin privileges required',
+          message: 'You do not have permission to delete markets.' 
+        }, { status: 403 });
+      }
+      if (error.message.includes('permission-denied')) {
+        return NextResponse.json({ 
+          error: 'Permission denied',
+          message: 'Insufficient permissions to access the database.' 
+        }, { status: 403 });
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to delete market',
+      message: error instanceof Error ? error.message : 'An unexpected error occurred'
+    }, { status: 500 });
   }
 }

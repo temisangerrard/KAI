@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/app/auth/auth-context'
+import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
   SelectContent,
@@ -30,13 +33,23 @@ import {
   Trash2,
   MoreHorizontal,
   TrendingUp,
-  Star
+  Star,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import { Market, MarketStatus } from "@/lib/types/database"
 import { AdminCommitmentService } from "@/lib/services/admin-commitment-service"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/db/database"
+import { MarketDeleteModal } from "@/app/admin/components/market-delete-modal"
+import { AdminErrorHandler } from '@/lib/utils/admin-error-handler'
 
 interface MarketWithStats {
   id: string
@@ -60,6 +73,14 @@ export default function MarketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [marketToDelete, setMarketToDelete] = useState<MarketWithStats | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  
+  // Get current user for admin authentication
+  const { user } = useAuth()
+  const { toast } = useToast()
 
   // Load markets on component mount
   useEffect(() => {
@@ -201,12 +222,156 @@ export default function MarketsPage() {
     return d.toLocaleDateString()
   }
 
+  const handleDeleteClick = (market: MarketWithStats) => {
+    setMarketToDelete(market)
+    setDeleteError(null) // Clear any previous errors
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!marketToDelete) return
+    
+    setDeleteLoading(true)
+    setDeleteError(null)
+    
+    try {
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
+      // Call delete API with admin authentication
+      const response = await fetch(`/api/markets/${marketToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id || user.address // Admin auth header
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        const errorMessage = errorData.message || errorData.error || 'Failed to delete market'
+        
+        // Handle specific HTTP error cases
+        if (response.status === 401) {
+          const authError = AdminErrorHandler.parseError(new Error('Authentication failed'))
+          setDeleteError(authError.message)
+          const toastMessage = AdminErrorHandler.getToastMessage(authError)
+          toast({
+            title: toastMessage.title,
+            description: toastMessage.description,
+            variant: "destructive"
+          })
+          return
+        } else if (response.status === 403) {
+          const permError = AdminErrorHandler.parseError(new Error('Admin privileges required'))
+          setDeleteError(permError.message)
+          const toastMessage = AdminErrorHandler.getToastMessage(permError)
+          toast({
+            title: toastMessage.title,
+            description: toastMessage.description,
+            variant: "destructive"
+          })
+          return
+        } else if (response.status === 404) {
+          const notFoundError = AdminErrorHandler.parseError(new Error('Market not found'))
+          setDeleteError(notFoundError.message)
+          const toastMessage = AdminErrorHandler.getToastMessage(notFoundError)
+          toast({
+            title: toastMessage.title,
+            description: toastMessage.description,
+            variant: "destructive"
+          })
+          // Remove from local state and close modal
+          setMarkets(prevMarkets => prevMarkets.filter(m => m.id !== marketToDelete.id))
+          setDeleteModalOpen(false)
+          setMarketToDelete(null)
+          return
+        } else {
+          throw new Error(errorMessage)
+        }
+      }
+
+      // Remove the deleted market from the local state
+      setMarkets(prevMarkets => prevMarkets.filter(m => m.id !== marketToDelete.id))
+      
+      // Close the modal
+      setDeleteModalOpen(false)
+      setMarketToDelete(null)
+      setDeleteError(null)
+      
+      // Show success toast
+      toast({
+        title: "Market Deleted",
+        description: `"${marketToDelete.title}" has been permanently removed.`,
+        variant: "default"
+      })
+      
+    } catch (error) {
+      const adminError = AdminErrorHandler.parseError(error)
+      AdminErrorHandler.logError(adminError, 'Market deletion')
+      
+      setDeleteError(adminError.message)
+      
+      // Show toast with appropriate message
+      const toastMessage = AdminErrorHandler.getToastMessage(adminError)
+      toast({
+        title: toastMessage.title,
+        description: toastMessage.description,
+        variant: "destructive"
+      })
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    if (!deleteLoading) { // Only allow cancel if not currently deleting
+      setDeleteModalOpen(false)
+      setMarketToDelete(null)
+      setDeleteError(null)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-center">
-          <div className="animate-pulse">Loading markets...</div>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-48 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="h-10 w-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
+
+        {/* Filters Skeleton */}
+        <Card className="p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-[180px] h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-[180px] h-10 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </Card>
+
+        {/* Table Skeleton */}
+        <Card>
+          <div className="p-6">
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-4">
+                  <div className="flex-1 h-16 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-16 h-6 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-12 h-6 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-24 h-6 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-24 h-6 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     )
   }
@@ -217,8 +382,40 @@ export default function MarketsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Markets</h1>
-            <p className="text-red-600">Error loading markets: {error}</p>
+            <p className="text-gray-600">Manage prediction markets</p>
           </div>
+          <Link href="/admin/markets/create">
+            <Button className="bg-kai-600 hover:bg-kai-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Market
+            </Button>
+          </Link>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-2">
+              <p className="font-medium">Failed to load markets</p>
+              <p>{error}</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2"
+          >
+            <Loader2 className="w-4 h-4" />
+            Retry
+          </Button>
+          <Link href="/admin">
+            <Button variant="ghost">
+              Back to Admin Dashboard
+            </Button>
+          </Link>
         </div>
       </div>
     )
@@ -350,9 +547,22 @@ export default function MarketsPage() {
                         <Edit className="w-4 h-4" />
                       </Button>
                     </Link>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteClick(market)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Market
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
@@ -372,6 +582,18 @@ export default function MarketsPage() {
           </div>
         )}
       </Card>
+
+      {/* Delete Modal */}
+      {marketToDelete && (
+        <MarketDeleteModal
+          isOpen={deleteModalOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          market={marketToDelete}
+          loading={deleteLoading}
+          error={deleteError}
+        />
+      )}
     </div>
   )
 }

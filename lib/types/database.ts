@@ -39,6 +39,11 @@ export interface Market {
   totalParticipants: number
   totalTokensStaked: number
   
+  // Resolution fields
+  pendingResolution?: boolean // True when market needs resolution
+  resolution?: MarketResolution // Resolution details when resolved
+  creatorFeePercentage?: number // 1-5% configurable creator fee
+  
   // Admin fields
   featured: boolean
   trending: boolean
@@ -67,11 +72,13 @@ export type MarketCategory =
   | 'other'
 
 export type MarketStatus = 
-  | 'draft'      // Created but not published
-  | 'active'     // Live and accepting predictions
-  | 'closed'     // No longer accepting predictions
-  | 'resolved'   // Outcome determined
-  | 'cancelled'  // Market cancelled
+  | 'draft'              // Created but not published
+  | 'active'             // Live and accepting predictions
+  | 'closed'             // No longer accepting predictions
+  | 'pending_resolution' // Past end date, awaiting admin resolution
+  | 'resolving'          // Currently being resolved by admin
+  | 'resolved'           // Outcome determined and payouts distributed
+  | 'cancelled'          // Market cancelled
 
 // User Predictions
 export interface Prediction {
@@ -144,6 +151,7 @@ export type TransactionType =
   | 'daily_bonus'
   | 'referral_bonus'
   | 'admin_adjustment'
+  | 'creator_fee'
 
 // Leaderboards
 export interface LeaderboardEntry {
@@ -170,6 +178,126 @@ export interface Analytics {
   averageTokensPerUser: number
   topCategories: { category: MarketCategory; count: number }[]
   createdAt: Timestamp
+}
+
+// Market Resolution System
+
+// Core resolution data
+export interface MarketResolution {
+  id: string
+  marketId: string
+  winningOptionId: string
+  resolvedBy: string // Admin user ID
+  resolvedAt: Timestamp
+  evidence: Evidence[]
+  totalPayout: number
+  winnerCount: number
+  status: 'completed' | 'disputed' | 'cancelled'
+  creatorFeeAmount?: number
+  houseFeeAmount?: number
+}
+
+// Evidence for resolution decisions
+export interface Evidence {
+  id: string
+  type: 'url' | 'screenshot' | 'description'
+  content: string
+  description?: string
+  uploadedAt: Timestamp
+}
+
+// Individual winner payouts
+export interface ResolutionPayout {
+  id: string
+  resolutionId: string
+  userId: string
+  optionId: string
+  tokensStaked: number
+  payoutAmount: number
+  profit: number
+  processedAt: Timestamp
+  status: 'completed' | 'failed' | 'pending'
+}
+
+// Creator fee payouts
+export interface CreatorPayout {
+  id: string
+  resolutionId: string
+  creatorId: string
+  feeAmount: number
+  feePercentage: number
+  processedAt: Timestamp
+  status: 'completed' | 'failed' | 'pending'
+}
+
+// House fee tracking
+export interface HousePayout {
+  id: string
+  resolutionId: string
+  feeAmount: number
+  feePercentage: number // Always 5%
+  processedAt: Timestamp
+  status: 'completed' | 'failed' | 'pending'
+}
+
+// Payout preview for admin interface
+export interface PayoutPreview {
+  totalPool: number
+  houseFee: number
+  creatorFee: number
+  winnerPool: number
+  winnerCount: number
+  largestPayout: number
+  smallestPayout: number
+  creatorPayout: {
+    userId: string
+    feeAmount: number
+    feePercentage: number
+  }
+  payouts: {
+    userId: string
+    currentStake: number
+    projectedPayout: number
+    projectedProfit: number
+  }[]
+}
+
+// Resolution validation and errors
+export interface ResolutionValidation {
+  isValid: boolean
+  errors: ResolutionError[]
+  warnings: ResolutionWarning[]
+}
+
+export interface ResolutionError {
+  field: string
+  message: string
+  code: string
+}
+
+export interface ResolutionWarning {
+  field: string
+  message: string
+  code: string
+}
+
+// Market validation for creation
+export interface MarketValidationResult {
+  isValid: boolean
+  errors: ValidationError[]
+  warnings: ValidationWarning[]
+}
+
+export interface ValidationError {
+  field: string
+  message: string
+  code: string
+}
+
+export interface ValidationWarning {
+  field: string
+  message: string
+  code: string
 }
 
 // App Configuration

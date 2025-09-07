@@ -9,7 +9,8 @@ import {
   Shield,
   Coins,
   Database,
-  Users
+  Users,
+  FileText
 } from 'lucide-react'
 
 const navigation = [
@@ -27,6 +28,11 @@ const navigation = [
     name: 'Markets',
     href: '/admin/markets',
     icon: TrendingUp,
+  },
+  {
+    name: 'Market Resolution',
+    href: '/admin/resolution',
+    icon: FileText,
   },
   {
     name: 'Market Data',

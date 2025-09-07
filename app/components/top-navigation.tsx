@@ -18,6 +18,8 @@ import { useTokenBalance } from "@/hooks/use-token-balance"
 import { cn } from "@/lib/utils"
 import { HamburgerMenu } from "./hamburger-menu"
 import { useHamburgerMenu } from "@/hooks/use-hamburger-menu"
+import { PayoutNotifications } from "./payout-notifications"
+import { AnimatedBalance } from "./balance-update-indicator"
 
 export function TopNavigation() {
   const router = useRouter()
@@ -130,10 +132,17 @@ export function TopNavigation() {
             {/* Token Balance - Hidden on mobile */}
             <div className="hidden md:flex items-center gap-2 bg-kai-50 px-3 py-2 rounded-full">
               <Sparkles className="w-4 h-4 text-kai-600" />
-              <span className="font-semibold text-kai-700 text-sm">
-                {balanceLoading ? '...' : availableTokens.toLocaleString()}
-              </span>
+              <AnimatedBalance 
+                balance={availableTokens}
+                isLoading={balanceLoading}
+                className="font-semibold text-kai-700 text-sm"
+              />
               <span className="text-kai-600 text-xs">available</span>
+            </div>
+
+            {/* Payout Notifications - Hidden on mobile */}
+            <div className="hidden md:block">
+              <PayoutNotifications />
             </div>
 
             {/* User Dropdown - Hidden on mobile */}
