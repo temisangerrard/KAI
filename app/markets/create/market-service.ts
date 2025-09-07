@@ -174,7 +174,7 @@ const MarketSchema = z.object({
   options: z.array(OptionSchema),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
-  status: z.enum(['active', 'ended', 'cancelled']),
+  status: z.enum(['draft', 'active', 'closed', 'pending_resolution', 'resolving', 'resolved', 'cancelled', 'ended']),
   totalTokens: z.number(),
   participants: z.number(),
   tags: z.array(z.string()).optional(),
