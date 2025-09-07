@@ -147,7 +147,7 @@ export default function LandingPage() {
                 <Sparkles className="w-4 h-4 text-kai-600" />
                 <span className="text-sm font-medium text-kai-700">Join 10,000+ predictors worldwide</span>
               </div>
-              
+
               <h1 className="text-4xl md:text-6xl font-bold leading-tight">
                 <span className="bg-gradient-to-r from-kai-600 to-gold-600 text-transparent bg-clip-text">
                   Predict Trends.
@@ -161,9 +161,9 @@ export default function LandingPage() {
                   Win Tokens.
                 </span>
               </h1>
-              
+
               <p className="text-xl text-gray-600 leading-relaxed">
-                KAI is the social prediction platform where your opinions matter. Back your predictions on trending topics, 
+                KAI is the social prediction platform where your opinions matter. Back your predictions on trending topics,
                 connect with like-minded people, and earn rewards for your insights.
               </p>
             </div>
@@ -241,7 +241,7 @@ export default function LandingPage() {
                   <span className="text-white text-sm font-medium">2,500</span>
                 </div>
               </div>
-              
+
               <div className="p-6 space-y-4">
                 {/* Mock Prediction Card */}
                 <div className="bg-gradient-to-r from-kai-50 to-gold-50 rounded-xl p-4 border border-kai-100">
@@ -249,14 +249,14 @@ export default function LandingPage() {
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs font-medium text-kai-600">TRENDING</span>
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Who will win BBNaija All Stars?</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">What will be the next viral trend?</h3>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Mercy</span>
+                      <span className="text-sm text-gray-600">Dance Challenge</span>
                       <span className="text-sm font-medium text-kai-600">45%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-gradient-to-r from-kai-500 to-kai-600 h-2 rounded-full" style={{width: '45%'}}></div>
+                      <div className="bg-gradient-to-r from-kai-500 to-kai-600 h-2 rounded-full" style={{ width: '45%' }}></div>
                     </div>
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export default function LandingPage() {
             <div className="absolute bottom-0 right-0 w-60 h-60 bg-white rounded-full translate-x-30 translate-y-30"></div>
             <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-white rounded-full -translate-x-16 -translate-y-16"></div>
           </div>
-          
+
           <div className="relative md:flex items-center justify-between">
             <div className="mb-8 md:mb-0 md:mr-8">
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Ready to join KAI?</h2>
