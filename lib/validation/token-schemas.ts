@@ -53,14 +53,28 @@ export const TokenPackageSchema = z.object({
 });
 
 /**
- * Zod schema for PredictionCommitment validation
+ * Zod schema for PredictionCommitment validation (Enhanced for Multi-Option Support)
+ * 
+ * BACKWARD COMPATIBILITY: All existing fields preserved and optional new fields added
+ * VALIDATION: Supports both legacy binary positions and new option IDs
  */
 export const PredictionCommitmentSchema = z.object({
+  // Core identification
   id: z.string().min(1, 'Commitment ID is required'),
   userId: z.string().min(1, 'User ID is required'),
+  
+  // Market linking (enhanced for multi-option support)
   predictionId: z.string().min(1, 'Prediction ID is required'),
+  marketId: z.string().min(1, 'Market ID is required').optional(),
+  
+  // Option targeting (enhanced for multi-option support)
+  position: z.enum(['yes', 'no'], {
+    errorMap: () => ({ message: 'Position must be "yes" or "no"' }),
+  }),
+  optionId: z.string().min(1, 'Option ID must be provided').optional(),
+  
+  // Commitment details
   tokensCommitted: z.number().int().positive('Tokens committed must be positive'),
-  position: z.string().min(1, 'Position/Option ID is required'),
   odds: z.number().positive('Odds must be positive'),
   potentialWinning: z.number().min(0, 'Potential winning cannot be negative'),
   status: z.enum(['active', 'won', 'lost', 'refunded'], {
@@ -73,7 +87,7 @@ export const PredictionCommitmentSchema = z.object({
   userEmail: z.string().email().optional(),
   userDisplayName: z.string().optional(),
   
-  // Commitment metadata tracking
+  // Enhanced commitment metadata tracking
   metadata: z.object({
     // Market state at commitment time
     marketStatus: z.enum(['active', 'closed', 'resolved', 'cancelled'], {
@@ -82,13 +96,19 @@ export const PredictionCommitmentSchema = z.object({
     marketTitle: z.string().min(1, 'Market title is required'),
     marketEndsAt: z.any(), // Timestamp type from Firebase
     
-    // Odds snapshot at commitment time
+    // Enhanced odds snapshot (supports both binary and multi-option)
     oddsSnapshot: z.object({
+      // Legacy binary odds (preserved for backward compatibility)
       yesOdds: z.number().positive('Yes odds must be positive'),
       noOdds: z.number().positive('No odds must be positive'),
       totalYesTokens: z.number().min(0, 'Total yes tokens cannot be negative'),
       totalNoTokens: z.number().min(0, 'Total no tokens cannot be negative'),
       totalParticipants: z.number().int().min(0, 'Total participants cannot be negative'),
+      
+      // New multi-option odds snapshot (optional for backward compatibility)
+      optionOdds: z.record(z.string(), z.number().positive()).optional(),
+      optionTokens: z.record(z.string(), z.number().min(0)).optional(),
+      optionParticipants: z.record(z.string(), z.number().int().min(0)).optional(),
     }),
     
     // Additional tracking data
@@ -98,8 +118,21 @@ export const PredictionCommitmentSchema = z.object({
     }),
     ipAddress: z.string().optional(),
     userAgent: z.string().optional(),
+    
+    // Enhanced option context (optional for backward compatibility)
+    selectedOptionText: z.string().optional(),
+    marketOptionCount: z.number().int().min(2).optional(),
   }),
-});
+}).refine(
+  (data) => {
+    // Ensure at least one targeting method is provided
+    return data.position || data.optionId;
+  },
+  {
+    message: 'Either position (yes/no) or optionId must be provided',
+    path: ['position', 'optionId'],
+  }
+);
 
 /**
  * Zod schema for TokenPurchaseRequest validation
@@ -111,14 +144,35 @@ export const TokenPurchaseRequestSchema = z.object({
 });
 
 /**
- * Zod schema for TokenCommitmentRequest validation
+ * Zod schema for TokenCommitmentRequest validation (Enhanced for Multi-Option Support)
+ * 
+ * BACKWARD COMPATIBILITY: Accepts both legacy binary positions and new option IDs
+ * VALIDATION: Ensures at least one targeting method (position or optionId) is provided
  */
 export const TokenCommitmentRequestSchema = z.object({
+  // Market identification (enhanced for multi-option support)
   predictionId: z.string().min(1, 'Prediction ID is required'),
+  marketId: z.string().min(1, 'Market ID is required').optional(),
+  
+  // Option targeting (enhanced for multi-option support)
+  position: z.enum(['yes', 'no'], {
+    errorMap: () => ({ message: 'Position must be "yes" or "no"' }),
+  }),
+  optionId: z.string().min(1, 'Option ID must be provided').optional(),
+  
+  // Commitment details
   tokensToCommit: z.number().int().positive('Tokens to commit must be positive'),
-  position: z.string().min(1, 'Position/Option ID is required'),
   userId: z.string().min(1, 'User ID is required'),
-});
+}).refine(
+  (data) => {
+    // Ensure at least one targeting method is provided
+    return data.position || data.optionId;
+  },
+  {
+    message: 'Either position (yes/no) or optionId must be provided',
+    path: ['position', 'optionId'],
+  }
+);
 
 /**
  * Zod schema for BalanceUpdateRequest validation

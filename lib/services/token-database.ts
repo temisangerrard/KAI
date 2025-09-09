@@ -434,15 +434,60 @@ export class TokenPackageService {
     }
   }
 }/**
- * P
-rediction Commitment Service
- * Handles token commitments to predictions
+ * Prediction Commitment Service
+ * Handles token commitments to predictions with enhanced multi-option support
+ * 
+ * BACKWARD COMPATIBILITY: All existing methods preserved and enhanced
+ * NEW FEATURES: Integration with EnhancedCommitmentService for multi-option support
  */
 export class PredictionCommitmentService {
   /**
-   * Create a new prediction commitment
+   * Create a new prediction commitment (ENHANCED with backward compatibility)
+   * 
+   * This method now uses the EnhancedCommitmentService internally while maintaining
+   * the exact same API for existing code compatibility.
    */
   static async createCommitment(commitmentData: Omit<PredictionCommitment, 'id' | 'committedAt'>): Promise<string> {
+    try {
+      // Import EnhancedCommitmentService dynamically to avoid circular dependencies
+      const { EnhancedCommitmentService } = await import('./enhanced-commitment-service');
+      
+      // Convert legacy commitment data to enhanced request format
+      const enhancedRequest = {
+        userId: commitmentData.userId,
+        predictionId: commitmentData.predictionId,
+        marketId: commitmentData.marketId || commitmentData.predictionId,
+        position: commitmentData.position,
+        optionId: commitmentData.optionId,
+        tokensToCommit: commitmentData.tokensCommitted,
+        clientInfo: {
+          source: commitmentData.metadata?.commitmentSource || 'web',
+          ipAddress: commitmentData.metadata?.ipAddress,
+          userAgent: commitmentData.metadata?.userAgent
+        }
+      };
+
+      // Use enhanced service for creation
+      const result = await EnhancedCommitmentService.createCommitment(enhancedRequest);
+      
+      if (result.success && result.commitmentId) {
+        return result.commitmentId;
+      } else {
+        throw new Error(result.error?.message || 'Failed to create commitment');
+      }
+    } catch (error) {
+      console.error('[PREDICTION_COMMITMENT_SERVICE] Enhanced creation failed, falling back to legacy method:', error);
+      
+      // Fallback to original implementation for backward compatibility
+      return await this.createCommitmentLegacy(commitmentData);
+    }
+  }
+
+  /**
+   * Legacy commitment creation method (preserved for fallback)
+   * Maintains original implementation as backup
+   */
+  private static async createCommitmentLegacy(commitmentData: Omit<PredictionCommitment, 'id' | 'committedAt'>): Promise<string> {
     return await runTransaction(db, async (transaction) => {
       // Validate user has sufficient balance
       const balanceRef = doc(db, COLLECTIONS.userBalances, commitmentData.userId)
@@ -488,6 +533,7 @@ export class PredictionCommitmentService {
         relatedId: commitmentData.predictionId,
         metadata: {
           position: commitmentData.position,
+          optionId: commitmentData.optionId,
           odds: commitmentData.odds,
           potentialWinning: commitmentData.potentialWinning
         },
@@ -499,6 +545,82 @@ export class PredictionCommitmentService {
       
       return commitmentRef.id
     })
+  }
+
+  /**
+   * Create commitment for binary markets (enhanced convenience method)
+   * Provides a clean API for binary market commitments
+   */
+  static async createBinaryCommitment(
+    userId: string,
+    marketId: string,
+    position: 'yes' | 'no',
+    tokensToCommit: number,
+    odds: number,
+    potentialWinning: number,
+    metadata?: Partial<PredictionCommitment['metadata']>
+  ): Promise<string> {
+    try {
+      const { EnhancedCommitmentService } = await import('./enhanced-commitment-service');
+      
+      const result = await EnhancedCommitmentService.createBinaryCommitment(
+        userId,
+        marketId,
+        position,
+        tokensToCommit,
+        {
+          source: metadata?.commitmentSource || 'web',
+          ipAddress: metadata?.ipAddress,
+          userAgent: metadata?.userAgent
+        }
+      );
+      
+      if (result.success && result.commitmentId) {
+        return result.commitmentId;
+      } else {
+        throw new Error(result.error?.message || 'Failed to create binary commitment');
+      }
+    } catch (error) {
+      console.error('[PREDICTION_COMMITMENT_SERVICE] Binary commitment creation failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create commitment for multi-option markets (new functionality)
+   * Provides direct optionId targeting for multi-option markets
+   */
+  static async createMultiOptionCommitment(
+    userId: string,
+    marketId: string,
+    optionId: string,
+    tokensToCommit: number,
+    metadata?: Partial<PredictionCommitment['metadata']>
+  ): Promise<string> {
+    try {
+      const { EnhancedCommitmentService } = await import('./enhanced-commitment-service');
+      
+      const result = await EnhancedCommitmentService.createMultiOptionCommitment(
+        userId,
+        marketId,
+        optionId,
+        tokensToCommit,
+        {
+          source: metadata?.commitmentSource || 'web',
+          ipAddress: metadata?.ipAddress,
+          userAgent: metadata?.userAgent
+        }
+      );
+      
+      if (result.success && result.commitmentId) {
+        return result.commitmentId;
+      } else {
+        throw new Error(result.error?.message || 'Failed to create multi-option commitment');
+      }
+    } catch (error) {
+      console.error('[PREDICTION_COMMITMENT_SERVICE] Multi-option commitment creation failed:', error);
+      throw error;
+    }
   }
 
   /**

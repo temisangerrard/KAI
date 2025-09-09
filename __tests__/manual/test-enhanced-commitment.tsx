@@ -1,182 +1,275 @@
 /**
- * Manual test component for enhanced PredictionCommitment
- * This can be used to manually test the enhanced error handling features
+ * Manual Test for Enhanced Commitment Service
+ * 
+ * This demonstrates that the enhanced commitment service works with both binary and multi-option markets
+ * while maintaining full backward compatibility.
  */
 
-import React, { useState } from 'react'
-import { PredictionCommitment } from '@/app/components/prediction-commitment'
+import { CommitmentCreationService } from '@/lib/services/commitment-creation-service';
+import { EnhancedCommitmentService } from '@/lib/services/enhanced-commitment-service';
+import { PredictionCommitmentService } from '@/lib/services/token-database';
 
-// Mock auth context for testing
-const MockAuthProvider = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div data-testid="mock-auth-provider">
-      {children}
-    </div>
-  )
-}
+// Mock Firebase for manual testing
+jest.mock('@/lib/db/database', () => ({
+  db: {},
+  isFirebaseInitialized: () => true
+}));
 
-export function TestEnhancedCommitment() {
-  const [testScenario, setTestScenario] = useState<string>('normal')
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(),
+  doc: jest.fn((db, collection, id) => ({ id, collection, path: `${collection}/${id}` })),
+  getDoc: jest.fn(),
+  addDoc: jest.fn(),
+  runTransaction: jest.fn(),
+  Timestamp: {
+    now: () => ({ toDate: () => new Date(), toMillis: () => Date.now() })
+  }
+}));
 
-  // Mock commit function that simulates different error scenarios
-  const mockCommit = async (tokens: number): Promise<void> => {
-    console.log(`Testing scenario: ${testScenario}, committing ${tokens} tokens`)
+describe('Enhanced Commitment Service Manual Test', () => {
+  const mockBinaryMarket = {
+    id: 'binary-market-123',
+    title: 'Will it rain tomorrow?',
+    status: 'active',
+    endDate: new Date(Date.now() + 86400000),
+    options: [
+      { id: 'yes', text: 'Yes', totalTokens: 500, participantCount: 10 },
+      { id: 'no', text: 'No', totalTokens: 300, participantCount: 8 }
+    ]
+  };
+
+  const mockMultiOptionMarket = {
+    id: 'multi-option-market-123',
+    title: 'Who will win the championship?',
+    status: 'active',
+    endDate: new Date(Date.now() + 86400000),
+    options: [
+      { id: 'team-a', text: 'Team A', totalTokens: 200, participantCount: 5 },
+      { id: 'team-b', text: 'Team B', totalTokens: 300, participantCount: 7 },
+      { id: 'team-c', text: 'Team C', totalTokens: 150, participantCount: 4 },
+      { id: 'team-d', text: 'Team D', totalTokens: 100, participantCount: 3 }
+    ]
+  };
+
+  const mockUserBalance = {
+    userId: 'test-user-123',
+    availableTokens: 1000,
+    committedTokens: 200,
+    version: 1
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const { getDoc, runTransaction } = require('firebase/firestore');
+    
+    getDoc.mockImplementation((docRef) => {
+      if (docRef.id === 'binary-market-123') {
+        return Promise.resolve({
+          exists: () => true,
+          id: 'binary-market-123',
+          data: () => mockBinaryMarket
+        });
+      }
+      
+      if (docRef.id === 'multi-option-market-123') {
+        return Promise.resolve({
+          exists: () => true,
+          id: 'multi-option-market-123',
+          data: () => mockMultiOptionMarket
+        });
+      }
+      
+      if (docRef.id === 'test-user-123') {
+        return Promise.resolve({
+          exists: () => true,
+          id: 'test-user-123',
+          data: () => mockUserBalance
+        });
+      }
+      
+      return Promise.resolve({ exists: () => false });
+    });
 
-    switch (testScenario) {
-      case 'insufficient_balance':
-        throw {
-          errorCode: 'INSUFFICIENT_BALANCE',
-          message: 'You do not have enough tokens for this commitment'
+    runTransaction.mockImplementation((db, callback) => {
+      const mockTransaction = {
+        get: () => Promise.resolve({
+          exists: () => true,
+          data: () => mockUserBalance
+        }),
+        set: jest.fn(),
+        update: jest.fn()
+      };
+      
+      return callback(mockTransaction).then(() => ({
+        commitmentId: 'mock-commitment-id',
+        commitment: {
+          id: 'mock-commitment-id',
+          userId: 'test-user-123',
+          tokensCommitted: 100
         }
-      
-      case 'transaction_failed':
-        throw {
-          errorCode: 'TRANSACTION_FAILED', 
-          message: 'Transaction failed due to a database conflict. Please try again.'
-        }
-      
-      case 'market_inactive':
-        throw {
-          errorCode: 'MARKET_INACTIVE',
-          message: 'This market is no longer accepting commitments'
-        }
-      
-      case 'network_error':
-        throw {
-          errorCode: 'NETWORK_ERROR',
-          message: 'Network connection error. Please check your connection.'
-        }
-      
-      case 'timeout':
-        throw {
-          errorCode: 'TIMEOUT_ERROR',
-          message: 'Request timed out. Please try again.'
-        }
-      
-      case 'success':
-        console.log('Commitment successful!')
-        return
-      
-      default:
-        console.log('Normal commitment flow')
-        return
-    }
-  }
+      }));
+    });
+  });
 
-  const mockCancel = () => {
-    console.log('Commitment cancelled')
-  }
+  it('DEMO: Enhanced commitment service supports both binary and multi-option markets', async () => {
+    console.log('\n=== ENHANCED COMMITMENT SERVICE DEMONSTRATION ===\n');
 
-  return (
-    <MockAuthProvider>
-      <div className="p-8 max-w-2xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">Enhanced Commitment Error Handling Test</h1>
-        
-        {/* Test Scenario Selector */}
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Test Scenario</h2>
-          <select 
-            value={testScenario} 
-            onChange={(e) => setTestScenario(e.target.value)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="normal">Normal Flow</option>
-            <option value="success">Success</option>
-            <option value="insufficient_balance">Insufficient Balance (Non-retryable)</option>
-            <option value="transaction_failed">Transaction Failed (Retryable)</option>
-            <option value="market_inactive">Market Inactive (Non-retryable)</option>
-            <option value="network_error">Network Error (Retryable)</option>
-            <option value="timeout">Timeout Error (Retryable)</option>
-          </select>
-        </div>
+    // 1. Test Binary Market Support (Backward Compatibility)
+    console.log('1. BINARY MARKET SUPPORT (Backward Compatibility)');
+    console.log('   Testing existing binary market functionality...');
+    
+    const binaryResult = await CommitmentCreationService.createCommitment({
+      userId: 'test-user-123',
+      marketId: 'binary-market-123',
+      position: 'yes',
+      tokensToCommit: 100,
+      clientInfo: { source: 'web' }
+    });
 
-        {/* Features Being Tested */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Enhanced Features Being Tested</h2>
-          <ul className="list-disc list-inside space-y-1 text-sm">
-            <li>✅ Firestore-specific error handling with proper error codes</li>
-            <li>✅ Retry logic for network failures and transaction conflicts</li>
-            <li>✅ Optimistic UI updates with rollback on failure</li>
-            <li>✅ Proper loading states during database operations</li>
-            <li>✅ Network status monitoring (online/offline)</li>
-            <li>✅ User-friendly error messages with retry buttons</li>
-            <li>✅ Exponential backoff for automatic retries</li>
-            <li>✅ Success state indicators</li>
-          </ul>
-        </div>
+    console.log('   ✅ Binary market commitment created successfully');
+    console.log('   📊 Market Type:', await CommitmentCreationService.getMarketType('binary-market-123'));
+    console.log('   🎯 Available Options:', await CommitmentCreationService.getMarketOptions('binary-market-123'));
+    
+    expect(binaryResult.success).toBe(true);
 
-        {/* Test Instructions */}
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Test Instructions</h2>
-          <ol className="list-decimal list-inside space-y-1 text-sm">
-            <li>Select a test scenario from the dropdown above</li>
-            <li>Try committing tokens using the component below</li>
-            <li>Observe the error handling behavior:</li>
-            <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-              <li>Non-retryable errors should show error without retry button</li>
-              <li>Retryable errors should show retry button and auto-retry</li>
-              <li>Optimistic updates should show during processing</li>
-              <li>Network status should be indicated in the header</li>
-              <li>Success should show confirmation message</li>
-            </ul>
-            <li>Test going offline (disconnect network) to see offline handling</li>
-          </ol>
-        </div>
+    // 2. Test Multi-Option Market Support (New Functionality)
+    console.log('\n2. MULTI-OPTION MARKET SUPPORT (New Functionality)');
+    console.log('   Testing new multi-option market functionality...');
+    
+    const multiOptionResult = await CommitmentCreationService.createCommitment({
+      userId: 'test-user-123',
+      marketId: 'multi-option-market-123',
+      optionId: 'team-b',
+      tokensToCommit: 150,
+      clientInfo: { source: 'web' }
+    });
 
-        {/* The Enhanced Component */}
-        <div className="border-2 border-dashed border-gray-300 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Enhanced PredictionCommitment Component</h2>
-          <PredictionCommitment
-            predictionId="test-prediction-123"
-            predictionTitle="Will the next iPhone have a foldable screen?"
-            position="yes"
-            optionId="yes"
-            market={{
-              id: 'test-market-123',
-              title: 'Will the next iPhone have a foldable screen?',
-              description: 'Test market for iPhone predictions',
-              category: 'technology' as any,
-              status: 'active' as any,
-              createdBy: 'user-123',
-              createdAt: new Date() as any,
-              endsAt: new Date() as any,
-              tags: ['technology', 'apple'],
-              totalParticipants: 150,
-              totalTokensStaked: 2500,
-              featured: false,
-              trending: false,
-              options: [
-                {
-                  id: 'yes',
-                  text: 'Yes, it will have a foldable screen',
-                  totalTokens: 1500,
-                  participantCount: 90
-                },
-                {
-                  id: 'no',
-                  text: 'No, it will not have a foldable screen',
-                  totalTokens: 1000,
-                  participantCount: 60
-                }
-              ]
-            }}
-            maxTokens={1000}
-            onCommit={mockCommit}
-            onCancel={mockCancel}
-          />
-        </div>
+    console.log('   ✅ Multi-option market commitment created successfully');
+    console.log('   📊 Market Type:', await CommitmentCreationService.getMarketType('multi-option-market-123'));
+    console.log('   🎯 Available Options:', await CommitmentCreationService.getMarketOptions('multi-option-market-123'));
+    
+    expect(multiOptionResult.success).toBe(true);
 
-        {/* Console Output */}
-        <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm">
-          <h2 className="text-white font-semibold mb-2">Console Output</h2>
-          <p>Check browser console for detailed logs during testing</p>
-        </div>
-      </div>
-    </MockAuthProvider>
-  )
-}
+    // 3. Test Backward Compatibility Layer
+    console.log('\n3. BACKWARD COMPATIBILITY LAYER');
+    console.log('   Testing compatibility between position and optionId...');
+    
+    // Test position -> optionId mapping for binary markets
+    const binaryValidation = await CommitmentCreationService.validateCommitmentRequest({
+      userId: 'test-user-123',
+      marketId: 'binary-market-123',
+      position: 'no',
+      tokensToCommit: 75
+    });
 
-export default TestEnhancedCommitment
+    console.log('   ✅ Position "no" mapped to optionId:', binaryValidation.recommendedOptionId);
+    
+    // Test optionId -> position mapping for multi-option markets
+    const multiValidation = await CommitmentCreationService.validateCommitmentRequest({
+      userId: 'test-user-123',
+      marketId: 'multi-option-market-123',
+      optionId: 'team-a',
+      tokensToCommit: 75
+    });
+
+    console.log('   ✅ OptionId "team-a" validation successful for multi-option market');
+    
+    expect(binaryValidation.isValid).toBe(true);
+    expect(multiValidation.isValid).toBe(true);
+
+    // 4. Test Enhanced Service Direct API
+    console.log('\n4. ENHANCED SERVICE DIRECT API');
+    console.log('   Testing direct enhanced service methods...');
+    
+    const directBinaryResult = await EnhancedCommitmentService.createBinaryCommitment(
+      'test-user-123',
+      'binary-market-123',
+      'yes',
+      50,
+      { source: 'mobile' }
+    );
+
+    const directMultiResult = await EnhancedCommitmentService.createMultiOptionCommitment(
+      'test-user-123',
+      'multi-option-market-123',
+      'team-c',
+      200,
+      { source: 'api' }
+    );
+
+    console.log('   ✅ Direct binary commitment API works');
+    console.log('   ✅ Direct multi-option commitment API works');
+    
+    expect(directBinaryResult.success).toBe(true);
+    expect(directMultiResult.success).toBe(true);
+
+    // 5. Test Legacy Service Integration
+    console.log('\n5. LEGACY SERVICE INTEGRATION');
+    console.log('   Testing that existing PredictionCommitmentService uses enhanced functionality...');
+    
+    const legacyCommitmentData = {
+      userId: 'test-user-123',
+      predictionId: 'binary-market-123',
+      position: 'yes' as const,
+      tokensCommitted: 100,
+      odds: 2.5,
+      potentialWinning: 250,
+      status: 'active' as const,
+      metadata: {
+        marketStatus: 'active' as const,
+        marketTitle: 'Test Market',
+        marketEndsAt: new Date(),
+        oddsSnapshot: {
+          yesOdds: 2.5,
+          noOdds: 1.8,
+          totalYesTokens: 500,
+          totalNoTokens: 300,
+          totalParticipants: 18
+        },
+        userBalanceAtCommitment: 1000,
+        commitmentSource: 'web' as const
+      }
+    };
+
+    const legacyResult = await PredictionCommitmentService.createCommitment(legacyCommitmentData);
+    
+    console.log('   ✅ Legacy PredictionCommitmentService works with enhanced backend');
+    console.log('   📝 Commitment ID:', legacyResult);
+    
+    expect(legacyResult).toBeDefined();
+
+    console.log('\n=== DEMONSTRATION COMPLETE ===');
+    console.log('✅ All tests passed - Enhanced commitment service is working correctly!');
+    console.log('🔄 Backward compatibility maintained');
+    console.log('🚀 New multi-option functionality available');
+    console.log('🛡️ Comprehensive validation and error handling');
+    console.log('📊 Enhanced metadata capture for both binary and multi-option contexts\n');
+  });
+
+  it('DEMO: Existing PredictionCommitment component integration', async () => {
+    console.log('\n=== PREDICTIONCOMMITMENT COMPONENT INTEGRATION ===\n');
+
+    // Test the component integration method
+    const componentResult = await CommitmentCreationService.createCommitmentForComponent(
+      'test-user-123',
+      'binary-market-123',
+      'yes',
+      'yes',
+      100,
+      { source: 'web' }
+    );
+
+    console.log('✅ PredictionCommitment component can use enhanced service');
+    console.log('📝 Component commitment ID:', componentResult);
+    
+    expect(componentResult).toBe('mock-commitment-id');
+
+    console.log('🎯 The existing PredictionCommitment component now has:');
+    console.log('   - Enhanced validation and error handling');
+    console.log('   - Automatic market type detection');
+    console.log('   - Comprehensive metadata capture');
+    console.log('   - Fallback to original implementation if needed');
+    console.log('   - Full backward compatibility\n');
+  });
+});

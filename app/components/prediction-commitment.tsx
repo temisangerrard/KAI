@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { 
   Coins, 
   TrendingUp, 
@@ -22,22 +23,25 @@ import {
   WifiOff,
   CheckCircle,
   XCircle,
-  Share2
+  Share2,
+  List,
+  Users,
+  Percent
 } from 'lucide-react'
 import { useAuth } from '@/app/auth/auth-context'
 import { TokenBalanceService } from '@/lib/services/token-balance-service'
-import { calculatePayout, previewOddsImpact, formatOdds, formatTokenAmount } from '@/lib/utils/market-utils'
+import { calculatePayout, previewOddsImpact, formatOdds, formatTokenAmount, calculateOdds } from '@/lib/utils/market-utils'
 import { Market } from '@/lib/types'
 import { ShareButton } from './share-button'
 
 interface PredictionCommitmentProps {
   predictionId: string
   predictionTitle: string
-  position: 'yes' | 'no'
-  optionId: string
+  position?: 'yes' | 'no'  // Made optional for multi-option support
+  optionId?: string        // Made optional for backward compatibility
   market: Market
   maxTokens: number
-  onCommit: (tokens: number) => Promise<void>
+  onCommit: (tokens: number, optionId?: string, position?: 'yes' | 'no') => Promise<void>  // Enhanced callback
   onCancel: () => void
   isLoading?: boolean
 }
@@ -100,6 +104,12 @@ export function PredictionCommitment({
   const [optimisticUpdate, setOptimisticUpdate] = useState<OptimisticUpdate | null>(null)
   const [commitmentSuccess, setCommitmentSuccess] = useState(false)
 
+  // NEW: Multi-option support state
+  const [selectedOptionId, setSelectedOptionId] = useState<string>('')
+  const [selectedPosition, setSelectedPosition] = useState<'yes' | 'no'>('yes')
+  const [marketType, setMarketType] = useState<'binary' | 'multi-option' | 'loading'>('loading')
+  const [isLoadingMarketType, setIsLoadingMarketType] = useState(true)
+
   const MAX_RETRY_ATTEMPTS = 3
   const RETRY_DELAY_MS = 1000
 
@@ -117,6 +127,66 @@ export function PredictionCommitment({
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  // NEW: Market type detection and initialization
+  useEffect(() => {
+    const detectMarketTypeAndInitialize = async () => {
+      try {
+        setIsLoadingMarketType(true)
+        setError(null)
+
+        // Ensure market has options (backward compatibility)
+        let marketOptions = market.options || []
+        if (marketOptions.length === 0) {
+          // Legacy market - create default binary options
+          marketOptions = [
+            { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+            { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+          ]
+        }
+
+        // Detect market type
+        const detectedType: 'binary' | 'multi-option' = marketOptions.length === 2 ? 'binary' : 'multi-option'
+        setMarketType(detectedType)
+
+        // Initialize selection based on props and market type
+        if (detectedType === 'binary') {
+          // Binary market: use position prop or default to 'yes'
+          const initialPosition = position || 'yes'
+          setSelectedPosition(initialPosition)
+          
+          // Map position to optionId for backward compatibility
+          const mappedOptionId = optionId || (initialPosition === 'yes' ? marketOptions[0].id : marketOptions[1].id)
+          setSelectedOptionId(mappedOptionId)
+        } else {
+          // Multi-option market: use optionId prop or default to first option
+          const initialOptionId = optionId || marketOptions[0]?.id || ''
+          setSelectedOptionId(initialOptionId)
+          
+          // Derive position for backward compatibility (first option = 'yes', others = 'no')
+          const derivedPosition = initialOptionId === marketOptions[0]?.id ? 'yes' : 'no'
+          setSelectedPosition(derivedPosition)
+        }
+
+      } catch (error) {
+        console.error('[PREDICTION_COMMITMENT] Error detecting market type:', error)
+        setError({
+          message: 'Failed to load market options. Please try again.',
+          code: 'MARKET_LOADING_ERROR',
+          retryable: true
+        })
+        
+        // Fallback to binary mode
+        setMarketType('binary')
+        setSelectedPosition(position || 'yes')
+        setSelectedOptionId(optionId || 'yes')
+      } finally {
+        setIsLoadingMarketType(false)
+      }
+    }
+
+    detectMarketTypeAndInitialize()
+  }, [market, position, optionId])
 
   // Parse Firestore errors into structured format
   const parseFirestoreError = useCallback((error: any): CommitmentError => {
@@ -272,14 +342,27 @@ export function PredictionCommitment({
     loadBalance()
   }, [loadBalance])
 
-  // Calculate potential winnings using market utils
+  // Calculate potential winnings using market utils (ENHANCED for multi-option)
   const getPayoutCalculation = (tokens: number) => {
-    return calculatePayout(tokens, optionId, market)
+    const targetOptionId = selectedOptionId || optionId || 'yes'
+    return calculatePayout(tokens, targetOptionId, market)
   }
 
-  // Get odds impact preview
+  // Get odds impact preview (ENHANCED for multi-option)
   const getOddsImpact = (tokens: number) => {
-    return previewOddsImpact(tokens, optionId, market)
+    const targetOptionId = selectedOptionId || optionId || 'yes'
+    return previewOddsImpact(tokens, targetOptionId, market)
+  }
+
+  // NEW: Get current market odds for all options
+  const getCurrentMarketOdds = () => {
+    return calculateOdds(market)
+  }
+
+  // NEW: Get selected option details
+  const getSelectedOption = () => {
+    const targetOptionId = selectedOptionId || optionId || 'yes'
+    return market.options?.find(opt => opt.id === targetOptionId) || market.options?.[0]
   }
 
   // Handle token amount change
@@ -323,7 +406,7 @@ export function PredictionCommitment({
     setOptimisticUpdate(null)
   }, [originalBalance])
 
-  // Commit with retry logic and optimistic updates
+  // Commit with retry logic and optimistic updates (ENHANCED with backward compatibility)
   const handleCommit = useCallback(async (retryAttempt = 0): Promise<void> => {
     if (!balance || tokensToCommit > balance.availableTokens) {
       setError({
@@ -362,7 +445,34 @@ export function PredictionCommitment({
         applyOptimisticUpdate()
       }
 
-      await onCommit(tokensToCommit)
+      // ENHANCED: Use the new CommitmentCreationService for better functionality
+      // while maintaining backward compatibility with existing onCommit callback
+      try {
+        // Import the enhanced service dynamically to avoid build issues
+        const { CommitmentCreationService } = await import('@/lib/services/commitment-creation-service')
+        
+        // Use enhanced service with automatic market type detection
+        const result = await CommitmentCreationService.createCommitmentForComponent(
+          user.id || user.uid,
+          predictionId,
+          selectedPosition,  // Use selected position
+          selectedOptionId,  // Use selected option ID
+          tokensToCommit,
+          {
+            source: 'web',
+            userAgent: navigator.userAgent
+          }
+        )
+        
+        console.log('[PREDICTION_COMMITMENT] Enhanced commitment created:', result)
+        
+      } catch (enhancedError) {
+        console.warn('[PREDICTION_COMMITMENT] Enhanced service failed, falling back to original:', enhancedError)
+        
+        // Fallback to original onCommit callback for backward compatibility
+        // Pass both tokens and the selected option information
+        await onCommit(tokensToCommit, selectedOptionId, selectedPosition)
+      }
       
       // Success - clear optimistic update and show success state
       setOptimisticUpdate(null)
@@ -396,7 +506,7 @@ export function PredictionCommitment({
         setIsCommitting(false)
       }
     }
-  }, [balance, tokensToCommit, isOnline, onCommit, applyOptimisticUpdate, rollbackOptimisticUpdate, parseFirestoreError])
+  }, [balance, tokensToCommit, isOnline, onCommit, applyOptimisticUpdate, rollbackOptimisticUpdate, parseFirestoreError, user, predictionId, selectedPosition, selectedOptionId])
 
   // Retry function for manual retries
   const handleRetry = useCallback(() => {
@@ -414,16 +524,19 @@ export function PredictionCommitment({
 
   const payoutCalc = getPayoutCalculation(tokensToCommit)
   const oddsImpact = getOddsImpact(tokensToCommit)
-  const currentOdds = oddsImpact.currentOdds[optionId] || 2.0
+  const selectedOption = getSelectedOption()
+  const currentOdds = oddsImpact.currentOdds[selectedOptionId] || 2.0
   const isInsufficientBalance = balance && tokensToCommit > balance.availableTokens
   const canCommit = balance && 
     tokensToCommit >= 1 && 
     tokensToCommit <= balance.availableTokens && 
     !isCommitting && 
     !commitmentSuccess &&
-    isOnline
+    isOnline &&
+    selectedOptionId &&  // NEW: Ensure option is selected
+    !isLoadingMarketType  // NEW: Ensure market type is loaded
 
-  if (isLoadingBalance) {
+  if (isLoadingBalance || isLoadingMarketType) {
     return (
       <Card className="w-full max-w-md mx-auto border-2 border-kai-200">
         <CardHeader className="bg-gradient-to-r from-primary-50 to-kai-50">
@@ -441,7 +554,7 @@ export function PredictionCommitment({
           </div>
           <div className="flex items-center justify-center mt-4 text-sm text-gray-500">
             <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-            Loading your balance...
+            {isLoadingBalance ? 'Loading your balance...' : 'Loading market options...'}
           </div>
         </CardContent>
       </Card>
@@ -479,12 +592,24 @@ export function PredictionCommitment({
         <div className="text-sm text-gray-600">
           <p className="font-medium truncate">{predictionTitle}</p>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant={position === 'yes' ? 'default' : 'secondary'} className="text-xs">
-              {position.toUpperCase()}
-            </Badge>
+            {marketType === 'binary' ? (
+              <Badge variant={selectedPosition === 'yes' ? 'default' : 'secondary'} className="text-xs">
+                {selectedPosition.toUpperCase()}
+              </Badge>
+            ) : (
+              <Badge variant="default" className="text-xs bg-kai-600 text-white">
+                {selectedOption?.text || 'Select Option'}
+              </Badge>
+            )}
             <span className="text-xs text-gray-500">
               Current odds: {formatOdds(currentOdds)}
             </span>
+            {marketType === 'multi-option' && (
+              <Badge variant="outline" className="text-xs">
+                <List className="h-3 w-3 mr-1" />
+                {market.options?.length || 0} options
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -521,6 +646,132 @@ export function PredictionCommitment({
                 Committing {optimisticUpdate.tokensCommitted.toLocaleString()} tokens...
               </div>
             )}
+          </div>
+        )}
+
+        {/* NEW: Option Selection for Multi-Option Markets */}
+        {marketType === 'multi-option' && market.options && market.options.length > 2 && (
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4 text-kai-600" />
+              Choose Your Prediction
+            </Label>
+            
+            <RadioGroup
+              value={selectedOptionId}
+              onValueChange={(value) => {
+                setSelectedOptionId(value)
+                setError(null)
+                // Update position for backward compatibility
+                const isFirstOption = value === market.options?.[0]?.id
+                setSelectedPosition(isFirstOption ? 'yes' : 'no')
+              }}
+              className="space-y-2"
+            >
+              {market.options.map((option, index) => {
+                const marketOdds = getCurrentMarketOdds()
+                const optionOdds = marketOdds[option.id]
+                const colors = ['border-kai-200 bg-kai-50', 'border-primary-200 bg-primary-50', 'border-blue-200 bg-blue-50', 'border-green-200 bg-green-50', 'border-purple-200 bg-purple-50']
+                
+                return (
+                  <div key={option.id} className="flex items-center space-x-3">
+                    <RadioGroupItem 
+                      value={option.id} 
+                      id={option.id}
+                      className="text-kai-600"
+                    />
+                    <Label 
+                      htmlFor={option.id} 
+                      className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all hover:shadow-sm ${
+                        selectedOptionId === option.id 
+                          ? 'border-kai-400 bg-kai-100 shadow-sm' 
+                          : colors[index % colors.length]
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-800">{option.text}</div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Coins className="h-3 w-3" />
+                              <span>{option.totalTokens.toLocaleString()} tokens</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              <span>{option.participantCount} supporters</span>
+                            </div>
+                            {optionOdds && (
+                              <div className="flex items-center gap-1">
+                                <Percent className="h-3 w-3" />
+                                <span>{optionOdds.percentage.toFixed(1)}%</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <div className="font-bold text-kai-700">
+                            {formatOdds(optionOdds?.odds || 2.0)}
+                          </div>
+                          <div className="text-xs text-gray-500">odds</div>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                )
+              })}
+            </RadioGroup>
+            
+            {!selectedOptionId && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Please select an option to continue with your commitment.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {/* Binary Market Display (Backward Compatibility) */}
+        {marketType === 'binary' && (
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4 text-kai-600" />
+              Your Prediction
+            </Label>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {market.options?.slice(0, 2).map((option, index) => {
+                const isSelected = selectedOptionId === option.id
+                const marketOdds = getCurrentMarketOdds()
+                const optionOdds = marketOdds[option.id]
+                
+                return (
+                  <Button
+                    key={option.id}
+                    variant={isSelected ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectedOptionId(option.id)
+                      setSelectedPosition(index === 0 ? 'yes' : 'no')
+                      setError(null)
+                    }}
+                    className={`h-auto p-3 flex-col gap-2 ${
+                      isSelected 
+                        ? 'bg-kai-600 hover:bg-kai-700 text-white border-kai-600' 
+                        : 'hover:bg-kai-50 hover:border-kai-300'
+                    }`}
+                  >
+                    <div className="font-medium">{option.text}</div>
+                    <div className="text-xs opacity-80">
+                      {formatOdds(optionOdds?.odds || 2.0)} odds
+                    </div>
+                    <div className="text-xs opacity-70">
+                      {option.totalTokens.toLocaleString()} tokens
+                    </div>
+                  </Button>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -596,15 +847,23 @@ export function PredictionCommitment({
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-blue-700">Current odds</span>
               <span className="font-bold text-blue-700">
-                {formatOdds(oddsImpact.currentOdds[optionId])}
+                {formatOdds(oddsImpact.currentOdds[selectedOptionId])}
               </span>
             </div>
-            {tokensToCommit > 0 && (
+            {selectedOption && (
+              <div className="flex items-center justify-between mb-2 text-sm">
+                <span className="text-blue-600">Supporting</span>
+                <span className="font-medium text-blue-700 truncate ml-2">
+                  "{selectedOption.text}"
+                </span>
+              </div>
+            )}
+            {tokensToCommit > 0 && selectedOptionId && (
               <>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-blue-700">Odds after your commitment</span>
                   <span className="font-bold text-blue-700">
-                    {formatOdds(oddsImpact.projectedOdds[optionId])}
+                    {formatOdds(oddsImpact.projectedOdds[selectedOptionId])}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -684,12 +943,12 @@ export function PredictionCommitment({
                           id: `${user?.uid}-${predictionId}-${Date.now()}`,
                           userId: user?.uid || '',
                           marketId: predictionId,
-                          optionId: optionId,
+                          optionId: selectedOptionId,
                           tokensStaked: tokensToCommit,
                           createdAt: new Date() as any
                         },
                         market: market,
-                        optionText: position
+                        optionText: selectedOption?.text || selectedPosition
                       }}
                       variant="button"
                       size="sm"

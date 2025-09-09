@@ -53,15 +53,27 @@ export interface TokenPackage {
 }
 
 /**
- * Prediction Commitment Model
- * Represents tokens committed to a specific prediction
+ * Prediction Commitment Model (Enhanced for Multi-Option Support)
+ * Represents tokens committed to a specific prediction option
+ * 
+ * BACKWARD COMPATIBILITY: All existing fields preserved for dashboard compatibility
+ * NEW FEATURES: Added optionId and marketId for multi-option market support
  */
 export interface PredictionCommitment {
+  // Core identification
   id: string;
   userId: string;
-  predictionId: string;
+  
+  // Market linking (enhanced for multi-option support)
+  predictionId: string;              // ✅ PRESERVED: Existing field for backward compatibility
+  marketId?: string;                 // 🆕 NEW: Alias for predictionId (clearer naming)
+  
+  // Option targeting (enhanced for multi-option support)
+  position: 'yes' | 'no';           // ✅ PRESERVED: Binary position for backward compatibility
+  optionId?: string;                 // 🆕 NEW: Direct link to MarketOption.id for multi-option markets
+  
+  // Commitment details
   tokensCommitted: number;
-  position: 'yes' | 'no';
   odds: number;
   potentialWinning: number;
   status: 'active' | 'won' | 'lost' | 'refunded';
@@ -72,20 +84,26 @@ export interface PredictionCommitment {
   userEmail?: string;
   userDisplayName?: string;
   
-  // Commitment metadata tracking
+  // Enhanced commitment metadata tracking
   metadata: {
     // Market state at commitment time
     marketStatus: 'active' | 'closed' | 'resolved' | 'cancelled';
     marketTitle: string;
     marketEndsAt: Timestamp;
     
-    // Odds snapshot at commitment time
+    // Enhanced odds snapshot (supports both binary and multi-option)
     oddsSnapshot: {
+      // Legacy binary odds (preserved for backward compatibility)
       yesOdds: number;
       noOdds: number;
       totalYesTokens: number;
       totalNoTokens: number;
       totalParticipants: number;
+      
+      // 🆕 NEW: Multi-option odds snapshot
+      optionOdds?: { [optionId: string]: number };           // Odds for each option
+      optionTokens?: { [optionId: string]: number };         // Tokens committed to each option
+      optionParticipants?: { [optionId: string]: number };   // Participants per option
     };
     
     // Additional tracking data
@@ -93,6 +111,10 @@ export interface PredictionCommitment {
     commitmentSource: 'web' | 'mobile' | 'api';
     ipAddress?: string;
     userAgent?: string;
+    
+    // 🆕 NEW: Enhanced option context
+    selectedOptionText?: string;      // Human-readable option text at commitment time
+    marketOptionCount?: number;       // Total options available when commitment was made
   };
 }
 
@@ -107,13 +129,23 @@ export interface TokenPurchaseRequest {
 }
 
 /**
- * Token Commitment Request
+ * Token Commitment Request (Enhanced for Multi-Option Support)
  * Used for committing tokens to predictions
+ * 
+ * BACKWARD COMPATIBILITY: All existing fields preserved
+ * NEW FEATURES: Added optionId and marketId for multi-option market support
  */
 export interface TokenCommitmentRequest {
-  predictionId: string;
+  // Market identification (enhanced for multi-option support)
+  predictionId: string;              // ✅ PRESERVED: Existing field for backward compatibility
+  marketId?: string;                 // 🆕 NEW: Alias for predictionId (clearer naming)
+  
+  // Option targeting (enhanced for multi-option support)
+  position: 'yes' | 'no';           // ✅ PRESERVED: Binary position for backward compatibility
+  optionId?: string;                 // 🆕 NEW: Direct option targeting for multi-option markets
+  
+  // Commitment details
   tokensToCommit: number;
-  position: 'yes' | 'no';
   userId: string;
 }
 

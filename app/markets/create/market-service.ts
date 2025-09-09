@@ -64,10 +64,10 @@ const generateMarketId = (): string => {
 }
 
 /**
- * Generate a unique option ID
+ * Generate a unique option ID with timestamp for uniqueness
  */
 const generateOptionId = (marketId: string, index: number): string => {
-  return `option_${marketId}_${index}`
+  return `option_${marketId}_${index}_${Date.now()}`
 }
 
 /**
