@@ -22,16 +22,237 @@ import {
   CommitmentAnalytics,
   MarketAnalytics 
 } from '@/lib/types/token';
-import { Market, UserProfile } from '@/lib/types/database';
+import { Market, MarketOption, UserProfile } from '@/lib/types/database';
 import { withPerformanceMonitoring } from './analytics-performance-service';
 
 /**
  * Optimized service for admin commitment queries with proper indexing and performance
+ * 
+ * BACKWARD COMPATIBILITY: This service handles both binary (yes/no) and multi-option commitments
+ * transparently to ensure existing dashboards continue to work without modification.
  */
 export class AdminCommitmentService {
+
+  // ========================================
+  // BACKWARD COMPATIBILITY LAYER
+  // ========================================
+
+  /**
+   * Derives optionId from legacy position field for backward compatibility
+   * Maps binary positions to appropriate option IDs in multi-option markets
+   */
+  private static deriveOptionIdFromPosition(
+    commitment: PredictionCommitment, 
+    market: Market
+  ): string {
+    // If commitment already has optionId, use it directly
+    if (commitment.optionId) {
+      return commitment.optionId;
+    }
+
+    // For legacy binary commitments, map position to option
+    if (commitment.position && market.options && market.options.length >= 2) {
+      return commitment.position === 'yes' 
+        ? market.options[0].id  // First option = "yes"
+        : market.options[1].id; // Second option = "no"
+    }
+
+    // Fallback for edge cases - use first available option
+    return market.options?.[0]?.id || 'unknown';
+  }
+
+  /**
+   * Derives position field from optionId for backward compatibility
+   * Maps option IDs back to binary positions for existing dashboard components
+   */
+  private static derivePositionFromOptionId(
+    commitment: PredictionCommitment, 
+    market: Market
+  ): 'yes' | 'no' {
+    // If commitment already has position, use it directly
+    if (commitment.position) {
+      return commitment.position;
+    }
+
+    // For new option-based commitments, derive position from optionId
+    if (commitment.optionId && market.options && market.options.length >= 2) {
+      return commitment.optionId === market.options[0].id ? 'yes' : 'no';
+    }
+
+    // Default fallback
+    return 'yes';
+  }
+
+  /**
+   * Ensures commitment has both optionId and position fields for full compatibility
+   * This is the core compatibility layer that makes both old and new systems work
+   */
+  private static enhanceCommitmentCompatibility(
+    commitment: PredictionCommitment, 
+    market: Market
+  ): PredictionCommitment {
+    const enhanced = { ...commitment };
+
+    // Ensure marketId field exists (alias for predictionId)
+    if (!enhanced.marketId && enhanced.predictionId) {
+      enhanced.marketId = enhanced.predictionId;
+    }
+    if (!enhanced.predictionId && enhanced.marketId) {
+      enhanced.predictionId = enhanced.marketId;
+    }
+
+    // Ensure optionId exists (derived from position if needed)
+    if (!enhanced.optionId) {
+      enhanced.optionId = this.deriveOptionIdFromPosition(enhanced, market);
+    }
+
+    // Ensure position exists (derived from optionId if needed)
+    if (!enhanced.position) {
+      enhanced.position = this.derivePositionFromOptionId(enhanced, market);
+    }
+
+    // Enhance metadata for option context if missing
+    if (enhanced.optionId && market.options) {
+      const selectedOption = market.options.find(opt => opt.id === enhanced.optionId);
+      if (selectedOption && enhanced.metadata) {
+        enhanced.metadata.selectedOptionText = selectedOption.text;
+        enhanced.metadata.marketOptionCount = market.options.length;
+      }
+    }
+
+    return enhanced;
+  }
+
+  /**
+   * Calculates accurate market statistics that work with both binary and multi-option commitments
+   * Preserves existing dashboard expectations while supporting enhanced functionality
+   */
+  private static calculateBackwardCompatibleMarketStats(
+    commitments: PredictionCommitment[],
+    market: Market
+  ): {
+    totalParticipants: number;
+    totalTokensStaked: number;
+    yesTokens: number;
+    noTokens: number;
+    optionBreakdown?: { [optionId: string]: { tokens: number; participants: number } };
+  } {
+    const uniqueParticipants = new Set(commitments.map(c => c.userId));
+    const totalTokensStaked = commitments.reduce((sum, c) => sum + c.tokensCommitted, 0);
+
+    // Calculate binary breakdown for backward compatibility
+    let yesTokens = 0;
+    let noTokens = 0;
+
+    // Calculate option-level breakdown for enhanced functionality
+    const optionBreakdown: { [optionId: string]: { tokens: number; participants: number } } = {};
+
+    commitments.forEach(commitment => {
+      const enhancedCommitment = this.enhanceCommitmentCompatibility(commitment, market);
+      
+      // Binary breakdown (for existing dashboards)
+      if (enhancedCommitment.position === 'yes') {
+        yesTokens += commitment.tokensCommitted;
+      } else {
+        noTokens += commitment.tokensCommitted;
+      }
+
+      // Option breakdown (for enhanced functionality)
+      if (enhancedCommitment.optionId) {
+        if (!optionBreakdown[enhancedCommitment.optionId]) {
+          optionBreakdown[enhancedCommitment.optionId] = { tokens: 0, participants: 0 };
+        }
+        optionBreakdown[enhancedCommitment.optionId].tokens += commitment.tokensCommitted;
+      }
+    });
+
+    // Calculate participants per option
+    const participantsByOption = new Map<string, Set<string>>();
+    commitments.forEach(commitment => {
+      const enhancedCommitment = this.enhanceCommitmentCompatibility(commitment, market);
+      if (enhancedCommitment.optionId) {
+        if (!participantsByOption.has(enhancedCommitment.optionId)) {
+          participantsByOption.set(enhancedCommitment.optionId, new Set());
+        }
+        participantsByOption.get(enhancedCommitment.optionId)!.add(commitment.userId);
+      }
+    });
+
+    // Update participant counts in option breakdown
+    participantsByOption.forEach((participants, optionId) => {
+      if (optionBreakdown[optionId]) {
+        optionBreakdown[optionId].participants = participants.size;
+      }
+    });
+
+    return {
+      totalParticipants: uniqueParticipants.size,
+      totalTokensStaked,
+      yesTokens,
+      noTokens,
+      optionBreakdown
+    };
+  }
+
+  /**
+   * Enhanced market analytics that work with both binary and multi-option markets
+   * Maintains backward compatibility while providing enhanced insights
+   */
+  private static calculateEnhancedMarketAnalytics(
+    commitments: PredictionCommitment[],
+    market: Market
+  ): MarketAnalytics {
+    const stats = this.calculateBackwardCompatibleMarketStats(commitments, market);
+    const largestCommitment = commitments.length > 0 ? Math.max(...commitments.map(c => c.tokensCommitted)) : 0;
+
+    // Calculate daily trend (last 30 days) - enhanced for multi-option
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const dailyData = new Map();
+    commitments.forEach(commitment => {
+      const commitDate = new Date(commitment.committedAt);
+      if (commitDate >= thirtyDaysAgo) {
+        const dateKey = commitDate.toISOString().split('T')[0];
+        
+        if (!dailyData.has(dateKey)) {
+          dailyData.set(dateKey, {
+            date: dateKey,
+            totalTokens: 0,
+            commitmentCount: 0,
+            yesTokens: 0,
+            noTokens: 0
+          });
+        }
+        
+        const dayData = dailyData.get(dateKey);
+        const enhancedCommitment = this.enhanceCommitmentCompatibility(commitment, market);
+        
+        dayData.totalTokens += commitment.tokensCommitted;
+        dayData.commitmentCount += 1;
+        
+        if (enhancedCommitment.position === 'yes') {
+          dayData.yesTokens += commitment.tokensCommitted;
+        } else {
+          dayData.noTokens += commitment.tokensCommitted;
+        }
+      }
+    });
+
+    return {
+      totalTokens: stats.totalTokensStaked,
+      participantCount: commitments.length,
+      yesPercentage: stats.totalTokensStaked > 0 ? Math.round((stats.yesTokens / stats.totalTokensStaked) * 100) : 0,
+      noPercentage: stats.totalTokensStaked > 0 ? Math.round((stats.noTokens / stats.totalTokensStaked) * 100) : 0,
+      averageCommitment: commitments.length > 0 ? Math.round(stats.totalTokensStaked / commitments.length) : 0,
+      largestCommitment,
+      commitmentTrend: Array.from(dailyData.values()).sort((a, b) => a.date.localeCompare(b.date))
+    };
+  }
   
   /**
    * Fetch commitments with optimized queries and user information joining
+   * ENHANCED: Now supports both binary and multi-option commitment filtering
    */
   static async getCommitmentsWithUsers(options: {
     page?: number;
@@ -40,6 +261,7 @@ export class AdminCommitmentService {
     marketId?: string;
     userId?: string;
     position?: 'yes' | 'no';
+    optionId?: string;  // NEW: Support for option-based filtering
     sortBy?: 'committedAt' | 'tokensCommitted' | 'odds' | 'potentialWinning';
     sortOrder?: 'asc' | 'desc';
     search?: string;
@@ -56,76 +278,141 @@ export class AdminCommitmentService {
       marketId,
       userId,
       position,
+      optionId,  // NEW: Option-based filtering
       sortBy = 'committedAt',
       sortOrder = 'desc',
       search,
       lastDoc
     } = options;
 
-    // Build optimized query with proper indexing
-    const constraints: QueryConstraint[] = [];
+    try {
+      // Build optimized query with proper indexing
+      const constraints: QueryConstraint[] = [];
 
-    // Add filters in order of selectivity for optimal index usage
-    if (userId) {
-      constraints.push(where('userId', '==', userId));
+      // Add filters in order of selectivity for optimal index usage
+      if (userId) {
+        constraints.push(where('userId', '==', userId));
+      }
+      if (marketId) {
+        constraints.push(where('predictionId', '==', marketId));
+      }
+      if (status) {
+        constraints.push(where('status', '==', status));
+      }
+      if (position) {
+        constraints.push(where('position', '==', position));
+      }
+      // NEW: Support optionId filtering
+      if (optionId) {
+        constraints.push(where('optionId', '==', optionId));
+      }
+
+      // Add ordering - ensure we have a composite index for this combination
+      const orderField = this.getOrderField(sortBy);
+      constraints.push(orderBy(orderField, sortOrder));
+
+      // Add pagination
+      if (lastDoc) {
+        constraints.push(startAfter(lastDoc));
+      }
+      constraints.push(limit(pageSize));
+
+      // Execute optimized query with performance monitoring
+      const commitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
+      const commitmentsSnapshot = await withPerformanceMonitoring(
+        'getCommitmentsWithUsers',
+        () => getDocs(commitmentsQuery)
+      );
+
+      let commitments = commitmentsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
+        resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
+      })) as PredictionCommitment[];
+
+      // BACKWARD COMPATIBILITY: Enhance commitments with missing fields
+      // Note: We need market data for proper compatibility enhancement
+      const marketIds = [...new Set(commitments.map(c => c.predictionId || c.marketId))];
+      const marketsMap = new Map<string, Market>();
+      
+      // Batch fetch market data for compatibility enhancement
+      for (const mId of marketIds) {
+        if (mId && mId !== 'unknown') {
+          try {
+            const marketDoc = await getDoc(doc(db, 'markets', mId));
+            if (marketDoc.exists()) {
+              const market = { id: marketDoc.id, ...marketDoc.data() } as Market;
+              // Ensure market has options for compatibility
+              if (!market.options || market.options.length === 0) {
+                market.options = [
+                  { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+                  { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+                ];
+              }
+              marketsMap.set(mId, market);
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch market ${mId} for compatibility:`, error);
+          }
+        }
+      }
+
+      // Enhance commitments with compatibility layer
+      commitments = commitments.map(commitment => {
+        const marketId = commitment.predictionId || commitment.marketId;
+        const market = marketsMap.get(marketId || '');
+        if (market) {
+          return this.enhanceCommitmentCompatibility(commitment, market);
+        }
+        return commitment;
+      });
+
+      // Batch fetch user information efficiently
+      const enhancedCommitments = await this.enhanceCommitmentsWithUsers(commitments);
+
+      // Apply search filter after user data is loaded
+      let filteredCommitments = enhancedCommitments;
+      if (search) {
+        filteredCommitments = this.applySearchFilter(enhancedCommitments, search);
+      }
+
+      const newLastDoc = commitmentsSnapshot.docs[commitmentsSnapshot.docs.length - 1];
+
+      // Get total count efficiently (cached or estimated) with error handling
+      let totalCount = 0;
+      try {
+        const count = await this.getCommitmentCount(options);
+        totalCount = typeof count === 'number' ? count : filteredCommitments.length;
+      } catch (countError) {
+        console.warn('[ADMIN_COMMITMENT_SERVICE] Error getting commitment count, using fallback:', countError);
+        totalCount = filteredCommitments.length; // Use actual results length as fallback
+      }
+
+      return {
+        commitments: filteredCommitments,
+        lastDoc: newLastDoc,
+        totalCount
+      };
+
+    } catch (error) {
+      console.error('[ADMIN_COMMITMENT_SERVICE] Error in getCommitmentsWithUsers:', error);
+      
+      // Return empty result to prevent dashboard breaks
+      return {
+        commitments: [],
+        lastDoc: undefined,
+        totalCount: 0
+      };
     }
-    if (marketId) {
-      constraints.push(where('predictionId', '==', marketId));
-    }
-    if (status) {
-      constraints.push(where('status', '==', status));
-    }
-    if (position) {
-      constraints.push(where('position', '==', position));
-    }
-
-    // Add ordering - ensure we have a composite index for this combination
-    const orderField = this.getOrderField(sortBy);
-    constraints.push(orderBy(orderField, sortOrder));
-
-    // Add pagination
-    if (lastDoc) {
-      constraints.push(startAfter(lastDoc));
-    }
-    constraints.push(limit(pageSize));
-
-    // Execute optimized query with performance monitoring
-    const commitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
-    const commitmentsSnapshot = await withPerformanceMonitoring(
-      'getCommitmentsWithUsers',
-      () => getDocs(commitmentsQuery)
-    );
-
-    const commitments = commitmentsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
-      resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
-    })) as PredictionCommitment[];
-
-    // Batch fetch user information efficiently
-    const enhancedCommitments = await this.enhanceCommitmentsWithUsers(commitments);
-
-    // Apply search filter after user data is loaded
-    let filteredCommitments = enhancedCommitments;
-    if (search) {
-      filteredCommitments = this.applySearchFilter(enhancedCommitments, search);
-    }
-
-    const newLastDoc = commitmentsSnapshot.docs[commitmentsSnapshot.docs.length - 1];
-
-    // Get total count efficiently (cached or estimated)
-    const totalCount = await this.getCommitmentCount(options);
-
-    return {
-      commitments: filteredCommitments,
-      lastDoc: newLastDoc,
-      totalCount
-    };
   }
 
   /**
-   * Get market-specific commitments with analytics
+   * Get market-specific commitments with analytics (ENHANCED FOR BACKWARD COMPATIBILITY)
+   * 
+   * This method now handles both binary and multi-option commitments transparently.
+   * Existing dashboards will continue to work exactly as before, while new functionality
+   * is available for multi-option markets.
    */
   static async getMarketCommitments(
     marketId: string,
@@ -134,6 +421,7 @@ export class AdminCommitmentService {
       pageSize?: number;
       status?: string;
       position?: 'yes' | 'no';
+      optionId?: string;  // NEW: Support for option-based filtering
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
       includeAnalytics?: boolean;
@@ -149,78 +437,146 @@ export class AdminCommitmentService {
       pageSize = 50,
       status,
       position,
+      optionId,  // NEW: Option-based filtering
       sortBy = 'committedAt',
       sortOrder = 'desc',
       includeAnalytics = true
     } = options;
 
-    // Fetch market details
-    const marketDoc = await getDoc(doc(db, 'markets', marketId));
-    if (!marketDoc.exists()) {
-      throw new Error('Market not found');
-    }
-    const market = { id: marketDoc.id, ...marketDoc.data() } as Market;
+    try {
+      // Fetch market details with error handling
+      const marketDoc = await getDoc(doc(db, 'markets', marketId));
+      if (!marketDoc.exists()) {
+        throw new Error(`Market not found: ${marketId}`);
+      }
+      const market = { id: marketDoc.id, ...marketDoc.data() } as Market;
 
-    // Build optimized query for market commitments
-    const constraints: QueryConstraint[] = [
-      where('predictionId', '==', marketId)
-    ];
+      // Ensure market has options array for compatibility
+      if (!market.options || market.options.length === 0) {
+        // Create default binary options for legacy markets
+        market.options = [
+          { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+          { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+        ];
+      }
 
-    if (status) {
-      constraints.push(where('status', '==', status));
-    }
-    if (position) {
-      constraints.push(where('position', '==', position));
-    }
+      // Build optimized query for market commitments
+      const constraints: QueryConstraint[] = [
+        where('predictionId', '==', marketId)
+      ];
 
-    const orderField = this.getOrderField(sortBy);
-    constraints.push(orderBy(orderField, sortOrder));
+      if (status) {
+        constraints.push(where('status', '==', status));
+      }
+      
+      // Handle both binary position and option-based filtering
+      if (position) {
+        constraints.push(where('position', '==', position));
+      }
+      
+      // NEW: Support optionId filtering for multi-option markets
+      if (optionId) {
+        constraints.push(where('optionId', '==', optionId));
+      }
 
-    // For analytics, we need all commitments, so fetch without pagination first
-    let allCommitments: PredictionCommitment[] = [];
-    if (includeAnalytics) {
-      const allCommitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
-      const allCommitmentsSnapshot = await getDocs(allCommitmentsQuery);
-      allCommitments = allCommitmentsSnapshot.docs.map(doc => ({
+      const orderField = this.getOrderField(sortBy);
+      constraints.push(orderBy(orderField, sortOrder));
+
+      // For analytics, we need all commitments, so fetch without pagination first
+      let allCommitments: PredictionCommitment[] = [];
+      if (includeAnalytics) {
+        const allCommitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
+        const allCommitmentsSnapshot = await getDocs(allCommitmentsQuery);
+        allCommitments = allCommitmentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
+          resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
+        })) as PredictionCommitment[];
+
+        // BACKWARD COMPATIBILITY: Enhance all commitments with missing fields
+        allCommitments = allCommitments.map(commitment => 
+          this.enhanceCommitmentCompatibility(commitment, market)
+        );
+      }
+
+      // Add pagination for the actual results
+      const startIndex = (page - 1) * pageSize;
+      constraints.push(limit(pageSize + startIndex));
+
+      const commitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
+      const commitmentsSnapshot = await getDocs(commitmentsQuery);
+
+      let commitments = commitmentsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
         resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
       })) as PredictionCommitment[];
+
+      // BACKWARD COMPATIBILITY: Enhance commitments with missing fields
+      commitments = commitments.map(commitment => 
+        this.enhanceCommitmentCompatibility(commitment, market)
+      );
+
+      // Apply pagination
+      const paginatedCommitments = commitments.slice(startIndex, startIndex + pageSize);
+
+      // Enhance with user data
+      const enhancedCommitments = await this.enhanceCommitmentsWithUsers(paginatedCommitments);
+
+      // Calculate analytics if requested (using enhanced method)
+      let analytics: MarketAnalytics | undefined;
+      if (includeAnalytics && allCommitments.length > 0) {
+        analytics = this.calculateEnhancedMarketAnalytics(allCommitments, market);
+      }
+
+      // Update market options with real-time statistics
+      const stats = this.calculateBackwardCompatibleMarketStats(allCommitments, market);
+      if (stats.optionBreakdown) {
+        market.options = market.options.map(option => ({
+          ...option,
+          totalTokens: stats.optionBreakdown![option.id]?.tokens || 0,
+          participantCount: stats.optionBreakdown![option.id]?.participants || 0
+        }));
+      }
+
+      return {
+        market,
+        commitments: enhancedCommitments,
+        analytics,
+        totalCount: allCommitments.length || commitments.length
+      };
+
+    } catch (error) {
+      console.error(`[ADMIN_COMMITMENT_SERVICE] Error in getMarketCommitments for market ${marketId}:`, error);
+      
+      // Provide fallback response to prevent dashboard breaks
+      return {
+        market: {
+          id: marketId,
+          title: 'Error Loading Market',
+          description: 'Market data could not be loaded',
+          category: 'other' as any,
+          status: 'active' as any,
+          createdBy: 'unknown',
+          createdAt: Timestamp.now(),
+          endsAt: Timestamp.now(),
+          tags: [],
+          options: [
+            { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+            { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+          ],
+          totalParticipants: 0,
+          totalTokensStaked: 0,
+          featured: false,
+          trending: false
+        },
+        commitments: [],
+        analytics: this.getEmptyAnalytics(),
+        totalCount: 0
+      };
     }
-
-    // Add pagination for the actual results
-    const startIndex = (page - 1) * pageSize;
-    constraints.push(limit(pageSize + startIndex));
-
-    const commitmentsQuery = query(collection(db, 'prediction_commitments'), ...constraints);
-    const commitmentsSnapshot = await getDocs(commitmentsQuery);
-
-    let commitments = commitmentsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
-      resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
-    })) as PredictionCommitment[];
-
-    // Apply pagination
-    const paginatedCommitments = commitments.slice(startIndex, startIndex + pageSize);
-
-    // Enhance with user data
-    const enhancedCommitments = await this.enhanceCommitmentsWithUsers(paginatedCommitments);
-
-    // Calculate analytics if requested
-    let analytics: MarketAnalytics | undefined;
-    if (includeAnalytics && allCommitments.length > 0) {
-      analytics = this.calculateMarketAnalytics(allCommitments);
-    }
-
-    return {
-      market,
-      commitments: enhancedCommitments,
-      analytics,
-      totalCount: allCommitments.length || commitments.length
-    };
   }
 
   /**
@@ -529,6 +885,7 @@ export class AdminCommitmentService {
 
   /**
    * Efficiently enhance commitments with user data using batch operations
+   * ENHANCED: Now ensures backward compatibility fields are present
    */
   private static async enhanceCommitmentsWithUsers(
     commitments: PredictionCommitment[]
@@ -545,8 +902,20 @@ export class AdminCommitmentService {
     return commitments.map(commitment => {
       const user = usersMap.get(commitment.userId);
       
-      return {
+      // BACKWARD COMPATIBILITY: Ensure all required fields are present
+      const enhancedCommitment = {
         ...commitment,
+        // Ensure both predictionId and marketId exist
+        predictionId: commitment.predictionId || commitment.marketId || 'unknown',
+        marketId: commitment.marketId || commitment.predictionId || 'unknown',
+        // Ensure position field exists (required by existing dashboards)
+        position: commitment.position || 'yes',
+        // Ensure optionId exists (for new functionality)
+        optionId: commitment.optionId || 'yes'
+      };
+      
+      return {
+        ...enhancedCommitment,
         user: user ? {
           id: user.uid || user.id,
           email: user.email,
@@ -582,55 +951,34 @@ export class AdminCommitmentService {
   }
 
   /**
-   * Calculate market analytics from commitments
+   * Calculate market analytics from commitments (LEGACY METHOD - maintained for compatibility)
+   * 
+   * This method is kept for any direct calls, but new code should use calculateEnhancedMarketAnalytics
    */
   private static calculateMarketAnalytics(commitments: PredictionCommitment[]): MarketAnalytics {
-    const totalTokens = commitments.reduce((sum, c) => sum + c.tokensCommitted, 0);
-    const yesTokens = commitments.filter(c => c.position === 'yes').reduce((sum, c) => sum + c.tokensCommitted, 0);
-    const noTokens = commitments.filter(c => c.position === 'no').reduce((sum, c) => sum + c.tokensCommitted, 0);
-    const largestCommitment = commitments.length > 0 ? Math.max(...commitments.map(c => c.tokensCommitted)) : 0;
-
-    // Calculate daily trend (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const dailyData = new Map();
-    commitments.forEach(commitment => {
-      const commitDate = new Date(commitment.committedAt);
-      if (commitDate >= thirtyDaysAgo) {
-        const dateKey = commitDate.toISOString().split('T')[0];
-        
-        if (!dailyData.has(dateKey)) {
-          dailyData.set(dateKey, {
-            date: dateKey,
-            totalTokens: 0,
-            commitmentCount: 0,
-            yesTokens: 0,
-            noTokens: 0
-          });
-        }
-        
-        const dayData = dailyData.get(dateKey);
-        dayData.totalTokens += commitment.tokensCommitted;
-        dayData.commitmentCount += 1;
-        
-        if (commitment.position === 'yes') {
-          dayData.yesTokens += commitment.tokensCommitted;
-        } else {
-          dayData.noTokens += commitment.tokensCommitted;
-        }
-      }
-    });
-
-    return {
-      totalTokens,
-      participantCount: commitments.length,
-      yesPercentage: totalTokens > 0 ? Math.round((yesTokens / totalTokens) * 100) : 0,
-      noPercentage: totalTokens > 0 ? Math.round((noTokens / totalTokens) * 100) : 0,
-      averageCommitment: commitments.length > 0 ? Math.round(totalTokens / commitments.length) : 0,
-      largestCommitment,
-      commitmentTrend: Array.from(dailyData.values()).sort((a, b) => a.date.localeCompare(b.date))
+    // Create a dummy market for compatibility
+    const dummyMarket: Market = {
+      id: 'legacy',
+      title: 'Legacy Market',
+      description: '',
+      category: 'other' as any,
+      status: 'active' as any,
+      createdBy: 'unknown',
+      createdAt: Timestamp.now(),
+      endsAt: Timestamp.now(),
+      tags: [],
+      options: [
+        { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+        { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+      ],
+      totalParticipants: 0,
+      totalTokensStaked: 0,
+      featured: false,
+      trending: false
     };
+
+    // Use the enhanced method with backward compatibility
+    return this.calculateEnhancedMarketAnalytics(commitments, dummyMarket);
   }
 
   /**
@@ -651,32 +999,43 @@ export class AdminCommitmentService {
 
   /**
    * Get commitment count efficiently (with potential caching)
+   * ENHANCED: Now includes error handling for backward compatibility
    */
   private static async getCommitmentCount(options: any): Promise<number> {
-    // For now, return a simple count - in production, this could be cached
-    const constraints: QueryConstraint[] = [];
-    
-    if (options.userId) {
-      constraints.push(where('userId', '==', options.userId));
-    }
-    if (options.marketId) {
-      constraints.push(where('predictionId', '==', options.marketId));
-    }
-    if (options.status) {
-      constraints.push(where('status', '==', options.status));
-    }
-    if (options.position) {
-      constraints.push(where('position', '==', options.position));
-    }
+    try {
+      // For now, return a simple count - in production, this could be cached
+      const constraints: QueryConstraint[] = [];
+      
+      if (options.userId) {
+        constraints.push(where('userId', '==', options.userId));
+      }
+      if (options.marketId) {
+        constraints.push(where('predictionId', '==', options.marketId));
+      }
+      if (options.status) {
+        constraints.push(where('status', '==', options.status));
+      }
+      if (options.position) {
+        constraints.push(where('position', '==', options.position));
+      }
+      // NEW: Support optionId filtering
+      if (options.optionId) {
+        constraints.push(where('optionId', '==', options.optionId));
+      }
 
-    const countQuery = query(collection(db, 'prediction_commitments'), ...constraints);
-    const countSnapshot = await getDocs(countQuery);
-    
-    return countSnapshot.size;
+      const countQuery = query(collection(db, 'prediction_commitments'), ...constraints);
+      const countSnapshot = await getDocs(countQuery);
+      
+      return countSnapshot?.size || 0;
+    } catch (error) {
+      console.warn('[ADMIN_COMMITMENT_SERVICE] Error getting commitment count:', error);
+      return 0; // Return 0 as fallback to prevent dashboard breaks
+    }
   }
 
   /**
    * Create real-time listener for market commitments with live updates
+   * ENHANCED: Now supports backward compatibility for both binary and multi-option markets
    */
   static createMarketCommitmentsListener(
     marketId: string,
@@ -688,6 +1047,7 @@ export class AdminCommitmentService {
     options: {
       status?: string;
       position?: 'yes' | 'no';
+      optionId?: string;  // NEW: Support for option-based filtering
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
       pageSize?: number;
@@ -696,6 +1056,7 @@ export class AdminCommitmentService {
     const {
       status,
       position,
+      optionId,  // NEW: Option-based filtering
       sortBy = 'committedAt',
       sortOrder = 'desc',
       pageSize = 50
@@ -712,6 +1073,10 @@ export class AdminCommitmentService {
     if (position) {
       constraints.push(where('position', '==', position));
     }
+    // NEW: Support optionId filtering
+    if (optionId) {
+      constraints.push(where('optionId', '==', optionId));
+    }
 
     const orderField = this.getOrderField(sortBy);
     constraints.push(orderBy(orderField, sortOrder));
@@ -724,18 +1089,45 @@ export class AdminCommitmentService {
       commitmentsQuery,
       async (snapshot) => {
         try {
-          const commitments = snapshot.docs.map(doc => ({
+          let commitments = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
             resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
           })) as PredictionCommitment[];
 
+          // BACKWARD COMPATIBILITY: Fetch market data for compatibility enhancement
+          let market: Market | null = null;
+          try {
+            const marketDoc = await getDoc(doc(db, 'markets', marketId));
+            if (marketDoc.exists()) {
+              market = { id: marketDoc.id, ...marketDoc.data() } as Market;
+              // Ensure market has options for compatibility
+              if (!market.options || market.options.length === 0) {
+                market.options = [
+                  { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+                  { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+                ];
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch market ${marketId} for real-time compatibility:`, error);
+          }
+
+          // Enhance commitments with compatibility layer
+          if (market) {
+            commitments = commitments.map(commitment => 
+              this.enhanceCommitmentCompatibility(commitment, market!)
+            );
+          }
+
           // Enhance with user data
           const enhancedCommitments = await this.enhanceCommitmentsWithUsers(commitments);
 
-          // Calculate real-time analytics
-          const analytics = this.calculateMarketAnalytics(commitments);
+          // Calculate real-time analytics (enhanced version if market available)
+          const analytics = market 
+            ? this.calculateEnhancedMarketAnalytics(commitments, market)
+            : this.calculateMarketAnalytics(commitments);
 
           // Call the callback with updated data
           callback({
@@ -756,6 +1148,7 @@ export class AdminCommitmentService {
 
   /**
    * Create real-time listener for market analytics only (more efficient for dashboards)
+   * ENHANCED: Now supports backward compatibility for both binary and multi-option markets
    */
   static createMarketAnalyticsListener(
     marketId: string,
@@ -768,16 +1161,45 @@ export class AdminCommitmentService {
 
     return onSnapshot(
       analyticsQuery,
-      (snapshot) => {
+      async (snapshot) => {
         try {
-          const commitments = snapshot.docs.map(doc => ({
+          let commitments = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             committedAt: doc.data().committedAt?.toDate?.()?.toISOString() || doc.data().committedAt,
             resolvedAt: doc.data().resolvedAt?.toDate?.()?.toISOString() || doc.data().resolvedAt
           })) as PredictionCommitment[];
 
-          const analytics = this.calculateMarketAnalytics(commitments);
+          // BACKWARD COMPATIBILITY: Fetch market data for enhanced analytics
+          let market: Market | null = null;
+          try {
+            const marketDoc = await getDoc(doc(db, 'markets', marketId));
+            if (marketDoc.exists()) {
+              market = { id: marketDoc.id, ...marketDoc.data() } as Market;
+              // Ensure market has options for compatibility
+              if (!market.options || market.options.length === 0) {
+                market.options = [
+                  { id: 'yes', text: 'Yes', totalTokens: 0, participantCount: 0 },
+                  { id: 'no', text: 'No', totalTokens: 0, participantCount: 0 }
+                ];
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch market ${marketId} for analytics compatibility:`, error);
+          }
+
+          // Enhance commitments with compatibility layer
+          if (market) {
+            commitments = commitments.map(commitment => 
+              this.enhanceCommitmentCompatibility(commitment, market!)
+            );
+          }
+
+          // Calculate analytics (enhanced version if market available)
+          const analytics = market 
+            ? this.calculateEnhancedMarketAnalytics(commitments, market)
+            : this.calculateMarketAnalytics(commitments);
+            
           callback(analytics);
 
         } catch (error) {
@@ -792,6 +1214,7 @@ export class AdminCommitmentService {
 
   /**
    * Create cached analytics with periodic updates for better performance
+   * ENHANCED: Now supports backward compatibility caching
    */
   static async getCachedMarketAnalytics(
     marketId: string,
@@ -799,27 +1222,41 @@ export class AdminCommitmentService {
   ): Promise<MarketAnalytics> {
     const cacheKey = `market_analytics_${marketId}`;
     
-    // Check if we have cached data (in a real implementation, use Redis or similar)
-    const cached = this.analyticsCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < maxAge) {
-      return cached.data;
+    try {
+      // Check if we have cached data (in a real implementation, use Redis or similar)
+      const cached = this.analyticsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < maxAge) {
+        return cached.data;
+      }
+
+      // Fetch fresh analytics using enhanced method
+      const result = await this.getMarketCommitments(marketId, {
+        includeAnalytics: true,
+        pageSize: 1 // We only need analytics, not the commitments
+      });
+
+      const analytics = result.analytics || this.getEmptyAnalytics();
+
+      // Cache the result
+      this.analyticsCache.set(cacheKey, {
+        data: analytics,
+        timestamp: Date.now()
+      });
+
+      return analytics;
+
+    } catch (error) {
+      console.error(`[CACHED_ANALYTICS] Error fetching analytics for market ${marketId}:`, error);
+      
+      // Return cached data if available, even if stale
+      const cached = this.analyticsCache.get(cacheKey);
+      if (cached) {
+        return cached.data;
+      }
+      
+      // Return empty analytics as fallback
+      return this.getEmptyAnalytics();
     }
-
-    // Fetch fresh analytics
-    const result = await this.getMarketCommitments(marketId, {
-      includeAnalytics: true,
-      pageSize: 1 // We only need analytics, not the commitments
-    });
-
-    const analytics = result.analytics || this.getEmptyAnalytics();
-
-    // Cache the result
-    this.analyticsCache.set(cacheKey, {
-      data: analytics,
-      timestamp: Date.now()
-    });
-
-    return analytics;
   }
 
   /**
@@ -872,5 +1309,221 @@ export class AdminCommitmentService {
       largestCommitment: 0,
       commitmentTrend: []
     };
+  }
+
+  // ========================================
+  // ADDITIONAL BACKWARD COMPATIBILITY METHODS
+  // ========================================
+
+  /**
+   * Validates that a commitment has all required fields for backward compatibility
+   * Used during transition period to catch edge cases
+   */
+  private static validateCommitmentCompatibility(commitment: PredictionCommitment): {
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+  } {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Check required fields
+    if (!commitment.id) errors.push('Missing commitment ID');
+    if (!commitment.userId) errors.push('Missing user ID');
+    if (!commitment.predictionId && !commitment.marketId) errors.push('Missing market reference');
+    if (!commitment.tokensCommitted || commitment.tokensCommitted <= 0) errors.push('Invalid token amount');
+
+    // Check backward compatibility fields
+    if (!commitment.position && !commitment.optionId) {
+      warnings.push('Missing both position and optionId - will use defaults');
+    }
+
+    // Check metadata completeness
+    if (!commitment.metadata) {
+      warnings.push('Missing metadata - some dashboard features may not work');
+    } else {
+      if (!commitment.metadata.marketTitle) warnings.push('Missing market title in metadata');
+      if (!commitment.metadata.oddsSnapshot) warnings.push('Missing odds snapshot in metadata');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
+
+  /**
+   * Repairs a commitment record to ensure backward compatibility
+   * Used during transition period to fix incomplete records
+   */
+  private static repairCommitmentForCompatibility(
+    commitment: PredictionCommitment,
+    market?: Market
+  ): PredictionCommitment {
+    const repaired = { ...commitment };
+
+    // Ensure basic fields exist
+    if (!repaired.predictionId && repaired.marketId) {
+      repaired.predictionId = repaired.marketId;
+    }
+    if (!repaired.marketId && repaired.predictionId) {
+      repaired.marketId = repaired.predictionId;
+    }
+
+    // Ensure position field exists
+    if (!repaired.position) {
+      if (repaired.optionId && market?.options) {
+        repaired.position = repaired.optionId === market.options[0]?.id ? 'yes' : 'no';
+      } else {
+        repaired.position = 'yes'; // Default fallback
+      }
+    }
+
+    // Ensure optionId field exists
+    if (!repaired.optionId) {
+      if (market?.options && market.options.length >= 2) {
+        repaired.optionId = repaired.position === 'yes' ? market.options[0].id : market.options[1].id;
+      } else {
+        repaired.optionId = repaired.position; // Fallback to position value
+      }
+    }
+
+    // Ensure metadata exists
+    if (!repaired.metadata) {
+      repaired.metadata = {
+        marketStatus: 'active' as any,
+        marketTitle: market?.title || 'Unknown Market',
+        marketEndsAt: market?.endsAt || Timestamp.now(),
+        oddsSnapshot: {
+          yesOdds: 2.0,
+          noOdds: 2.0,
+          totalYesTokens: 0,
+          totalNoTokens: 0,
+          totalParticipants: 0
+        },
+        userBalanceAtCommitment: 0,
+        commitmentSource: 'web' as any
+      };
+    }
+
+    return repaired;
+  }
+
+  /**
+   * Logs compatibility issues for monitoring during transition period
+   */
+  private static logCompatibilityIssue(
+    type: 'warning' | 'error',
+    message: string,
+    commitmentId?: string,
+    marketId?: string
+  ): void {
+    const logData = {
+      type,
+      message,
+      commitmentId,
+      marketId,
+      timestamp: new Date().toISOString(),
+      service: 'AdminCommitmentService'
+    };
+
+    if (type === 'error') {
+      console.error('[COMPATIBILITY_ERROR]', logData);
+    } else {
+      console.warn('[COMPATIBILITY_WARNING]', logData);
+    }
+
+    // In production, send to monitoring service
+    // await MonitoringService.logCompatibilityIssue(logData);
+  }
+
+  /**
+   * Test method to verify backward compatibility with existing dashboard queries
+   * This can be used during testing to ensure identical results before/after migration
+   */
+  static async testBackwardCompatibility(marketId: string): Promise<{
+    success: boolean;
+    issues: string[];
+    statistics: {
+      totalCommitments: number;
+      binaryCommitments: number;
+      optionCommitments: number;
+      missingFields: number;
+    };
+  }> {
+    const issues: string[] = [];
+    let binaryCommitments = 0;
+    let optionCommitments = 0;
+    let missingFields = 0;
+
+    try {
+      // Fetch all commitments for the market
+      const result = await this.getMarketCommitments(marketId, {
+        pageSize: 10000,
+        includeAnalytics: true
+      });
+
+      // Analyze each commitment
+      result.commitments.forEach(commitment => {
+        const validation = this.validateCommitmentCompatibility(commitment);
+        
+        if (!validation.isValid) {
+          issues.push(`Commitment ${commitment.id}: ${validation.errors.join(', ')}`);
+          missingFields++;
+        }
+
+        validation.warnings.forEach(warning => {
+          issues.push(`Commitment ${commitment.id}: ${warning}`);
+        });
+
+        // Count commitment types
+        if (commitment.position && !commitment.optionId) {
+          binaryCommitments++;
+        } else if (commitment.optionId && !commitment.position) {
+          optionCommitments++;
+        } else if (commitment.position && commitment.optionId) {
+          // Both fields present - good for compatibility
+        } else {
+          issues.push(`Commitment ${commitment.id}: Missing both position and optionId`);
+        }
+      });
+
+      // Test analytics calculation
+      if (!result.analytics) {
+        issues.push('Analytics calculation failed');
+      } else {
+        // Verify analytics make sense
+        if (result.analytics.totalTokens <= 0 && result.commitments.length > 0) {
+          issues.push('Analytics show zero tokens but commitments exist');
+        }
+        if (result.analytics.yesPercentage + result.analytics.noPercentage !== 100 && result.analytics.totalTokens > 0) {
+          issues.push('Yes/No percentages do not sum to 100%');
+        }
+      }
+
+      return {
+        success: issues.length === 0,
+        issues,
+        statistics: {
+          totalCommitments: result.commitments.length,
+          binaryCommitments,
+          optionCommitments,
+          missingFields
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        issues: [`Test failed with error: ${error}`],
+        statistics: {
+          totalCommitments: 0,
+          binaryCommitments: 0,
+          optionCommitments: 0,
+          missingFields: 0
+        }
+      };
+    }
   }
 }

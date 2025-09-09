@@ -116,7 +116,7 @@ export function AdminResolutionActions({
             <Users className="w-5 h-5 text-gray-600" />
             <div>
               <p className="text-sm text-gray-600">Participants</p>
-              <p className="font-semibold">{market.totalParticipants}</p>
+              <p className="font-semibold">{market.totalParticipants || 0}</p>
             </div>
           </div>
           
@@ -124,7 +124,7 @@ export function AdminResolutionActions({
             <Coins className="w-5 h-5 text-gray-600" />
             <div>
               <p className="text-sm text-gray-600">Total Staked</p>
-              <p className="font-semibold">{market.totalTokensStaked.toLocaleString()} tokens</p>
+              <p className="font-semibold">{(market.totalTokensStaked || 0).toLocaleString()} tokens</p>
             </div>
           </div>
           
@@ -133,7 +133,11 @@ export function AdminResolutionActions({
             <div>
               <p className="text-sm text-gray-600">Ended</p>
               <p className="font-semibold">
-                {market.endsAt ? new Date(market.endsAt.toMillis()).toLocaleDateString() : 'N/A'}
+                {market.endsAt ? (
+                  market.endsAt.toMillis ? 
+                    new Date(market.endsAt.toMillis()).toLocaleDateString() : 
+                    new Date(market.endsAt).toLocaleDateString()
+                ) : 'N/A'}
               </p>
             </div>
           </div>
@@ -143,7 +147,7 @@ export function AdminResolutionActions({
         <div className="space-y-3">
           <h4 className="font-medium text-gray-900">Market Options</h4>
           <div className="space-y-2">
-            {market.options.map((option) => (
+            {(market.options || []).map((option) => (
               <div 
                 key={option.id} 
                 className="flex items-center justify-between p-3 border rounded-lg"
@@ -151,7 +155,7 @@ export function AdminResolutionActions({
                 <div className="flex-1">
                   <h5 className="font-medium">{option.text}</h5>
                   <p className="text-sm text-gray-600">
-                    {option.participantCount} participants • {option.totalTokens.toLocaleString()} tokens
+                    {option.participantCount || 0} participants • {(option.totalTokens || 0).toLocaleString()} tokens
                   </p>
                 </div>
                 {option.isCorrect && (
@@ -174,16 +178,20 @@ export function AdminResolutionActions({
                 <span className="font-medium text-green-800">Market Resolved</span>
               </div>
               <p className="text-sm text-green-700 mb-2">
-                Resolved on {new Date(market.resolution.resolvedAt.toMillis()).toLocaleDateString()}
+                Resolved on {market.resolution.resolvedAt ? (
+                  market.resolution.resolvedAt.toMillis ? 
+                    new Date(market.resolution.resolvedAt.toMillis()).toLocaleDateString() : 
+                    new Date(market.resolution.resolvedAt).toLocaleDateString()
+                ) : 'Unknown date'}
               </p>
               <div className="text-sm text-green-700">
-                <p>Winners: {market.resolution.winnerCount}</p>
-                <p>Total Payout: {market.resolution.totalPayout.toLocaleString()} tokens</p>
+                <p>Winners: {market.resolution.winnerCount || 0}</p>
+                <p>Total Payout: {(market.resolution.totalPayout || 0).toLocaleString()} tokens</p>
                 {market.resolution.creatorFeeAmount && (
-                  <p>Creator Fee: {market.resolution.creatorFeeAmount.toLocaleString()} tokens</p>
+                  <p>Creator Fee: {(market.resolution.creatorFeeAmount || 0).toLocaleString()} tokens</p>
                 )}
                 {market.resolution.houseFeeAmount && (
-                  <p>House Fee: {market.resolution.houseFeeAmount.toLocaleString()} tokens</p>
+                  <p>House Fee: {(market.resolution.houseFeeAmount || 0).toLocaleString()} tokens</p>
                 )}
               </div>
             </div>

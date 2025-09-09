@@ -33,7 +33,7 @@ const marketCategories = [
   "Other"
 ]
 
-// Define option colors
+// Define option colors (expanded for multi-option support)
 const optionColors = [
   { name: "Sage", value: "bg-kai-400" },
   { name: "Purple", value: "bg-primary-400" },
@@ -43,6 +43,18 @@ const optionColors = [
   { name: "Red", value: "bg-red-400" },
   { name: "Yellow", value: "bg-yellow-400" },
   { name: "Teal", value: "bg-teal-400" },
+  { name: "Pink", value: "bg-pink-400" },
+  { name: "Indigo", value: "bg-indigo-400" },
+  { name: "Cyan", value: "bg-cyan-400" },
+  { name: "Lime", value: "bg-lime-400" },
+  { name: "Amber", value: "bg-amber-400" },
+  { name: "Emerald", value: "bg-emerald-400" },
+  { name: "Violet", value: "bg-violet-400" },
+  { name: "Rose", value: "bg-rose-400" },
+  { name: "Sky", value: "bg-sky-400" },
+  { name: "Fuchsia", value: "bg-fuchsia-400" },
+  { name: "Slate", value: "bg-slate-400" },
+  { name: "Stone", value: "bg-stone-400" },
 ]
 
 // Icon mapping for templates
@@ -61,8 +73,8 @@ export function MarketCreationForm() {
   const [category, setCategory] = useState("")
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [options, setOptions] = useState([
-    { id: "1", name: "", color: "bg-kai-400" },
-    { id: "2", name: "", color: "bg-primary-400" }
+    { id: `option_initial_0_${Date.now()}`, name: "", color: "bg-kai-400" },
+    { id: `option_initial_1_${Date.now() + 1}`, name: "", color: "bg-primary-400" }
   ])
   const [creatorRewardPercentage] = useState(5) // Fixed at 5% for now
   const [tags, setTags] = useState<string[]>([])
@@ -120,7 +132,7 @@ export function MarketCreationForm() {
     setDescription("")
     setCategory(template.category)
     setOptions(template.options.map((option, index) => ({
-      id: String(index + 1),
+      id: `option_template_${template.id}_${index}_${Date.now()}`, // Generate unique option ID
       name: option.name,
       color: option.color
     })))
@@ -176,7 +188,7 @@ export function MarketCreationForm() {
     setCategory(draft.category)
     setEndDate(draft.endDate)
     setOptions(draft.options.map((option, index) => ({
-      id: String(index + 1),
+      id: `option_draft_${draft.id}_${index}_${Date.now()}`, // Generate unique option ID
       name: option.name,
       color: option.color
     })))
@@ -198,11 +210,12 @@ export function MarketCreationForm() {
     setTags(tags.filter(t => t !== tag))
   }
 
-  // Add a new option
+  // Add a new option (unlimited options support)
   const addOption = () => {
-    if (options.length < 5) {
+    if (options.length < 20) { // Reasonable limit for UI purposes
       const nextColor = optionColors[options.length % optionColors.length].value
-      setOptions([...options, { id: String(options.length + 1), name: "", color: nextColor }])
+      const optionId = `option_${Date.now()}_${options.length + 1}` // Generate unique option ID
+      setOptions([...options, { id: optionId, name: "", color: nextColor }])
     }
   }
 
@@ -243,9 +256,20 @@ export function MarketCreationForm() {
       const emptyOptions = options.some(option => !option.name.trim())
       if (emptyOptions) newErrors.options = "All options must have a name"
 
-      const uniqueNames = new Set(options.map(o => o.name.trim()))
+      const uniqueNames = new Set(options.map(o => o.name.trim().toLowerCase()))
       if (uniqueNames.size !== options.length) {
         newErrors.options = "All options must have unique names"
+      }
+
+      // Validate minimum options
+      if (options.length < 2) {
+        newErrors.options = "At least 2 options are required"
+      }
+
+      // Validate option IDs are unique
+      const uniqueIds = new Set(options.map(o => o.id))
+      if (uniqueIds.size !== options.length) {
+        newErrors.options = "Internal error: Option IDs must be unique"
       }
     }
 
@@ -620,14 +644,14 @@ export function MarketCreationForm() {
             ))}
           </div>
 
-          {options.length < 5 && (
+          {options.length < 20 && (
             <Button
               variant="outline"
               className="w-full border-dashed border-gray-300 text-gray-500"
               onClick={addOption}
             >
               <PlusCircle className="w-4 h-4 mr-2" />
-              Add Another Option
+              Add Another Option ({options.length}/20)
             </Button>
           )}
 

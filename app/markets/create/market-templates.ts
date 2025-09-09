@@ -30,13 +30,47 @@ export const marketTemplates: MarketTemplate[] = [
   },
   {
     id: "multiple-choice",
-    name: "Multiple Choice",
+    name: "Multiple Choice (3 Options)",
     description: "Choose between multiple possible outcomes",
     category: "General",
     options: [
       { name: "Option 1", color: "bg-kai-600" },
       { name: "Option 2", color: "bg-primary-400" },
       { name: "Option 3", color: "bg-blue-400" }
+    ],
+    icon: "List"
+  },
+  {
+    id: "six-option-choice",
+    name: "Six Option Choice",
+    description: "Choose between six possible outcomes",
+    category: "General",
+    options: [
+      { name: "Option 1", color: "bg-kai-600" },
+      { name: "Option 2", color: "bg-primary-400" },
+      { name: "Option 3", color: "bg-blue-400" },
+      { name: "Option 4", color: "bg-green-400" },
+      { name: "Option 5", color: "bg-orange-400" },
+      { name: "Option 6", color: "bg-red-400" }
+    ],
+    icon: "List"
+  },
+  {
+    id: "ten-option-choice",
+    name: "Ten Option Choice",
+    description: "Choose between ten possible outcomes",
+    category: "General",
+    options: [
+      { name: "Option 1", color: "bg-kai-600" },
+      { name: "Option 2", color: "bg-primary-400" },
+      { name: "Option 3", color: "bg-blue-400" },
+      { name: "Option 4", color: "bg-green-400" },
+      { name: "Option 5", color: "bg-orange-400" },
+      { name: "Option 6", color: "bg-red-400" },
+      { name: "Option 7", color: "bg-yellow-400" },
+      { name: "Option 8", color: "bg-teal-400" },
+      { name: "Option 9", color: "bg-purple-400" },
+      { name: "Option 10", color: "bg-pink-400" }
     ],
     icon: "List"
   },

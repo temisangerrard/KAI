@@ -3,7 +3,7 @@ import { db } from '@/lib/db/database'
 import { AdminCommitmentService } from './admin-commitment-service'
 import { TokenBalanceService } from './token-balance-service'
 import { AdminAuthService } from '@/lib/auth/admin-auth'
-import { WalletUidMappingService } from './wallet-uid-mapping-service'
+import { WalletUidMappingService } from './wallet-uid-mapping'
 
 /**
  * Simple resolution service that works with the actual data structure

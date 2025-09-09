@@ -101,13 +101,13 @@ export function MarketResolutionDashboard() {
           }
           
           // Secondary sort: highest stakes first (for same end date)
-          return b.totalTokensStaked - a.totalTokensStaked
+          return (b.totalTokensStaked || 0) - (a.totalTokensStaked || 0)
         case 'endDate':
           return new Date(a.endsAt.toMillis()).getTime() - new Date(b.endsAt.toMillis()).getTime()
         case 'participants':
-          return b.totalParticipants - a.totalParticipants
+          return (b.totalParticipants || 0) - (a.totalParticipants || 0)
         case 'tokens':
-          return b.totalTokensStaked - a.totalTokensStaked
+          return (b.totalTokensStaked || 0) - (a.totalTokensStaked || 0)
         default:
           return 0
       }
@@ -365,7 +365,7 @@ export function MarketResolutionDashboard() {
         }
         
         // Secondary sort: highest stakes first (for same end date)
-        return b.totalTokensStaked - a.totalTokensStaked
+        return (b.totalTokensStaked || 0) - (a.totalTokensStaked || 0)
       })
       
       setPendingMarkets(marketsWithStats)
@@ -549,7 +549,7 @@ export function MarketResolutionDashboard() {
             <div>
               <p className="text-sm text-gray-600">Total Participants</p>
               <p className="text-2xl font-bold text-blue-600">
-                {pendingMarkets.reduce((sum, m) => sum + m.totalParticipants, 0)}
+                {pendingMarkets.reduce((sum, m) => sum + (m.totalParticipants || 0), 0)}
               </p>
             </div>
           </div>
@@ -563,7 +563,7 @@ export function MarketResolutionDashboard() {
             <div>
               <p className="text-sm text-gray-600">Total Tokens</p>
               <p className="text-2xl font-bold text-green-600">
-                {pendingMarkets.reduce((sum, m) => sum + m.totalTokensStaked, 0).toLocaleString()}
+                {pendingMarkets.reduce((sum, m) => sum + (m.totalTokensStaked || 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
@@ -699,7 +699,7 @@ export function MarketResolutionDashboard() {
                       <div className="flex items-center gap-2">
                         <Coins className="w-4 h-4 text-gray-500" />
                         <span className="text-sm text-gray-600">
-                          {market.totalTokensStaked.toLocaleString()} tokens
+                          {(market.totalTokensStaked || 0).toLocaleString()} tokens
                         </span>
                       </div>
                       
